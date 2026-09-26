@@ -12,6 +12,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Vanmathi 3">
 
+  <!-- BIBLIOTECA SHEETJS PARA EXPORTAR/IMPORTAR EXCEL -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
     :root {
       --bg-main: #0b0f19;
@@ -368,7 +371,13 @@
           <h1>Controle de Vendas & Pedidos</h1>
           <p>Registre suas vendas: o sistema abate o filamento do estoque e atualiza o financeiro automaticamente.</p>
         </div>
-        <button class="btn-primary" onclick="abrirModalRegistrarVenda()">+ Registrar Venda</button>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button class="btn-secondary" onclick="exportarExcelVendas()" title="Baixar planilha de vendas">📤 Exportar Vendas</button>
+          <label class="btn-secondary" style="cursor: pointer; margin: 0;" title="Carregar planilha de vendas">
+            📥 Importar Vendas <input type="file" accept=".xlsx, .xls, .csv" style="display: none;" onchange="importarExcelVendas(event)">
+          </label>
+          <button class="btn-primary" onclick="abrirModalRegistrarVenda()">+ Registrar Venda</button>
+        </div>
       </div>
 
       <div class="table-container">
@@ -399,7 +408,11 @@
           <h1>Estoque de Filamentos & Resinas</h1>
           <p>Controle manual de estoque e custo por grama de cada bobina ou frasco.</p>
         </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button class="btn-secondary" onclick="exportarExcelEstoque()" title="Baixar planilha de estoque">📤 Exportar Estoque</button>
+          <label class="btn-secondary" style="cursor: pointer; margin: 0;" title="Carregar planilha de estoque">
+            📥 Importar Estoque <input type="file" accept=".xlsx, .xls, .csv" style="display: none;" onchange="importarExcelEstoque(event)">
+          </label>
           <button class="btn-secondary" onclick="abrirModalGerenciarMarcas()">🏷️ Gerenciar Marcas</button>
           <button class="btn-primary" onclick="abrirModalAdicionarMaterial()">+ Adicionar Material</button>
         </div>
@@ -514,6 +527,12 @@
           <small>Histórico</small>
           <h1>Meus Produtos Salvos</h1>
           <p>Gerencie seus itens criados e suas respectivas lojas. Clique em Editar para carregá-los na calculadora.</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button class="btn-secondary" onclick="exportarExcelProdutos()" title="Baixar planilha de produtos">📤 Exportar Catálogo</button>
+          <label class="btn-secondary" style="cursor: pointer; margin: 0;" title="Carregar planilha de produtos">
+            📥 Importar Catálogo <input type="file" accept=".xlsx, .xls, .csv" style="display: none;" onchange="importarExcelProdutos(event)">
+          </label>
         </div>
       </div>
 
@@ -642,14 +661,14 @@
   <div class="toast-container" id="toastContainer"></div>
 
 <script>
-  let listaMateriais = [
+  let listaMateriais = JSON.parse(localStorage.getItem('Vanmathi_Dados_Estoque')) || [
     { id: 1, nome: "PLA Azul Celeste", tipo: "Filamento", cor: "Azul Celeste", marca: "3D Brothers", modelo: "PLA", estoque: 850, maxEstoque: 1000, precoPago: 85.00, custo: "R$ 0,0850" }
   ];
   let listaMarcas = ["3D Brothers", "Bambu Lab", "Fusion X", "Voolt3D", "3D Fila"];
-  let listaProdutosSalvos = [
+  let listaProdutosSalvos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Produtos')) || [
     { id: 101, nome: "Vaso 3D Geométrico", loja: "Shopee", gramas: 120, horas: 4, embalagem: "3.50", margem: 100, precoSugerido: "R$ 43,66" }
   ];
-  let listaVendas = [];
+  let listaVendas = JSON.parse(localStorage.getItem('Vanmathi_Dados_Vendas')) || [];
   let listaLojas = [
     { id: 1, nome: "Shopee", taxa: 18 },
     { id: 2, nome: "Mercado Livre", taxa: 13 },
@@ -663,6 +682,12 @@
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(err => console.log('SW erro:', err));
     });
+  }
+
+  function salvarTudoLocal() {
+    localStorage.setItem('Vanmathi_Dados_Estoque', JSON.stringify(listaMateriais));
+    localStorage.setItem('Vanmathi_Dados_Produtos', JSON.stringify(listaProdutosSalvos));
+    localStorage.setItem('Vanmathi_Dados_Vendas', JSON.stringify(listaVendas));
   }
 
   function toggleMenuMobile() {
@@ -820,6 +845,7 @@
       status: status
     });
 
+    salvarTudoLocal();
     fecharModalRegistrarVenda();
     renderizarVendas();
     filtrarTabela();
@@ -830,6 +856,7 @@
 
   function excluirVenda(id) {
     listaVendas = listaVendas.filter(v => v.id !== id);
+    salvarTudoLocal();
     renderizarVendas();
     atualizarFiltroMesesDinamico();
     atualizarRelatorios();
@@ -974,11 +1001,13 @@
       listaMateriais.push({ id: Date.now(), nome, tipo, cor, marca, modelo, estoque, maxEstoque: pesoMax, precoPago: preco, custo: `R$ ${custoGrama.replace('.', ',')}` });
       mostrarToast("Material cadastrado!");
     }
+    salvarTudoLocal();
     fecharModalAdicionarMaterial(); filtrarTabela(); atualizarRelatorios();
   }
 
   function excluirMaterial(id) {
     listaMateriais = listaMateriais.filter(item => item.id !== id);
+    salvarTudoLocal();
     filtrarTabela(); atualizarRelatorios(); mostrarToast("Material removido.");
   }
 
@@ -1076,6 +1105,7 @@
       listaProdutosSalvos.push({ id: Date.now(), nome, loja: lojaNome, gramas, horas, embalagem, margem, precoSugerido });
       mostrarToast("Produto salvo com sucesso!");
     }
+    salvarTudoLocal();
     renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios();
     mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[4] }, 'produtos');
   }
@@ -1096,6 +1126,7 @@
 
   function excluirProduto(id) {
     listaProdutosSalvos = listaProdutosSalvos.filter(item => item.id !== id);
+    salvarTudoLocal();
     renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios(); mostrarToast("Produto removido.");
   }
 
@@ -1187,6 +1218,105 @@
     document.getElementById('lblEstCritico').innerText = estoqueCritico;
     document.getElementById('lblEstValorTotal').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
     if(htmlAlerta) document.getElementById('tabelaMateriaisAlerta').innerHTML = htmlAlerta;
+  }
+
+  // --- FUNÇÕES DE EXPORTAR E IMPORTAR EXCEL NAS ABAS CRÍTICAS ---
+  
+  // 1. Gestão de Vendas
+  function exportarExcelVendas() {
+    if (listaVendas.length === 0) { mostrarToast("Nenhuma venda registrada para exportar."); return; }
+    const ws = XLSX.utils.json_to_sheet(listaVendas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Vendas");
+    XLSX.writeFile(wb, "Vanmathi3_Vendas.xlsx");
+    mostrarToast("Vendas exportadas com sucesso!");
+  }
+
+  function importarExcelVendas(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, {type: 'array'});
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        if(rows.length > 0) {
+          listaVendas = rows;
+          salvarTudoLocal();
+          renderizarVendas();
+          atualizarRelatorios();
+          mostrarToast("Vendas importadas com sucesso!");
+        }
+      } catch(err) { alert("Erro ao importar arquivo."); }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // 2. Estoque de Filamentos
+  function exportarExcelEstoque() {
+    if (listaMateriais.length === 0) { mostrarToast("Nenhum material no estoque para exportar."); return; }
+    const ws = XLSX.utils.json_to_sheet(listaMateriais);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Estoque");
+    XLSX.writeFile(wb, "Vanmathi3_Estoque.xlsx");
+    mostrarToast("Estoque exportado com sucesso!");
+  }
+
+  function importarExcelEstoque(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, {type: 'array'});
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        if(rows.length > 0) {
+          listaMateriais = rows;
+          salvarTudoLocal();
+          filtrarTabela();
+          atualizarRelatorios();
+          mostrarToast("Estoque importado com sucesso!");
+        }
+      } catch(err) { alert("Erro ao importar arquivo."); }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // 3. Meus Produtos Salvos
+  function exportarExcelProdutos() {
+    if (listaProdutosSalvos.length === 0) { mostrarToast("Nenhum produto salvo para exportar."); return; }
+    const ws = XLSX.utils.json_to_sheet(listaProdutosSalvos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Produtos");
+    XLSX.writeFile(wb, "Vanmathi3_Produtos.xlsx");
+    mostrarToast("Produtos salvos exportados com sucesso!");
+  }
+
+  function importarExcelProdutos(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, {type: 'array'});
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        if(rows.length > 0) {
+          listaProdutosSalvos = rows;
+          salvarTudoLocal();
+          renderizarProdutosSalvos();
+          atualizarFiltroLojasDinamico();
+          atualizarRelatorios();
+          mostrarToast("Produtos importados com sucesso!");
+        }
+      } catch(err) { alert("Erro ao importar arquivo."); }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   filtrarTabela();
