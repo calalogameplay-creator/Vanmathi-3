@@ -544,14 +544,18 @@
             <input type="number" id="calcGramas" value="120" oninput="calcularPreco()">
           </div>
 
+          <!-- TEMPO DE IMPRESSÃO (HORAS E MINUTOS) -->
           <div class="form-group">
-            <label>Tempo de Impressão (Horas)</label>
-            <input type="number" id="calcHoras" value="4" oninput="calcularPreco()">
+            <label>Tempo de Impressão (por peça ou fornada)</label>
+            <div class="form-row" style="margin-bottom: 0;">
+              <div class="form-group" style="margin-bottom: 0;"><label style="font-size: 11px; opacity: 0.8;">Horas</label><input type="number" id="calcHoras" value="2" min="0" oninput="calcularPreco()"></div>
+              <div class="form-group" style="margin-bottom: 0;"><label style="font-size: 11px; opacity: 0.8;">Minutos</label><input type="number" id="calcMinutos" value="30" min="0" max="59" oninput="calcularPreco()"></div>
+            </div>
           </div>
 
-          <!-- BLOCO DE CUSTOS FIXOS EDITÁVEIS -->
+          <!-- BLOCO DE CUSTOS OPERACIONAIS (COM ENERGIA DINÂMICA) -->
           <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; margin-bottom: 12px;">
-            <span style="font-size: 11px; text-transform: uppercase; color: var(--primary); font-weight: 600; display: block; margin-bottom: 8px;">⚙️ Custos Operacionais Padrão</span>
+            <span style="font-size: 11px; text-transform: uppercase; color: var(--primary); font-weight: 600; display: block; margin-bottom: 8px;">⚡ Custos Operacionais & Insumos</span>
             <div class="form-row">
               <div class="form-group"><label>Custo Energia / hora (R$)</label><input type="number" id="configCustoEnergiaHora" value="0.20" step="0.01" oninput="calcularPreco()"></div>
               <div class="form-group"><label>Embalagem Padrão (R$)</label><input type="number" id="calcEmbalagem" value="3.50" step="0.10" oninput="calcularPreco()"></div>
@@ -576,7 +580,7 @@
               <span>Custo de Filamento:</span> <strong id="lblCustoFilamento" style="color: var(--text-color);">R$ 0,00</strong>
             </div>
             <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span>Custo de Energia:</span> <strong id="lblCustoEnergia" style="color: var(--text-color);">R$ 0,00</strong>
+              <span>Custo de Energia (Tempo x R$/h):</span> <strong id="lblCustoEnergia" style="color: var(--text-color);">R$ 0,00</strong>
             </div>
             <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
               <span>Embalagem:</span> <strong id="lblCustoEmb" style="color: var(--text-color);">R$ 0,00</strong>
@@ -622,7 +626,7 @@
               <th>Loja Online</th>
               <th>Material Vinculado</th>
               <th>Gramas</th>
-              <th>Tempo (h)</th>
+              <th>Tempo</th>
               <th>Preço Sugerido</th>
               <th>Ações</th>
             </tr>
@@ -743,7 +747,7 @@
   ];
   let listaMarcas = ["3D Print", "3D Brothers", "Bambu Lab", "Fusion X", "Voolt3D", "3D Fila"];
   let listaProdutosSalvos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Produtos')) || [
-    { id: 101, nome: "Fone 3D", loja: "Shopee", materialId: 1, materialNome: "PETG Preto (3D Print - PETG)", gramas: 60, horas: 3, embalagem: "3.00", frete: "0.00", custoEnergiaHora: "0.20", margem: 100, precoSugerido: "R$ 29,35" }
+    { id: 101, nome: "Fone 3D", loja: "Shopee", materialId: 1, materialNome: "PETG Preto (3D Print - PETG)", gramas: 60, horas: 2, minutos: 30, embalagem: "3.50", frete: "0.00", custoEnergiaHora: "0.20", margem: 100, precoSugerido: "R$ 29,35" }
   ];
   let listaVendas = JSON.parse(localStorage.getItem('Vanmathi_Dados_Vendas')) || [];
   let listaLojas = [
@@ -953,6 +957,7 @@
 
     let numPreco = parseFloat(produto.precoSugerido.replace('R$', '').replace('.', '').replace(',', '.')) || 0;
     let totalVenda = numPreco * qtd;
+    let totalHorasNum = (parseFloat(produto.horas) || 0) + ((parseFloat(produto.minutos) || 0) / 60);
 
     listaVendas.push({
       id: Date.now(),
@@ -960,7 +965,7 @@
       loja: produto.loja || "Shopee",
       materialId: produto.materialId,
       gramasUnidade: parseFloat(produto.gramas) || 0,
-      horasUnidade: parseFloat(produto.horas) || 0,
+      horasUnidade: totalHorasNum,
       qtd: qtd,
       total: totalVenda,
       data: data,
@@ -973,7 +978,7 @@
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
-    mostrarToast(`Venda registrada! Estoque atualizado em tempo real.`);
+    mostrarToast(`Venda registrada! Estoque e produção atualizados.`);
   }
 
   function excluirVenda(id) {
@@ -1232,9 +1237,12 @@
   function calcularPreco() {
     const gramas = parseFloat(document.getElementById('calcGramas').value) || 0;
     const horas = parseFloat(document.getElementById('calcHoras').value) || 0;
+    const minutos = parseFloat(document.getElementById('calcMinutos').value) || 0;
+    const totalHoras = horas + (minutos / 60);
+
+    const custoEnergiaHora = parseFloat(document.getElementById('configCustoEnergiaHora').value) || 0;
     const embalagem = parseFloat(document.getElementById('calcEmbalagem').value) || 0;
     const frete = parseFloat(document.getElementById('calcFrete').value) || 0;
-    const custoEnergiaHora = parseFloat(document.getElementById('configCustoEnergiaHora').value) || 0.20;
     const taxaMkt = parseFloat(document.getElementById('calcTaxa').value) || 0;
     const margem = parseFloat(document.getElementById('calcMargem').value) || 0;
 
@@ -1248,7 +1256,7 @@
     }
 
     const cf = gramas * custoGramaReal;
-    const ce = horas * custoEnergiaHora;
+    const ce = totalHoras * custoEnergiaHora;
     const ct = cf + ce + embalagem + frete;
     const sub = ct + (ct * (margem / 100));
     const pf = (1 - (taxaMkt / 100)) > 0 ? sub / (1 - (taxaMkt / 100)) : sub;
@@ -1274,9 +1282,10 @@
 
     const gramas = document.getElementById('calcGramas').value;
     const horas = document.getElementById('calcHoras').value;
+    const minutos = document.getElementById('calcMinutos').value;
+    const custoEnergiaHora = document.getElementById('configCustoEnergiaHora').value;
     const embalagem = document.getElementById('calcEmbalagem').value;
     const frete = document.getElementById('calcFrete').value;
-    const custoEnergiaHora = document.getElementById('configCustoEnergiaHora').value;
     const margem = document.getElementById('calcMargem').value;
     const precoSugerido = document.getElementById('lblPrecoSugerido').innerText;
     if(!nome) { alert("Insira o nome do produto."); return; }
@@ -1290,9 +1299,10 @@
         p.materialNome = materialNome;
         p.gramas = gramas; 
         p.horas = horas; 
+        p.minutos = minutos;
+        p.custoEnergiaHora = custoEnergiaHora;
         p.embalagem = embalagem; 
         p.frete = frete;
-        p.custoEnergiaHora = custoEnergiaHora;
         p.margem = margem; 
         p.precoSugerido = precoSugerido; 
       }
@@ -1308,9 +1318,10 @@
         materialNome, 
         gramas, 
         horas, 
+        minutos,
+        custoEnergiaHora,
         embalagem, 
         frete,
-        custoEnergiaHora,
         margem, 
         precoSugerido 
       });
@@ -1328,10 +1339,11 @@
     document.getElementById('calcNomeProduto').value = p.nome;
     if(p.materialId) renderizarSelectMaterialCalculadora(p.materialId);
     document.getElementById('calcGramas').value = p.gramas;
-    document.getElementById('calcHoras').value = p.horas;
+    document.getElementById('calcHoras').value = p.horas || 0;
+    document.getElementById('calcMinutos').value = p.minutos || 0;
+    document.getElementById('configCustoEnergiaHora').value = p.custoEnergiaHora || "0.20";
     document.getElementById('calcEmbalagem').value = p.embalagem || "3.50";
     document.getElementById('calcFrete').value = p.frete || "0.00";
-    document.getElementById('configCustoEnergiaHora').value = p.custoEnergiaHora || "0.20";
     if(p.margem) document.getElementById('calcMargem').value = p.margem;
     document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
     mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
@@ -1357,12 +1369,15 @@
     let html = '';
     produtosFiltrados.forEach((p) => {
       let matLabel = p.materialNome || "Material não vinculado";
+      let tempoStr = `${p.horas || 0}h`;
+      if(p.minutos && parseInt(p.minutos) > 0) tempoStr += ` ${p.minutos}m`;
+
       html += `<tr>
         <td><strong>${p.nome}</strong></td>
         <td><span style="color: var(--primary); background: rgba(59,130,246,0.1); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${p.loja || 'Shopee'}</span></td>
         <td style="font-size: 12px; color: var(--text-muted);">${matLabel}</td>
         <td>${p.gramas}g</td>
-        <td>${p.horas}h</td>
+        <td>${tempoStr}</td>
         <td style="color: var(--primary); font-weight: 600;">${p.precoSugerido}</td>
         <td style="display: flex; gap: 8px;"><button class="btn-secondary" style="padding: 6px 10px;" onclick="editarProduto(${p.id})">✏️ Editar</button><button class="btn-danger" style="padding: 6px 10px;" onclick="excluirProduto(${p.id})">🗑️ Excluir</button></td>
       </tr>`;
@@ -1412,7 +1427,7 @@
     document.getElementById('lblRelLucroLiq').innerText = `R$ ${(totalFat * 0.55).toFixed(2).replace('.', ',')}`;
     document.getElementById('lblRelTotalPedidos').innerText = totalPecasVendidas;
     document.getElementById('lblRelTicketMedio').innerText = `R$ ${(totalPecasVendidas > 0 ? totalFat / totalPecasVendidas : 0).toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelHorasTotais').innerText = `${totalHoras}h`;
+    document.getElementById('lblRelHorasTotais').innerText = `${totalHoras.toFixed(1)}h`;
     document.getElementById('lblRelCatTotal').innerText = listaProdutosSalvos.length;
     document.getElementById('lblPerdasTotal').innerText = `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblLojasAtivas').innerText = lojasAtivasSalvas.length;
