@@ -536,8 +536,10 @@
           </div>
 
           <div class="form-group">
-            <label>Filamento / Material em Estoque Utilizado</label>
-            <select id="calcSelectMaterial" onchange="atualizarCustoFilamentoPorMaterial()"></select>
+            <label>Composição de Materiais / Filamentos</label>
+            <div id="composicaoMateriaisCalc" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <button type="button" class="btn-secondary" style="margin-top:8px; width:100%;" onclick="adicionarLinhaMaterialCalculadora()">＋ Adicionar outro material</button>
+            <small style="display:block; margin-top:7px; color:var(--text-muted);">Você pode combinar vários filamentos no mesmo produto. Ex.: 8g preto + 1g dourado.</small>
           </div>
 
           <div class="form-group">
@@ -917,42 +919,89 @@
     else if(abaAtiva === 'secao-produtos') renderizarProdutosSalvos();
   }
 
+  function obterComposicaoMateriaisCalculadora() {
+    const container = document.getElementById('composicaoMateriaisCalc');
+    if(!container) return [];
+    return Array.from(container.querySelectorAll('.material-composicao-row')).map(row => ({
+      materialId: parseInt(row.querySelector('.material-composicao-select')?.value) || 0,
+      gramas: parseFloat(row.querySelector('.material-composicao-gramas')?.value) || 0
+    })).filter(item => item.materialId && item.gramas > 0);
+  }
+
+  function obterComposicaoProduto(produto) {
+    if(!produto) return [];
+    if(Array.isArray(produto.composicaoMateriais) && produto.composicaoMateriais.length) {
+      return produto.composicaoMateriais.map(item => ({ materialId: parseInt(item.materialId) || 0, gramas: parseFloat(item.gramas) || 0 })).filter(item => item.materialId && item.gramas > 0);
+    }
+    if(produto.materialId && parseFloat(produto.gramas) > 0) {
+      return [{ materialId: parseInt(produto.materialId), gramas: parseFloat(produto.gramas) }];
+    }
+    return [];
+  }
+
   function calcularEstoqueUsadoMaterial(materialId) {
     let totalUsado = 0;
     listaVendas.forEach(v => {
-      if(v.materialId === materialId) {
-        let gramasUn = parseFloat(v.gramasUnidade) || 0;
-        let qtd = parseInt(v.qtd) || 1;
-        let totalVendaGramas = gramasUn * qtd;
-
-        if(v.status === 'Concluído') {
-          totalUsado += totalVendaGramas;
-        } else if(v.status === 'Devolvido') {
-          totalUsado -= totalVendaGramas;
-        }
-      }
+      const composicao = Array.isArray(v.composicaoMateriais) && v.composicaoMateriais.length
+        ? v.composicaoMateriais
+        : (v.materialId ? [{ materialId: v.materialId, gramas: v.gramasUnidade }] : []);
+      const gramasMaterial = composicao.filter(item => parseInt(item.materialId) === parseInt(materialId))
+        .reduce((soma, item) => soma + (parseFloat(item.gramas) || 0), 0);
+      const qtd = parseInt(v.qtd) || 1;
+      const totalVendaGramas = gramasMaterial * qtd;
+      if(v.status === 'Concluído') totalUsado += totalVendaGramas;
+      else if(v.status === 'Devolvido') totalUsado -= totalVendaGramas;
     });
     return Math.max(0, totalUsado);
   }
 
   function renderizarSelectMaterialCalculadora(selecionadoId = null) {
-    const select = document.getElementById('calcSelectMaterial');
-    if(listaMateriais.length === 0) {
-      select.innerHTML = `<option value="">Nenhum material no estoque cadastrado</option>`;
-      return;
-    }
-    let html = '';
-    listaMateriais.forEach(m => {
-      let sel = (selecionadoId && m.id === selecionadoId) ? 'selected' : '';
-      html += `<option value="${m.id}" ${sel}>${m.nome} (${m.marca} - ${m.modelo})</option>`;
-    });
-    select.innerHTML = html;
-    atualizarCustoFilamentoPorMaterial();
+    const composicaoAtual = selecionadoId ? [{materialId: selecionadoId, gramas: parseFloat(document.getElementById('calcGramas')?.value) || 0}] : [];
+    renderizarComposicaoMateriaisCalculadora(composicaoAtual.length ? composicaoAtual : undefined);
   }
 
-  function atualizarCustoFilamentoPorMaterial() {
+  function renderizarComposicaoMateriaisCalculadora(composicao = undefined) {
+    const container = document.getElementById('composicaoMateriaisCalc');
+    if(!container) return;
+    let itens = composicao;
+    if(!Array.isArray(itens) || !itens.length) itens = [{ materialId: listaMateriais[0]?.id || '', gramas: parseFloat(document.getElementById('calcGramas')?.value) || 0 }];
+    container.innerHTML = itens.map((item, index) => {
+      let options = '<option value="">Selecione o material</option>';
+      listaMateriais.forEach(m => {
+        const sel = parseInt(item.materialId) === parseInt(m.id) ? ' selected' : '';
+        options += `<option value="${m.id}"${sel}>${m.nome} (${m.cor || m.marca || 'Material'})</option>`;
+      });
+      return `<div class="material-composicao-row" style="display:grid; grid-template-columns:minmax(0,1fr) 105px 36px; gap:8px; align-items:end;">
+        <div><label style="font-size:11px; color:var(--text-muted);">Material ${index + 1}</label><select class="material-composicao-select" onchange="calcularPreco()">${options}</select></div>
+        <div><label style="font-size:11px; color:var(--text-muted);">Gramas</label><input class="material-composicao-gramas" type="number" min="0" step="0.01" value="${item.gramas || ''}" oninput="sincronizarGramasTotais(); calcularPreco()"></div>
+        <button type="button" class="btn-danger" style="height:38px; padding:0;" onclick="removerLinhaMaterialCalculadora(this)" title="Remover material" ${itens.length === 1 ? 'disabled style="height:38px; padding:0; opacity:.45; cursor:not-allowed;"' : ''}>×</button>
+      </div>`;
+    }).join('');
+    sincronizarGramasTotais();
+  }
+
+  function adicionarLinhaMaterialCalculadora() {
+    const composicao = obterComposicaoMateriaisCalculadora();
+    composicao.push({ materialId: listaMateriais[0]?.id || '', gramas: 0 });
+    renderizarComposicaoMateriaisCalculadora(composicao);
     calcularPreco();
   }
+
+  function removerLinhaMaterialCalculadora(botao) {
+    const row = botao.closest('.material-composicao-row');
+    if(row) row.remove();
+    if(!document.querySelector('.material-composicao-row')) renderizarComposicaoMateriaisCalculadora();
+    else sincronizarGramasTotais();
+    calcularPreco();
+  }
+
+  function sincronizarGramasTotais() {
+    const total = obterComposicaoMateriaisCalculadora().reduce((s, item) => s + item.gramas, 0);
+    const campo = document.getElementById('calcGramas');
+    if(campo) campo.value = Number.isInteger(total) ? total : total.toFixed(2);
+  }
+
+  function atualizarCustoFilamentoPorMaterial() { calcularPreco(); }
 
   function preencherSelectProdutosVenda(produtoSelecionadoId = null) {
     const select = document.getElementById('vendaSelectProduto');
@@ -1021,6 +1070,7 @@
       loja: produto.loja || 'Shopee',
       materialId: produto.materialId,
       gramasUnidade: parseFloat(produto.gramas) || 0,
+      composicaoMateriais: obterComposicaoProduto(produto),
       horasUnidade: totalHorasNum,
       qtd: qtd,
       total: totalVenda,
@@ -1362,15 +1412,15 @@
     const acessorios = parseFloat(document.getElementById('calcAcessorios').value) || 0;
     const taxaMkt = parseFloat(document.getElementById('calcTaxa').value) || 0;
     const margem = parseFloat(document.getElementById('calcMargem').value) || 0;
-    const matId = parseInt(document.getElementById('calcSelectMaterial').value);
-    const materialObj = listaMateriais.find(m => m.id === matId);
-    let custoGramaReal = 0.085;
-    if(materialObj) {
-      const pesoMax = materialObj.pesoMax || 1000;
-      const preco = materialObj.precoPago || 85;
-      custoGramaReal = pesoMax > 0 ? (preco / pesoMax) : 0.085;
-    }
-    const valor = gramas * custoGramaReal;
+    const composicao = obterComposicaoMateriaisCalculadora();
+    const valor = composicao.reduce((total, item) => {
+      const materialObj = listaMateriais.find(m => parseInt(m.id) === parseInt(item.materialId));
+      if(!materialObj) return total;
+      const pesoMax = parseFloat(materialObj.pesoMax) || 1000;
+      const preco = parseFloat(materialObj.precoPago) || 0;
+      const custoGramaReal = pesoMax > 0 ? (preco / pesoMax) : 0;
+      return total + (item.gramas * custoGramaReal);
+    }, 0);
     const ce = totalHoras * custoEnergiaHora;
     const custoOperacional = ce + embalagem + frete + acessorios;
     const ct = valor + custoOperacional;
@@ -1409,10 +1459,12 @@
     const nome = document.getElementById('calcNomeProduto').value;
     const selectMkt = document.getElementById('selectMarketplace');
     const lojaNome = selectMkt.options[selectMkt.selectedIndex].text.split('(')[0].trim();
-    const selectMat = document.getElementById('calcSelectMaterial');
-    const materialId = parseInt(selectMat.value);
-    const materialNome = selectMat.options[selectMat.selectedIndex] ? selectMat.options[selectMat.selectedIndex].text : 'Nenhum';
-    const gramas = document.getElementById('calcGramas').value;
+    const composicaoMateriais = obterComposicaoMateriaisCalculadora();
+    if(!composicaoMateriais.length) { alert('Adicione pelo menos um material e informe a quantidade em gramas.'); return; }
+    const gramas = composicaoMateriais.reduce((s, item) => s + item.gramas, 0);
+    const materialPrincipal = composicaoMateriais[0];
+    const materialId = materialPrincipal.materialId;
+    const materialNome = composicaoMateriais.map(item => { const m = listaMateriais.find(x => parseInt(x.id) === parseInt(item.materialId)); return m ? `${m.nome} (${item.gramas}g)` : `${item.gramas}g`; }).join(' + ');
     const horas = document.getElementById('calcHoras').value;
     const minutos = document.getElementById('calcMinutos').value;
     const custoEnergiaHora = document.getElementById('configCustoEnergiaHora').value;
@@ -1429,6 +1481,7 @@
       loja: lojaNome,
       materialId,
       materialNome,
+      composicaoMateriais,
       gramas,
       horas,
       minutos,
@@ -1479,7 +1532,7 @@
       document.getElementById('selectMarketplace').value = lojaOption.value;
       document.getElementById('calcTaxa').value = p.taxaMarketplace !== undefined ? p.taxaMarketplace : lojaOption.value;
     }
-    if(p.materialId) renderizarSelectMaterialCalculadora(p.materialId);
+    renderizarComposicaoMateriaisCalculadora(obterComposicaoProduto(p));
     document.getElementById('calcGramas').value = p.gramas;
     document.getElementById('calcHoras').value = p.horas || 0;
     document.getElementById('calcMinutos').value = p.minutos || 0;
@@ -1511,7 +1564,7 @@
 
     let html = '';
     produtosFiltrados.forEach((p) => {
-      const matLabel = p.materialNome || 'Material não vinculado';
+      const matLabel = p.materialNome || (obterComposicaoProduto(p).map(item => { const m = listaMateriais.find(x => parseInt(x.id) === parseInt(item.materialId)); return m ? `${m.nome} (${item.gramas}g)` : `${item.gramas}g`; }).join(' + ')) || 'Material não vinculado';
       let tempoStr = `${p.horas || 0}h`;
       if(p.minutos && parseInt(p.minutos) > 0) tempoStr += ` ${p.minutos}m`;
       const valor = obterNumeroMoeda(p.valor);
