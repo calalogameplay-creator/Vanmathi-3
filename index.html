@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vanmathi 3 - Painel de Gestão e Impressão 3D</title>
   
-  <!-- CONFIGURAÇÕES DE PWA (APLICATIVO) -->
+  <!-- CONFIGURAÇÕES DE PWA (APLICATIVO NO CELULAR) -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b0f19">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -75,6 +75,33 @@
     .hamburger-btn { background: none; border: none; color: var(--text-color); font-size: 24px; cursor: pointer; }
     .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; z-index: 180; }
     .sidebar-overlay.active { display: block; }
+
+    /* BANNER DE INSTALAÇÃO DO APLICATIVO */
+    #bannerInstalacao {
+      display: none;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      animation: fadeIn 0.4s ease-in-out;
+    }
+    #bannerInstalacao button {
+      background: #fff;
+      color: #1d4ed8;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    #bannerInstalacao button:hover {
+      background: #f1f5f9;
+    }
 
     main { flex-grow: 1; padding: 30px; overflow-y: auto; position: relative; }
     .content-section { display: none; }
@@ -193,6 +220,18 @@
   </aside>
 
   <main>
+    <!-- BANNER DE INSTALAÇÃO RÁPIDA -->
+    <div id="bannerInstalacao">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 22px;">📱</span>
+        <div>
+          <strong>Instalar Vanmathi 3</strong><br>
+          <span style="font-size: 12px; opacity: 0.9;">Tenha o painel direto na sua tela inicial como um aplicativo!</span>
+        </div>
+      </div>
+      <button onclick="instalarAplicativo()">Baixar Aplicativo</button>
+    </div>
+
     <div class="header-painel">
       <div class="header-title">
         <small>Painel de Controle</small>
@@ -203,11 +242,25 @@
         <select id="filtroLoja" onchange="aplicarFiltrosGlobais()">
           <option value="todos">Todas as Lojas</option>
         </select>
-        <select id="filtroTempo" onchange="aplicarFiltrosGlobais()">
-          <option value="este-mes">Este Mês</option>
-          <option value="mes-passado">Mês Passado</option>
-          <option value="ano">Este Ano</option>
-          <option value="todos-periodos">Todo o Período</option>
+        <!-- FILTRO DE MÊS (COM AS SIGLAS) -->
+        <select id="filtroMes" onchange="aplicarFiltrosGlobais()">
+          <option value="todos">Todos os Meses</option>
+          <option value="01">JAN - Janeiro</option>
+          <option value="02">FEV - Fevereiro</option>
+          <option value="03">MAR - Março</option>
+          <option value="04">ABR - Abril</option>
+          <option value="05">MAI - Maio</option>
+          <option value="06">JUN - Junho</option>
+          <option value="07">JUL - Julho</option>
+          <option value="08">AGO - Agosto</option>
+          <option value="09">SET - Setembro</option>
+          <option value="10">OUT - Outubro</option>
+          <option value="11">NOV - Novembro</option>
+          <option value="12">DEZ - Dezembro</option>
+        </select>
+        <!-- FILTRO DE ANO -->
+        <select id="filtroAno" onchange="aplicarFiltrosGlobais()">
+          <option value="todos">Todos os Anos</option>
         </select>
       </div>
     </div>
@@ -677,6 +730,28 @@
   let editandoId = null;
   let editandoMaterialId = null;
 
+  // --- LÓGICA DE INSTALAÇÃO DO APLICATIVO (PWA) ---
+  let eventoInstalacaoApp = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    eventoInstalacaoApp = e;
+    document.getElementById('bannerInstalacao').style.display = 'flex';
+  });
+
+  function instalarAplicativo() {
+    if (eventoInstalacaoApp) {
+      eventoInstalacaoApp.prompt();
+      eventoInstalacaoApp.userChoice.then((escolha) => {
+        if (escolha.outcome === 'accepted') {
+          document.getElementById('bannerInstalacao').style.display = 'none';
+        }
+        eventoInstalacaoApp = null;
+      });
+    } else {
+      alert("Para instalar o aplicativo:\n\n• No Android: Toque nos três pontinhos do navegador e escolha 'Instalar aplicativo' ou 'Adicionar à tela inicial'.\n• No iPhone: Toque no botão de Compartilhar e escolha 'Adicionar à Tela de Início'.");
+    }
+  }
+
   // Registrar o Service Worker do PWA automaticamente
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -710,14 +785,16 @@
     
     if (secaoId === 'relatorios' || secaoId === 'vendas') {
       painelFiltros.style.display = 'flex';
-      document.getElementById('filtroTempo').style.display = 'inline-block';
+      document.getElementById('filtroMes').style.display = 'inline-block';
+      document.getElementById('filtroAno').style.display = 'inline-block';
       atualizarFiltroLojasDinamico();
-      atualizarFiltroMesesDinamico();
+      atualizarFiltroAnosDinamico();
       if(secaoId === 'relatorios') atualizarRelatorios();
       if(secaoId === 'vendas') renderizarVendas();
     } else if (secaoId === 'produtos') {
       painelFiltros.style.display = 'flex';
-      document.getElementById('filtroTempo').style.display = 'none';
+      document.getElementById('filtroMes').style.display = 'none';
+      document.getElementById('filtroAno').style.display = 'none';
       atualizarFiltroLojasDinamico();
       renderizarProdutosSalvos();
     } else {
@@ -763,37 +840,25 @@
     selectLoja.value = (lojasAtivas.includes(valorAtual) || valorAtual === 'todos') ? valorAtual : 'todos';
   }
 
-  function atualizarFiltroMesesDinamico() {
-    const selectTempo = document.getElementById('filtroTempo');
-    let valorAtual = selectTempo.value;
-    let mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-    let mesesDisponiveis = new Set();
+  function atualizarFiltroAnosDinamico() {
+    const selectAno = document.getElementById('filtroAno');
+    let valorAtual = selectAno.value;
+    let anosDisponiveis = new Set();
 
     listaVendas.forEach(v => {
       if(v.data) {
-        let partes = v.data.split('-');
-        mesesDisponiveis.add(`${partes[0]}-${partes[1]}`);
+        let ano = v.data.split('-')[0];
+        if(ano) anosDisponiveis.add(ano);
       }
     });
 
-    let html = `
-      <option value="este-mes">Este Mês</option>
-      <option value="mes-passado">Mês Passado</option>
-      <option value="ano">Este Ano</option>
-      <option value="todos-periodos">Todo o Período</option>
-    `;
+    let html = `<option value="todos">Todos os Anos</option>`;
+    Array.from(anosDisponiveis).sort().reverse().forEach(ano => {
+      html += `<option value="${ano}">${ano}</option>`;
+    });
 
-    if(mesesDisponiveis.size > 0) {
-      html += `<optgroup label="Meses com Vendas">`;
-      Array.from(mesesDisponiveis).sort().reverse().forEach(item => {
-        let [ano, mes] = item.split('-');
-        html += `<option value="${item}">${mesesNomes[parseInt(mes) - 1]} de ${ano}</option>`;
-      });
-      html += `</optgroup>`;
-    }
-
-    selectTempo.innerHTML = html;
-    selectTempo.value = valorAtual;
+    selectAno.innerHTML = html;
+    selectAno.value = anosDisponiveis.has(valorAtual) || valorAtual === 'todos' ? valorAtual : 'todos';
   }
 
   function aplicarFiltrosGlobais() {
@@ -849,7 +914,7 @@
     fecharModalRegistrarVenda();
     renderizarVendas();
     filtrarTabela();
-    atualizarFiltroMesesDinamico();
+    atualizarFiltroAnosDinamico();
     atualizarRelatorios();
     mostrarToast(`Venda registrada! Baixa de ${gramasConsumidas}g realizada no estoque.`);
   }
@@ -858,7 +923,7 @@
     listaVendas = listaVendas.filter(v => v.id !== id);
     salvarTudoLocal();
     renderizarVendas();
-    atualizarFiltroMesesDinamico();
+    atualizarFiltroAnosDinamico();
     atualizarRelatorios();
     mostrarToast("Registro de venda removido.");
   }
@@ -866,28 +931,17 @@
   function renderizarVendas() {
     const corpo = document.getElementById('tabelaVendasCorpo');
     let lojaFiltro = document.getElementById('filtroLoja').value;
-    let tempoFiltro = document.getElementById('filtroTempo').value;
-
-    let agora = new Date();
-    let mesAtual = agora.getMonth();
-    let anoAtual = agora.getFullYear();
+    let mesFiltro = document.getElementById('filtroMes').value;
+    let anoFiltro = document.getElementById('filtroAno').value;
 
     let vendasFiltradas = listaVendas.filter(v => {
       if(lojaFiltro !== 'todos' && v.loja !== lojaFiltro) return false;
-      if(tempoFiltro !== 'todos-periodos' && v.data) {
-        let partes = v.data.split('-');
-        let vAno = parseInt(partes[0]), vMes = parseInt(partes[1]) - 1;
-        if(tempoFiltro === 'este-mes' && (vMes !== mesAtual || vAno !== anoAtual)) return false;
-        if(tempoFiltro === 'mes-passado') {
-          let mP = mesAtual === 0 ? 11 : mesAtual - 1;
-          let aP = mesAtual === 0 ? anoAtual - 1 : anoAtual;
-          if(vMes !== mP || vAno !== aP) return false;
-        }
-        if(tempoFiltro === 'ano' && vAno !== anoAtual) return false;
-        if(tempoFiltro.includes('-')) {
-          let [fAno, fMes] = tempoFiltro.split('-');
-          if(vAno !== parseInt(fAno) || vMes !== (parseInt(fMes) - 1)) return false;
-        }
+      if(v.data) {
+        let [vAno, vMes] = v.data.split('-');
+        if(mesFiltro !== 'todos' && vMes !== mesFiltro) return false;
+        if(anoFiltro !== 'todos' && vAno !== anoFiltro) return false;
+      } else if(mesFiltro !== 'todos' || anoFiltro !== 'todos') {
+        return false;
       }
       return true;
     });
@@ -1150,26 +1204,17 @@
   function atualizarRelatorios() {
     let totalFat = 0, totalHoras = 0, totalPerdas = 0, totalPecasVendidas = 0, htmlVendas = '';
     let lojaFiltro = document.getElementById('filtroLoja').value;
-    let tempoFiltro = document.getElementById('filtroTempo').value;
-
-    let agora = new Date(), mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
+    let mesFiltro = document.getElementById('filtroMes').value;
+    let anoFiltro = document.getElementById('filtroAno').value;
 
     let vendasFiltradas = listaVendas.filter(v => {
       if(lojaFiltro !== 'todos' && v.loja !== lojaFiltro) return false;
-      if(tempoFiltro !== 'todos-periodos' && v.data) {
-        let partes = v.data.split('-');
-        let vAno = parseInt(partes[0]), vMes = parseInt(partes[1]) - 1;
-        if(tempoFiltro === 'este-mes' && (vMes !== mesAtual || vAno !== anoAtual)) return false;
-        if(tempoFiltro === 'mes-passado') {
-          let mP = mesAtual === 0 ? 11 : mesAtual - 1;
-          let aP = mesAtual === 0 ? anoAtual - 1 : anoAtual;
-          if(vMes !== mP || vAno !== aP) return false;
-        }
-        if(tempoFiltro === 'ano' && vAno !== anoAtual) return false;
-        if(tempoFiltro.includes('-')) {
-          let [fAno, fMes] = tempoFiltro.split('-');
-          if(vAno !== parseInt(fAno) || vMes !== (parseInt(fMes) - 1)) return false;
-        }
+      if(v.data) {
+        let [vAno, vMes] = v.data.split('-');
+        if(mesFiltro !== 'todos' && vMes !== mesFiltro) return false;
+        if(anoFiltro !== 'todos' && vAno !== anoFiltro) return false;
+      } else if(mesFiltro !== 'todos' || anoFiltro !== 'todos') {
+        return false;
       }
       return true;
     });
@@ -1222,7 +1267,6 @@
 
   // --- FUNÇÕES DE EXPORTAR E IMPORTAR EXCEL NAS ABAS CRÍTICAS ---
   
-  // 1. Gestão de Vendas
   function exportarExcelVendas() {
     if (listaVendas.length === 0) { mostrarToast("Nenhuma venda registrada para exportar."); return; }
     const ws = XLSX.utils.json_to_sheet(listaVendas);
@@ -1245,6 +1289,7 @@
           listaVendas = rows;
           salvarTudoLocal();
           renderizarVendas();
+          atualizarFiltroAnosDinamico();
           atualizarRelatorios();
           mostrarToast("Vendas importadas com sucesso!");
         }
@@ -1254,7 +1299,6 @@
     reader.readAsArrayBuffer(file);
   }
 
-  // 2. Estoque de Filamentos
   function exportarExcelEstoque() {
     if (listaMateriais.length === 0) { mostrarToast("Nenhum material no estoque para exportar."); return; }
     const ws = XLSX.utils.json_to_sheet(listaMateriais);
@@ -1286,7 +1330,6 @@
     reader.readAsArrayBuffer(file);
   }
 
-  // 3. Meus Produtos Salvos
   function exportarExcelProdutos() {
     if (listaProdutosSalvos.length === 0) { mostrarToast("Nenhum produto salvo para exportar."); return; }
     const ws = XLSX.utils.json_to_sheet(listaProdutosSalvos);
@@ -1325,7 +1368,7 @@
   renderizarVendas();
   calcularPreco();
   atualizarFiltroLojasDinamico();
-  atualizarFiltroMesesDinamico();
+  atualizarFiltroAnosDinamico();
   atualizarRelatorios();
 </script>
 </body>
