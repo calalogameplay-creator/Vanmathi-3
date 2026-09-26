@@ -394,7 +394,7 @@
             <div class="metric-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">💧</div>
           </div>
           <div class="metric-card">
-            <span>Estoque Crítico (&lt; 200g)</span>
+            <span>Estoque Crítico / Alerta</span>
             <h3 style="color: var(--warning);" id="lblEstCritico">0</h3>
           </div>
           <div class="metric-card">
@@ -405,10 +405,10 @@
         </div>
         
         <div class="card-box">
-          <h3>Materiais em Alerta</h3>
+          <h3>Materiais em Alerta (Esgotando, Crítico ou Sem Estoque)</h3>
           <div class="table-container">
             <table>
-              <thead><tr><th>Material</th><th>Estoque Atual</th><th>Status</th></tr></thead>
+              <thead><tr><th>Material</th><th>Estoque Atual Restante</th><th>Status</th></tr></thead>
               <tbody id="tabelaMateriaisAlerta"><tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 25px;">Sem materiais em alerta. Tudo normal!</td></tr></tbody>
             </table>
           </div>
@@ -459,7 +459,7 @@
         <div class="header-title">
           <small>Gerenciamento</small>
           <h1>Estoque de Filamentos & Resinas</h1>
-          <p>Controle manual de estoque e custo por grama de cada bobina ou frasco.</p>
+          <p>Controle de saldo real, consumo e custo por grama de cada material.</p>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <button class="btn-secondary" onclick="exportarExcelEstoque()" title="Baixar planilha de estoque">📤 Exportar Estoque</button>
@@ -476,14 +476,24 @@
           <span>🔍</span>
           <input type="text" id="inputBusca" placeholder="Pesquisar material, cor ou marca" oninput="filtrarTabela()">
         </div>
-        <div class="badge-count" id="badgeQtdMateriais">1 material</div>
+        <!-- FILTRO DE STATUS DO ESTOQUE -->
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <select id="filtroStatusEstoque" onchange="filtrarTabela()" style="background: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; cursor: pointer;">
+            <option value="todos">Todos os Status</option>
+            <option value="estoque">Em Estoque (> 200g)</option>
+            <option value="esgotando">Esgotando (100g - 200g)</option>
+            <option value="critico">Crítico (1g - 100g)</option>
+            <option value="sem-estoque">Sem Estoque (0g)</option>
+          </select>
+          <div class="badge-count" id="badgeQtdMateriais">1 material</div>
+        </div>
       </div>
 
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>Nome</th><th>Tipo</th><th>Cor</th><th>Marca</th><th>Modelo</th><th>Estoque Atual</th><th>Custo / g</th><th>Ações</th>
+              <th>Nome</th><th>Tipo</th><th>Cor</th><th>Marca</th><th>Modelo</th><th>Estoque Atual Restante</th><th>Custo / g</th><th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaEstoqueCorpo"></tbody>
@@ -565,7 +575,7 @@
           </div>
 
           <div class="resultado-box">
-            <span>Preço de Venda Sugerido para a Loja</span>
+            <span>Preço de Venda Sugerido para la Loja</span>
             <h3 id="lblPrecoSugerido">R$ 43,66</h3>
             <span style="font-size: 11px; color: var(--success);" id="lblLucroEstimado">Lucro Líquido: R$ 17,90</span>
           </div>
@@ -657,10 +667,10 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label>Cor</label><input type="text" id="addCor" value="Azul Celeste"></div>
-        <div class="form-group"><label>Estoque Atual (g)</label><input type="number" id="addEstoque" value="1000"></div>
+        <div class="form-group"><label>Peso Máximo da Bobina (g)</label><input type="number" id="addPesoMax" value="1000"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Peso Máx / Rolo (g)</label><input type="number" id="addPesoMax" value="1000"></div>
+        <div class="form-group"><label>Filamento Utilizado / Gasto (g)</label><input type="number" id="addEstoqueUsado" value="200"></div>
         <div class="form-group"><label>Preço Pago (R$)</label><input type="number" id="addPreco" value="85.00"></div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
@@ -715,7 +725,7 @@
 
 <script>
   let listaMateriais = JSON.parse(localStorage.getItem('Vanmathi_Dados_Estoque')) || [
-    { id: 1, nome: "PLA Azul Celeste", tipo: "Filamento", cor: "Azul Celeste", marca: "3D Brothers", modelo: "PLA", estoque: 850, maxEstoque: 1000, precoPago: 85.00, custo: "R$ 0,0850" }
+    { id: 1, nome: "PLA Azul Celeste", tipo: "Filamento", cor: "Azul Celeste", marca: "3D Brothers", modelo: "PLA", pesoMax: 1000, estoqueUsado: 150, precoPago: 85.00, custo: "R$ 0,0850" }
   ];
   let listaMarcas = ["3D Brothers", "Bambu Lab", "Fusion X", "Voolt3D", "3D Fila"];
   let listaProdutosSalvos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Produtos')) || [
@@ -895,7 +905,7 @@
     let gramasConsumidas = (parseFloat(produto.gramas) || 0) * qtd;
 
     if(status === 'Concluído' && listaMateriais.length > 0) {
-      listaMateriais[0].estoque = Math.max(0, listaMateriais[0].estoque - gramasConsumidas);
+      listaMateriais[0].estoqueUsado = (listaMateriais[0].estoqueUsado || 0) + gramasConsumidas;
     }
 
     listaVendas.push({
@@ -1006,8 +1016,8 @@
     renderizarSelectMarcas();
     document.getElementById('addModelo').value = "PLA";
     document.getElementById('addCor').value = "Preto";
-    document.getElementById('addEstoque').value = "1000";
     document.getElementById('addPesoMax').value = "1000";
+    document.getElementById('addEstoqueUsado').value = "0";
     document.getElementById('addPreco').value = "85.00";
     document.getElementById('modalAdicionarMaterial').classList.add('active');
   }
@@ -1023,8 +1033,8 @@
     renderizarSelectMarcas(m.marca);
     document.getElementById('addModelo').value = m.modelo || "PLA";
     document.getElementById('addCor').value = m.cor;
-    document.getElementById('addEstoque').value = m.estoque;
-    document.getElementById('addPesoMax').value = m.maxEstoque;
+    document.getElementById('addPesoMax').value = m.pesoMax || 1000;
+    document.getElementById('addEstoqueUsado').value = m.estoqueUsado || 0;
     document.getElementById('addPreco').value = m.precoPago || 85.00;
     document.getElementById('modalAdicionarMaterial').classList.add('active');
   }
@@ -1042,17 +1052,39 @@
     }
     const modelo = document.getElementById('addModelo').value.trim() || "PLA";
     const cor = document.getElementById('addCor').value;
-    const estoque = parseInt(document.getElementById('addEstoque').value) || 1000;
     const pesoMax = parseInt(document.getElementById('addPesoMax').value) || 1000;
+    const estoqueUsado = parseInt(document.getElementById('addEstoqueUsado').value) || 0;
     const preco = parseFloat(document.getElementById('addPreco').value) || 80;
-    const custoGrama = (preco / pesoMax).toFixed(4);
+    
+    const custoGrama = pesoMax > 0 ? (preco / pesoMax).toFixed(4) : (preco / 1000).toFixed(4);
 
     if(editandoMaterialId) {
       let m = listaMateriais.find(item => item.id === editandoMaterialId);
-      if(m) { m.nome = nome; m.tipo = tipo; m.marca = marca; m.modelo = modelo; m.cor = cor; m.estoque = estoque; m.maxEstoque = pesoMax; m.precoPago = preco; m.custo = `R$ ${custoGrama.replace('.', ',')}`; }
+      if(m) { 
+        m.nome = nome; 
+        m.tipo = tipo; 
+        m.marca = marca; 
+        m.modelo = modelo; 
+        m.cor = cor; 
+        m.pesoMax = pesoMax; 
+        m.estoqueUsado = estoqueUsado;
+        m.precoPago = preco; 
+        m.custo = `R$ ${custoGrama.replace('.', ',')}`; 
+      }
       mostrarToast("Material atualizado!");
     } else {
-      listaMateriais.push({ id: Date.now(), nome, tipo, cor, marca, modelo, estoque, maxEstoque: pesoMax, precoPago: preco, custo: `R$ ${custoGrama.replace('.', ',')}` });
+      listaMateriais.push({ 
+        id: Date.now(), 
+        nome, 
+        tipo, 
+        cor, 
+        marca, 
+        modelo, 
+        pesoMax, 
+        estoqueUsado, 
+        precoPago: preco, 
+        custo: `R$ ${custoGrama.replace('.', ',')}` 
+      });
       mostrarToast("Material cadastrado!");
     }
     salvarTudoLocal();
@@ -1100,20 +1132,61 @@
   }
   function atualizarTaxaLoja() { document.getElementById('calcTaxa').value = document.getElementById('selectMarketplace').value; calcularPreco(); }
 
+  // Função para retornar o status e a cor de acordo com a regra de gramas
+  function obterStatusEstoque(qtd) {
+    if (qtd <= 0) return { texto: "Sem Estoque", cor: "var(--danger)" };
+    if (qtd <= 100) return { texto: "Crítico", cor: "var(--danger)" };
+    if (qtd <= 200) return { texto: "Esgotando", cor: "var(--warning)" };
+    return { texto: "Em Estoque", cor: "var(--success)" };
+  }
+
   function filtrarTabela() {
     const busca = document.getElementById('inputBusca').value.toLowerCase();
+    const statusFiltro = document.getElementById('filtroStatusEstoque').value;
     const corpo = document.getElementById('tabelaEstoqueCorpo');
     const badge = document.getElementById('badgeQtdMateriais');
     let html = '', total = 0;
+
     listaMateriais.forEach((item) => {
+      let pesoMax = item.pesoMax || 1000;
+      let estoqueUsado = item.estoqueUsado || 0;
+      let estoqueAtual = Math.max(0, pesoMax - estoqueUsado);
+      let st = obterStatusEstoque(estoqueAtual);
+
+      // Filtro por status
+      if (statusFiltro === 'estoque' && estoqueAtual <= 200) return;
+      if (statusFiltro === 'esgotando' && (estoqueAtual <= 100 || estoqueAtual > 200)) return;
+      if (statusFiltro === 'critico' && (estoqueAtual === 0 || estoqueAtual > 100)) return;
+      if (statusFiltro === 'sem-estoque' && estoqueAtual > 0) return;
+
+      // Filtro por busca de texto
       if (item.nome.toLowerCase().includes(busca) || item.cor.toLowerCase().includes(busca) || item.marca.toLowerCase().includes(busca) || item.modelo.toLowerCase().includes(busca)) {
         total++;
-        let p = Math.min(100, (item.estoque / item.maxEstoque) * 100);
-        html += `<tr><td><strong>${item.nome}</strong></td><td>${item.tipo}</td><td>${item.cor}</td><td>${item.marca}</td><td>${item.modelo}</td><td><div class="stock-indicator"><div class="stock-bar"><div class="stock-fill" style="width: ${p}%; background: var(--success);"></div></div><span style="font-weight: 600;">${item.estoque}g</span></div></td><td style="color: var(--success); font-weight: 600;">${item.custo}</td><td style="display: flex; gap: 6px;"><button class="btn-secondary" style="padding: 6px 8px;" onclick="editarMaterialEstoque(${item.id})">✏️</button><button class="btn-danger" style="padding: 6px 8px;" onclick="excluirMaterial(${item.id})">🗑️</button></td></tr>`;
+        let p = Math.min(100, (estoqueAtual / pesoMax) * 100);
+        html += `
+          <tr>
+            <td><strong>${item.nome}</strong></td>
+            <td>${item.tipo}</td>
+            <td>${item.cor}</td>
+            <td>${item.marca}</td>
+            <td>${item.modelo}</td>
+            <td>
+              <div class="stock-indicator">
+                <div class="stock-bar"><div class="stock-fill" style="width: ${p}%; background: ${st.cor};"></div></div>
+                <span style="font-weight: 600; color: ${st.cor};">${estoqueAtual}g</span>
+              </div>
+            </td>
+            <td style="color: var(--success); font-weight: 600;">${item.custo}</td>
+            <td style="display: flex; gap: 6px;">
+              <button class="btn-secondary" style="padding: 6px 8px;" onclick="editarMaterialEstoque(${item.id})">✏️</button>
+              <button class="btn-danger" style="padding: 6px 8px;" onclick="excluirMaterial(${item.id})">🗑️</button>
+            </td>
+          </tr>`;
       }
     });
+
     corpo.innerHTML = total === 0 ? `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum material encontrado.</td></tr>` : html;
-    badge.innerText = listaMateriais.length + (listaMateriais.length === 1 ? " material" : " materiais");
+    badge.innerText = total + (total === 1 ? " material" : " materiais");
   }
 
   function calcularPreco() {
@@ -1248,21 +1321,32 @@
     document.getElementById('lblPerdasTotal').innerText = `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblLojasAtivas').innerText = lojasAtivasSalvas.length;
 
-    let totalFil = 0, totalRes = 0, estoqueCritico = 0, valorEstoque = 0, htmlAlerta = '';
+    let totalFil = 0, totalRes = 0, estoqueAlertaCount = 0, valorEstoque = 0, htmlAlerta = '';
     listaMateriais.forEach(m => {
       valorEstoque += (m.precoPago || 85.00);
       if(m.tipo === 'Resina') totalRes++; else totalFil++;
-      if(m.estoque < 200) {
-        estoqueCritico++;
-        htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td>${m.estoque}g</td><td><span style="color: var(--warning);">Baixo Estoque</span></td></tr>`;
+
+      let pesoMax = m.pesoMax || 1000;
+      let estoqueUsado = m.estoqueUsado || 0;
+      let estoqueAtual = Math.max(0, pesoMax - estoqueUsado);
+
+      if(estoqueAtual <= 200) {
+        estoqueAlertaCount++;
+        let st = obterStatusEstoque(estoqueAtual);
+        htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color: ${st.cor}; font-weight: 600;">${estoqueAtual}g</span></td><td><span style="color: ${st.cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${st.texto}</span></td></tr>`;
       }
     });
 
     document.getElementById('lblEstTotalFilamentos').innerText = totalFil;
     document.getElementById('lblEstTotalResinas').innerText = totalRes;
-    document.getElementById('lblEstCritico').innerText = estoqueCritico;
+    document.getElementById('lblEstCritico').innerText = estoqueAlertaCount;
     document.getElementById('lblEstValorTotal').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    if(htmlAlerta) document.getElementById('tabelaMateriaisAlerta').innerHTML = htmlAlerta;
+    
+    if(htmlAlerta) {
+      document.getElementById('tabelaMateriaisAlerta').innerHTML = htmlAlerta;
+    } else {
+      document.getElementById('tabelaMateriaisAlerta').innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 25px;">Sem materiais em alerta. Tudo normal!</td></tr>`;
+    }
   }
 
   // --- FUNÇÕES DE EXPORTAR E IMPORTAR EXCEL NAS ABAS CRÍTICAS ---
