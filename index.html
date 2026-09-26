@@ -422,7 +422,7 @@
         <div class="header-title">
           <small>Comercial</small>
           <h1>Controle de Vendas & Pedidos</h1>
-          <p>Registre suas vendas: o sistema abate o filamento do estoque e atualiza o financeiro automaticamente.</p>
+          <p>Registre suas vendas: o sistema abate o filamento líquido e estorna automaticamente devoluções.</p>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <button class="btn-secondary" onclick="exportarExcelVendas()" title="Baixar planilha de vendas">📤 Exportar Vendas</button>
@@ -459,7 +459,7 @@
         <div class="header-title">
           <small>Gerenciamento</small>
           <h1>Estoque de Filamentos & Resinas</h1>
-          <p>Controle de saldo real, consumo e custo por grama de cada material.</p>
+          <p>Controle de saldo real considerando vendas concluídas e descontando devoluções.</p>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <button class="btn-secondary" onclick="exportarExcelEstoque()" title="Baixar planilha de estoque">📤 Exportar Estoque</button>
@@ -530,6 +530,11 @@
           </div>
 
           <div class="form-group">
+            <label>Filamento / Material em Estoque Utilizado</label>
+            <select id="calcSelectMaterial" onchange="atualizarCustoFilamentoPorMaterial()"></select>
+          </div>
+
+          <div class="form-group">
             <label>Taxa da Loja Selecionada (%)</label>
             <input type="number" id="calcTaxa" value="18" oninput="calcularPreco()">
           </div>
@@ -575,7 +580,7 @@
           </div>
 
           <div class="resultado-box">
-            <span>Preço de Venda Sugerido para la Loja</span>
+            <span>Preço de Venda Sugerido para a Loja</span>
             <h3 id="lblPrecoSugerido">R$ 43,66</h3>
             <span style="font-size: 11px; color: var(--success);" id="lblLucroEstimado">Lucro Líquido: R$ 17,90</span>
           </div>
@@ -605,9 +610,9 @@
             <tr>
               <th>Nome do Produto</th>
               <th>Loja Online</th>
+              <th>Material Vinculado</th>
               <th>Gramas</th>
               <th>Tempo (h)</th>
-              <th>Embalagem</th>
               <th>Preço Sugerido</th>
               <th>Ações</th>
             </tr>
@@ -638,9 +643,9 @@
       <div class="form-group">
         <label>Status do Pedido</label>
         <select id="vendaStatus">
-          <option value="Concluído">Concluído / Entregue</option>
-          <option value="Em Produção">Em Produção</option>
-          <option value="Devolvido">Devolvido / Cancelado</option>
+          <option value="Concluído">Concluído / Entregue (Abate do Estoque)</option>
+          <option value="Em Produção">Em Produção (Sem Baixa)</option>
+          <option value="Devolvido">Devolvido / Cancelado (Sem Baixa / Estornado)</option>
         </select>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
@@ -657,20 +662,19 @@
         <span style="cursor: pointer; color: var(--text-muted);" onclick="fecharModalAdicionarMaterial()">✕</span>
       </div>
       <div class="form-row">
-        <div class="form-group" style="flex: 2;"><label>Nome / Descrição</label><input type="text" id="addNome" value="PLA Azul Celeste"></div>
+        <div class="form-group" style="flex: 2;"><label>Nome / Descrição</label><input type="text" id="addNome" value="PETG Azul"></div>
         <div class="form-group" style="flex: 1.5;"><label>Tipo</label><select id="addTipo"><option value="Filamento">Filamento</option><option value="Resina">Resina</option></select></div>
       </div>
       <div class="form-row">
         <div class="form-group" style="flex: 2;"><label>Marca</label><select id="selectMarca" onchange="verificarOutraMarca(this.value)"></select></div>
-        <div class="form-group" id="divOutraMarca" style="flex: 2; display: none;"><label>Nova Marca</label><input type="text" id="addMarcaNova" placeholder="Ex: Fusion X"></div>
-        <div class="form-group" style="flex: 1.5;"><label>Modelo</label><input type="text" id="addModelo" value="PLA"></div>
+        <div class="form-group" id="divOutraMarca" style="flex: 2; display: none;"><label>Nova Marca</label><input type="text" id="addMarcaNova" placeholder="Ex: 3D Print"></div>
+        <div class="form-group" style="flex: 1.5;"><label>Modelo</label><input type="text" id="addModelo" value="PETG"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Cor</label><input type="text" id="addCor" value="Azul Celeste"></div>
+        <div class="form-group"><label>Cor</label><input type="text" id="addCor" value="Azul"></div>
         <div class="form-group"><label>Peso Máximo da Bobina (g)</label><input type="number" id="addPesoMax" value="1000"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Filamento Utilizado / Gasto (g)</label><input type="number" id="addEstoqueUsado" value="200"></div>
         <div class="form-group"><label>Preço Pago (R$)</label><input type="number" id="addPreco" value="85.00"></div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
@@ -725,11 +729,11 @@
 
 <script>
   let listaMateriais = JSON.parse(localStorage.getItem('Vanmathi_Dados_Estoque')) || [
-    { id: 1, nome: "PLA Azul Celeste", tipo: "Filamento", cor: "Azul Celeste", marca: "3D Brothers", modelo: "PLA", pesoMax: 1000, estoqueUsado: 150, precoPago: 85.00, custo: "R$ 0,0850" }
+    { id: 1, nome: "PETG Preto", tipo: "Filamento", cor: "Preto", marca: "3D Print", modelo: "PETG", pesoMax: 1000, precoPago: 85.00, custo: "R$ 0,0850" }
   ];
-  let listaMarcas = ["3D Brothers", "Bambu Lab", "Fusion X", "Voolt3D", "3D Fila"];
+  let listaMarcas = ["3D Print", "3D Brothers", "Bambu Lab", "Fusion X", "Voolt3D", "3D Fila"];
   let listaProdutosSalvos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Produtos')) || [
-    { id: 101, nome: "Vaso 3D Geométrico", loja: "Shopee", gramas: 120, horas: 4, embalagem: "3.50", margem: 100, precoSugerido: "R$ 43,66" }
+    { id: 101, nome: "Fone 3D", loja: "Shopee", materialId: 1, materialNome: "PETG Preto (3D Print - PETG)", gramas: 60, horas: 3, embalagem: "3.00", margem: 100, precoSugerido: "R$ 35,00" }
   ];
   let listaVendas = JSON.parse(localStorage.getItem('Vanmathi_Dados_Vendas')) || [];
   let listaLojas = [
@@ -762,7 +766,6 @@
     }
   }
 
-  // Registrar o Service Worker do PWA automaticamente
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(err => console.log('SW erro:', err));
@@ -809,6 +812,7 @@
       renderizarProdutosSalvos();
     } else {
       painelFiltros.style.display = 'none';
+      if(secaoId === 'precificacao') renderizarSelectMaterialCalculadora();
     }
 
     if(window.innerWidth <= 900) { toggleMenuMobile(); }
@@ -878,6 +882,46 @@
     else if(abaAtiva === 'secao-produtos') renderizarProdutosSalvos();
   }
 
+  // --- FUNÇÃO CORRIGIDA DE CÁLCULO DE ESTOQUE USADO (RESPEITA VENDAS CONCLUÍDAS E DESCONTA DEVOLUÇÕES) ---
+  function calcularEstoqueUsadoMaterial(materialId) {
+    let totalUsado = 0;
+    listaVendas.forEach(v => {
+      if(v.materialId === materialId) {
+        let gramasUn = parseFloat(v.gramasUnidade) || 0;
+        let qtd = parseInt(v.qtd) || 1;
+        let totalVendaGramas = gramasUn * qtd;
+
+        if(v.status === 'Concluído') {
+          totalUsado += totalVendaGramas; // Soma o gasto real
+        } else if(v.status === 'Devolvido') {
+          totalUsado -= totalVendaGramas; // Estorna o filamento da peça devolvida
+        }
+        // Se estiver "Em Produção", não abate nem estorna (ou você pode ajustar se preferir)
+      }
+    });
+    return Math.max(0, totalUsado); // Nunca deixa negativo
+  }
+
+  // --- POPULAR SELEÇÃO DE MATERIAIS NA CALCULADORA ---
+  function renderizarSelectMaterialCalculadora(selecionadoId = null) {
+    const select = document.getElementById('calcSelectMaterial');
+    if(listaMateriais.length === 0) {
+      select.innerHTML = `<option value="">Nenhum material no estoque cadastrado</option>`;
+      return;
+    }
+    let html = '';
+    listaMateriais.forEach(m => {
+      let sel = (selecionadoId && m.id === selecionadoId) ? 'selected' : '';
+      html += `<option value="${m.id}" ${sel}>${m.nome} (${m.marca} - ${m.modelo})</option>`;
+    });
+    select.innerHTML = html;
+    atualizarCustoFilamentoPorMaterial();
+  }
+
+  function atualizarCustoFilamentoPorMaterial() {
+    calcularPreco();
+  }
+
   function abrirModalRegistrarVenda() {
     if(listaProdutosSalvos.length === 0) { alert("Cadastre e salve pelo menos um produto na Calculadora primeiro!"); return; }
     const select = document.getElementById('vendaSelectProduto');
@@ -902,16 +946,12 @@
 
     let numPreco = parseFloat(produto.precoSugerido.replace('R$', '').replace('.', '').replace(',', '.')) || 0;
     let totalVenda = numPreco * qtd;
-    let gramasConsumidas = (parseFloat(produto.gramas) || 0) * qtd;
-
-    if(status === 'Concluído' && listaMateriais.length > 0) {
-      listaMateriais[0].estoqueUsado = (listaMateriais[0].estoqueUsado || 0) + gramasConsumidas;
-    }
 
     listaVendas.push({
       id: Date.now(),
       produtoNome: produto.nome,
       loja: produto.loja || "Shopee",
+      materialId: produto.materialId,
       gramasUnidade: parseFloat(produto.gramas) || 0,
       horasUnidade: parseFloat(produto.horas) || 0,
       qtd: qtd,
@@ -926,16 +966,17 @@
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
-    mostrarToast(`Venda registrada! Baixa de ${gramasConsumidas}g realizada no estoque.`);
+    mostrarToast(`Venda registrada! Estoque atualizado em tempo real.`);
   }
 
   function excluirVenda(id) {
     listaVendas = listaVendas.filter(v => v.id !== id);
     salvarTudoLocal();
     renderizarVendas();
+    filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
-    mostrarToast("Registro de venda removido.");
+    mostrarToast("Venda removida e estoque recalculado!");
   }
 
   function renderizarVendas() {
@@ -1011,13 +1052,12 @@
   function abrirModalAdicionarMaterial() {
     editandoMaterialId = null;
     document.getElementById('tituloModalMaterial').innerText = "Adicionar Novo Material";
-    document.getElementById('addNome').value = "PLA Novo";
+    document.getElementById('addNome').value = "PETG Preto";
     document.getElementById('addTipo').value = "Filamento";
     renderizarSelectMarcas();
-    document.getElementById('addModelo').value = "PLA";
+    document.getElementById('addModelo').value = "PETG";
     document.getElementById('addCor').value = "Preto";
     document.getElementById('addPesoMax').value = "1000";
-    document.getElementById('addEstoqueUsado').value = "0";
     document.getElementById('addPreco').value = "85.00";
     document.getElementById('modalAdicionarMaterial').classList.add('active');
   }
@@ -1031,10 +1071,9 @@
     document.getElementById('addTipo').value = m.tipo || "Filamento";
     if(!listaMarcas.includes(m.marca)) listaMarcas.push(m.marca);
     renderizarSelectMarcas(m.marca);
-    document.getElementById('addModelo').value = m.modelo || "PLA";
+    document.getElementById('addModelo').value = m.modelo || "PETG";
     document.getElementById('addCor').value = m.cor;
     document.getElementById('addPesoMax').value = m.pesoMax || 1000;
-    document.getElementById('addEstoqueUsado').value = m.estoqueUsado || 0;
     document.getElementById('addPreco').value = m.precoPago || 85.00;
     document.getElementById('modalAdicionarMaterial').classList.add('active');
   }
@@ -1050,10 +1089,9 @@
       if (!marca) { alert("Digite a nova marca."); return; }
       if (!listaMarcas.includes(marca)) listaMarcas.push(marca);
     }
-    const modelo = document.getElementById('addModelo').value.trim() || "PLA";
+    const modelo = document.getElementById('addModelo').value.trim() || "PETG";
     const cor = document.getElementById('addCor').value;
     const pesoMax = parseInt(document.getElementById('addPesoMax').value) || 1000;
-    const estoqueUsado = parseInt(document.getElementById('addEstoqueUsado').value) || 0;
     const preco = parseFloat(document.getElementById('addPreco').value) || 80;
     
     const custoGrama = pesoMax > 0 ? (preco / pesoMax).toFixed(4) : (preco / 1000).toFixed(4);
@@ -1067,7 +1105,6 @@
         m.modelo = modelo; 
         m.cor = cor; 
         m.pesoMax = pesoMax; 
-        m.estoqueUsado = estoqueUsado;
         m.precoPago = preco; 
         m.custo = `R$ ${custoGrama.replace('.', ',')}`; 
       }
@@ -1081,20 +1118,19 @@
         marca, 
         modelo, 
         pesoMax, 
-        estoqueUsado, 
         precoPago: preco, 
         custo: `R$ ${custoGrama.replace('.', ',')}` 
       });
       mostrarToast("Material cadastrado!");
     }
     salvarTudoLocal();
-    fecharModalAdicionarMaterial(); filtrarTabela(); atualizarRelatorios();
+    fecharModalAdicionarMaterial(); filtrarTabela(); atualizarRelatorios(); renderizarSelectMaterialCalculadora();
   }
 
   function excluirMaterial(id) {
     listaMateriais = listaMateriais.filter(item => item.id !== id);
     salvarTudoLocal();
-    filtrarTabela(); atualizarRelatorios(); mostrarToast("Material removido.");
+    filtrarTabela(); atualizarRelatorios(); renderizarSelectMaterialCalculadora(); mostrarToast("Material removido.");
   }
 
   function abrirModalNovaLoja() { document.getElementById('modalNovaLoja').classList.add('active'); }
@@ -1132,7 +1168,6 @@
   }
   function atualizarTaxaLoja() { document.getElementById('calcTaxa').value = document.getElementById('selectMarketplace').value; calcularPreco(); }
 
-  // Função para retornar o status e a cor de acordo com a regra de gramas
   function obterStatusEstoque(qtd) {
     if (qtd <= 0) return { texto: "Sem Estoque", cor: "var(--danger)" };
     if (qtd <= 100) return { texto: "Crítico", cor: "var(--danger)" };
@@ -1149,17 +1184,15 @@
 
     listaMateriais.forEach((item) => {
       let pesoMax = item.pesoMax || 1000;
-      let estoqueUsado = item.estoqueUsado || 0;
+      let estoqueUsado = calcularEstoqueUsadoMaterial(item.id);
       let estoqueAtual = Math.max(0, pesoMax - estoqueUsado);
       let st = obterStatusEstoque(estoqueAtual);
 
-      // Filtro por status
       if (statusFiltro === 'estoque' && estoqueAtual <= 200) return;
       if (statusFiltro === 'esgotando' && (estoqueAtual <= 100 || estoqueAtual > 200)) return;
       if (statusFiltro === 'critico' && (estoqueAtual === 0 || estoqueAtual > 100)) return;
       if (statusFiltro === 'sem-estoque' && estoqueAtual > 0) return;
 
-      // Filtro por busca de texto
       if (item.nome.toLowerCase().includes(busca) || item.cor.toLowerCase().includes(busca) || item.marca.toLowerCase().includes(busca) || item.modelo.toLowerCase().includes(busca)) {
         total++;
         let p = Math.min(100, (estoqueAtual / pesoMax) * 100);
@@ -1196,7 +1229,16 @@
     const taxaMkt = parseFloat(document.getElementById('calcTaxa').value) || 0;
     const margem = parseFloat(document.getElementById('calcMargem').value) || 0;
 
-    const cf = gramas * 0.085;
+    let matId = parseInt(document.getElementById('calcSelectMaterial').value);
+    let materialObj = listaMateriais.find(m => m.id === matId);
+    let custoGramaReal = 0.085;
+    if(materialObj) {
+      let pesoMax = materialObj.pesoMax || 1000;
+      let preco = materialObj.precoPago || 85;
+      custoGramaReal = pesoMax > 0 ? (preco / pesoMax) : 0.085;
+    }
+
+    const cf = gramas * custoGramaReal;
     const ce = horas * 0.60;
     const ct = cf + ce + embalagem;
     const sub = ct + (ct * (margem / 100));
@@ -1215,6 +1257,11 @@
     const nome = document.getElementById('calcNomeProduto').value;
     const selectMkt = document.getElementById('selectMarketplace');
     const lojaNome = selectMkt.options[selectMkt.selectedIndex].text.split('(')[0].trim();
+    
+    const selectMat = document.getElementById('calcSelectMaterial');
+    const materialId = parseInt(selectMat.value);
+    const materialNome = selectMat.options[selectMat.selectedIndex] ? selectMat.options[selectMat.selectedIndex].text : "Nenhum";
+
     const gramas = document.getElementById('calcGramas').value;
     const horas = document.getElementById('calcHoras').value;
     const embalagem = document.getElementById('calcEmbalagem').value;
@@ -1224,12 +1271,33 @@
 
     if(editandoId) {
       let p = listaProdutosSalvos.find(item => item.id === editandoId);
-      if(p) { p.nome = nome; p.loja = lojaNome; p.gramas = gramas; p.horas = horas; p.embalagem = embalagem; p.margem = margem; p.precoSugerido = precoSugerido; }
+      if(p) { 
+        p.nome = nome; 
+        p.loja = lojaNome; 
+        p.materialId = materialId;
+        p.materialNome = materialNome;
+        p.gramas = gramas; 
+        p.horas = horas; 
+        p.embalagem = embalagem; 
+        p.margem = margem; 
+        p.precoSugerido = precoSugerido; 
+      }
       editandoId = null;
       document.getElementById('labelModoEdicao').innerText = "Modo Novo Produto";
       mostrarToast("Produto atualizado!");
     } else {
-      listaProdutosSalvos.push({ id: Date.now(), nome, loja: lojaNome, gramas, horas, embalagem, margem, precoSugerido });
+      listaProdutosSalvos.push({ 
+        id: Date.now(), 
+        nome, 
+        loja: lojaNome, 
+        materialId, 
+        materialNome, 
+        gramas, 
+        horas, 
+        embalagem, 
+        margem, 
+        precoSugerido 
+      });
       mostrarToast("Produto salvo com sucesso!");
     }
     salvarTudoLocal();
@@ -1242,6 +1310,7 @@
     if(!p) return;
     editandoId = p.id;
     document.getElementById('calcNomeProduto').value = p.nome;
+    if(p.materialId) renderizarSelectMaterialCalculadora(p.materialId);
     document.getElementById('calcGramas').value = p.gramas;
     document.getElementById('calcHoras').value = p.horas;
     document.getElementById('calcEmbalagem').value = p.embalagem;
@@ -1269,7 +1338,16 @@
 
     let html = '';
     produtosFiltrados.forEach((p) => {
-      html += `<tr><td><strong>${p.nome}</strong></td><td><span style="color: var(--primary); background: rgba(59,130,246,0.1); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${p.loja || 'Shopee'}</span></td><td>${p.gramas}g</td><td>${p.horas}h</td><td>R$ ${p.embalagem}</td><td style="color: var(--primary); font-weight: 600;">${p.precoSugerido}</td><td style="display: flex; gap: 8px;"><button class="btn-secondary" style="padding: 6px 10px;" onclick="editarProduto(${p.id})">✏️ Editar</button><button class="btn-danger" style="padding: 6px 10px;" onclick="excluirProduto(${p.id})">🗑️ Excluir</button></td></tr>`;
+      let matLabel = p.materialNome || "Material não vinculado";
+      html += `<tr>
+        <td><strong>${p.nome}</strong></td>
+        <td><span style="color: var(--primary); background: rgba(59,130,246,0.1); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${p.loja || 'Shopee'}</span></td>
+        <td style="font-size: 12px; color: var(--text-muted);">${matLabel}</td>
+        <td>${p.gramas}g</td>
+        <td>${p.horas}h</td>
+        <td style="color: var(--primary); font-weight: 600;">${p.precoSugerido}</td>
+        <td style="display: flex; gap: 8px;"><button class="btn-secondary" style="padding: 6px 10px;" onclick="editarProduto(${p.id})">✏️ Editar</button><button class="btn-danger" style="padding: 6px 10px;" onclick="excluirProduto(${p.id})">🗑️ Excluir</button></td>
+      </tr>`;
     });
     corpo.innerHTML = html;
   }
@@ -1327,7 +1405,7 @@
       if(m.tipo === 'Resina') totalRes++; else totalFil++;
 
       let pesoMax = m.pesoMax || 1000;
-      let estoqueUsado = m.estoqueUsado || 0;
+      let estoqueUsado = calcularEstoqueUsadoMaterial(m.id);
       let estoqueAtual = Math.max(0, pesoMax - estoqueUsado);
 
       if(estoqueAtual <= 200) {
@@ -1349,8 +1427,7 @@
     }
   }
 
-  // --- FUNÇÕES DE EXPORTAR E IMPORTAR EXCEL NAS ABAS CRÍTICAS ---
-  
+  // --- FUNÇÕES DE EXPORTAR E IMPORTAR EXCEL ---
   function exportarExcelVendas() {
     if (listaVendas.length === 0) { mostrarToast("Nenhuma venda registrada para exportar."); return; }
     const ws = XLSX.utils.json_to_sheet(listaVendas);
@@ -1406,6 +1483,7 @@
           salvarTudoLocal();
           filtrarTabela();
           atualizarRelatorios();
+          renderizarSelectMaterialCalculadora();
           mostrarToast("Estoque importado com sucesso!");
         }
       } catch(err) { alert("Erro ao importar arquivo."); }
@@ -1448,6 +1526,7 @@
 
   filtrarTabela();
   renderizarSelectLojas();
+  renderizarSelectMaterialCalculadora();
   renderizarProdutosSalvos();
   renderizarVendas();
   calcularPreco();
