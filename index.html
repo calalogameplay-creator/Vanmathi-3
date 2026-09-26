@@ -138,6 +138,24 @@
     .metric-card { background: var(--card-bg); border: 1px solid var(--border); padding: 18px; border-radius: 10px; position: relative; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
     .metric-card span { color: var(--text-muted); font-size: 12px; display: block; margin-bottom: 10px; }
     .metric-card h3 { margin: 0; font-size: 20px; color: var(--text-color); }
+    .dashboard-kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .dashboard-kpi { background:linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01)); border:1px solid var(--border); border-radius:14px; padding:16px; position:relative; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.12); }
+    .dashboard-kpi::after { content:''; position:absolute; width:90px; height:90px; right:-35px; top:-35px; border-radius:50%; background:rgba(255,255,255,0.025); }
+    .dashboard-kpi .kpi-top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+    .dashboard-kpi .kpi-label { color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+    .dashboard-kpi .kpi-icon { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,0.06); }
+    .dashboard-kpi .kpi-value { margin:0; font-size:24px; line-height:1.1; font-weight:800; color:var(--text-color); }
+    .dashboard-kpi .kpi-note { margin-top:7px; color:var(--text-muted); font-size:11px; }
+    .dashboard-section-title { display:flex; align-items:flex-end; justify-content:space-between; gap:15px; margin:4px 0 12px; }
+    .dashboard-section-title h2 { margin:0; font-size:18px; }
+    .dashboard-section-title p { margin:3px 0 0; color:var(--text-muted); font-size:12px; }
+    .dashboard-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .dashboard-status { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+    .dashboard-status .status-label { color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:700; }
+    .dashboard-status strong { display:block; margin-top:6px; font-size:21px; }
+    @media (max-width:1000px){ .dashboard-kpi-grid,.dashboard-status-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    @media (max-width:600px){ .dashboard-kpi-grid,.dashboard-status-grid{grid-template-columns:1fr;} }
+
     .metric-icon { position: absolute; top: 18px; right: 18px; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
 
     .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
@@ -275,15 +293,15 @@
       </div>
 
       <div id="visao-geral" class="tab-content active">
-        <div class="metrics-grid">
-          <div class="metric-card"><span>Faturamento Total</span><h3 id="lblRelFatTotal">R$ 0,00</h3></div>
-          <div class="metric-card"><span>Recebido</span><h3 style="color: var(--success);" id="lblRelRecebido">R$ 0,00</h3></div>
-          <div class="metric-card"><span>A Receber</span><h3 style="color: var(--warning);">R$ 0,00</h3></div>
-          <div class="metric-card"><span>Lucro Líquido Real</span><h3 id="lblRelLucroLiq">R$ 0,00</h3></div>
-          <div class="metric-card"><span>Margem Média</span><h3 id="lblRelMargem">55%</h3></div>
-          <div class="metric-card"><span>Total de Peças Vendidas</span><h3 id="lblRelTotalPedidos">0</h3></div>
-          <div class="metric-card"><span>Ticket Médio</span><h3 id="lblRelTicketMedio">R$ 0,00</h3></div>
-          <div class="metric-card"><span>Lojas Ativas</span><h3 id="lblLojasAtivas">1</h3></div>
+        <div class="dashboard-kpi-grid">
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Faturamento realizado</span><span class="kpi-icon">📈</span></div><h3 class="kpi-value" id="lblRelFatTotal">R$ 0,00</h3><div class="kpi-note">Vendas concluídas no período</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Recebido</span><span class="kpi-icon">💳</span></div><h3 class="kpi-value" id="lblRelRecebido" style="color:var(--success);">R$ 0,00</h3><div class="kpi-note">Valores efetivamente recebidos</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">A receber</span><span class="kpi-icon">⏳</span></div><h3 class="kpi-value" id="lblRelAReceber" style="color:var(--warning);">R$ 0,00</h3><div class="kpi-note">Vendas concluídas ainda pendentes</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Em produção</span><span class="kpi-icon">🖨️</span></div><h3 class="kpi-value" id="lblRelEmProducao">R$ 0,00</h3><div class="kpi-note">Pedidos em fabricação</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Lucro líquido realizado</span><span class="kpi-icon">💰</span></div><h3 class="kpi-value" id="lblRelLucroLiq">R$ 0,00</h3><div class="kpi-note">Estimativa sobre vendas concluídas</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Margem média</span><span class="kpi-icon">%</span></div><h3 class="kpi-value" id="lblRelMargem">0%</h3><div class="kpi-note">Margem média das vendas concluídas</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Peças vendidas</span><span class="kpi-icon">📦</span></div><h3 class="kpi-value" id="lblRelTotalPedidos">0</h3><div class="kpi-note">Unidades em vendas concluídas</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Ticket médio</span><span class="kpi-icon">🧾</span></div><h3 class="kpi-value" id="lblRelTicketMedio">R$ 0,00</h3><div class="kpi-note">Valor médio por unidade concluída</div></div>
         </div>
 
         <div class="grid-2">
@@ -299,27 +317,13 @@
           </div>
         </div>
 
-        <div class="metrics-grid">
-          <div class="metric-card">
-            <span>Pedidos em atraso</span>
-            <h3 style="color: var(--danger);">0</h3>
-            <div class="metric-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">⚠️</div>
-          </div>
-          <div class="metric-card">
-            <span>Prontos para entrega</span>
-            <h3 style="color: var(--success);">0</h3>
-            <div class="metric-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">📦</div>
-          </div>
-          <div class="metric-card">
-            <span>Horas impressas</span>
-            <h3 id="lblRelHorasTotais">0h</h3>
-            <div class="metric-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">⏱️</div>
-          </div>
-          <div class="metric-card">
-            <span>Produtos no catálogo</span>
-            <h3 id="lblRelCatTotal">0</h3>
-            <div class="metric-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">🧊</div>
-          </div>
+        <div class="dashboard-section-title"><div><h2>Operação</h2><p>Indicadores de produção e catálogo do período selecionado.</p></div></div>
+        <div class="dashboard-status-grid">
+          <div class="dashboard-status"><span class="status-label">Pedidos em produção</span><strong id="lblRelPedidosProducao" style="color:var(--warning);">0</strong></div>
+          <div class="dashboard-status"><span class="status-label">Pedidos concluídos</span><strong id="lblRelPedidosConcluidos" style="color:var(--success);">0</strong></div>
+          <div class="dashboard-status"><span class="status-label">Horas de impressão</span><strong id="lblRelHorasTotais">0h</strong></div>
+          <div class="dashboard-status"><span class="status-label">Produtos no catálogo</span><strong id="lblRelCatTotal">0</strong></div>
+          <div class="dashboard-status"><span class="status-label">Lojas ativas</span><strong id="lblLojasAtivas">0</strong></div>
         </div>
 
         <div class="card-box">
@@ -671,6 +675,13 @@
           <option value="Devolvido">Devolvido / Cancelado (Sem Baixa / Estornado)</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Status do Pagamento</label>
+        <select id="vendaPagamento">
+          <option value="Pendente">Pendente / A receber</option>
+          <option value="Recebido">Recebido</option>
+        </select>
+      </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
         <button class="btn-primary" id="btnSalvarVenda" onclick="salvarNovaVenda()">Salvar Venda</button>
@@ -960,6 +971,7 @@
     document.getElementById('vendaQtd').value = 1;
     document.getElementById('vendaData').value = new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = 'Concluído';
+    document.getElementById('vendaPagamento').value = 'Recebido';
     document.getElementById('tituloModalVenda').innerText = 'Registrar Nova Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Venda';
     document.getElementById('modalRegistrarVenda').classList.add('active');
@@ -975,6 +987,7 @@
     document.getElementById('vendaQtd').value = venda.qtd || 1;
     document.getElementById('vendaData').value = venda.data || new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = venda.status || 'Concluído';
+    document.getElementById('vendaPagamento').value = venda.pagamentoStatus || (venda.status === 'Concluído' ? 'Recebido' : 'Pendente');
     document.getElementById('tituloModalVenda').innerText = 'Editar Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Alterações';
     document.getElementById('modalRegistrarVenda').classList.add('active');
@@ -992,6 +1005,7 @@
     const qtd = parseInt(document.getElementById('vendaQtd').value) || 1;
     const data = document.getElementById('vendaData').value;
     const status = document.getElementById('vendaStatus').value;
+    const pagamentoStatus = document.getElementById('vendaPagamento').value;
 
     const produto = listaProdutosSalvos.find(p => p.id === prodId);
     if(!produto) return;
@@ -1015,7 +1029,8 @@
       lucroTotal: lucroUnidade * qtd,
       valorProdutoUnidade: numPreco,
       data: data,
-      status: status
+      status: status,
+      pagamentoStatus: pagamentoStatus
     };
 
     if(editandoVendaId) {
@@ -1524,7 +1539,9 @@
   }
 
   function atualizarRelatorios() {
-    let totalFat = 0, totalHoras = 0, totalPerdas = 0, totalPecasVendidas = 0, htmlVendas = '';
+    let totalFat = 0, totalRecebido = 0, totalAReceber = 0, totalEmProducao = 0;
+    let totalHoras = 0, totalPerdas = 0, totalPecasVendidas = 0, lucroRealizado = 0;
+    let pedidosProducao = 0, pedidosConcluidos = 0, htmlVendas = '';
     let lojaFiltro = document.getElementById('filtroLoja').value;
     let mesFiltro = document.getElementById('filtroMes').value;
     let anoFiltro = document.getElementById('filtroAno').value;
@@ -1535,164 +1552,77 @@
         let [vAno, vMes] = v.data.split('-');
         if(mesFiltro !== 'todos' && vMes !== mesFiltro) return false;
         if(anoFiltro !== 'todos' && vAno !== anoFiltro) return false;
-      } else if(mesFiltro !== 'todos' || anoFiltro !== 'todos') {
-        return false;
-      }
+      } else if(mesFiltro !== 'todos' || anoFiltro !== 'todos') return false;
       return true;
     });
 
-    if(vendasFiltradas.length > 0) {
-      vendasFiltradas.forEach(v => {
-        if(v.status === 'Devolvido') totalPerdas += v.total;
-        else {
-          totalFat += v.total;
-          totalHoras += (v.horasUnidade * v.qtd);
-          totalPecasVendidas += parseInt(v.qtd) || 0;
-        }
-        htmlVendas += `<tr><td>${v.data.split('-').reverse().join('/')}</td><td><strong>${v.produtoNome}</strong></td><td>${v.loja}</td><td>${v.qtd} un</td><td style="color: var(--primary); font-weight: 600;">R$ ${v.total.toFixed(2).replace('.', ',')}</td><td>${v.status}</td></tr>`;
-      });
-      document.getElementById('tabelaRelVisaoGeral').innerHTML = htmlVendas;
-      document.getElementById('graficoFaturamentoMsg').innerHTML = `<strong style="color: var(--success); font-size: 18px;">Total no Período: R$ ${totalFat.toFixed(2).replace('.', ',')}</strong>`;
-    } else {
-      document.getElementById('tabelaRelVisaoGeral').innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 25px;">Nenhuma venda encontrada.</td></tr>`;
-      document.getElementById('graficoFaturamentoMsg').innerHTML = `Nenhum dado financeiro para o período selecionado.`;
-    }
+    vendasFiltradas.forEach(v => {
+      const total = obterNumeroMoeda(v.total);
+      const qtd = parseInt(v.qtd) || 0;
+      const status = v.status || 'Concluído';
+      const pagamento = v.pagamentoStatus || (status === 'Concluído' ? 'Recebido' : 'Pendente');
+      const lucroVenda = v.lucroTotal !== undefined ? obterNumeroMoeda(v.lucroTotal) : 0;
+      const horasVenda = (parseFloat(v.horasUnidade) || 0) * qtd;
 
-    let lojasAtivasSalvas = obterLojasComProdutosSalvos();
+      if(status === 'Devolvido') {
+        totalPerdas += total;
+      } else if(status === 'Em Produção') {
+        totalEmProducao += total;
+        pedidosProducao++;
+      } else if(status === 'Concluído') {
+        totalFat += total;
+        totalHoras += horasVenda;
+        totalPecasVendidas += qtd;
+        pedidosConcluidos++;
+        lucroRealizado += lucroVenda;
+        if(pagamento === 'Recebido') totalRecebido += total;
+        else totalAReceber += total;
+      }
+
+      const cor = status === 'Concluído' ? 'var(--success)' : (status === 'Devolvido' ? 'var(--danger)' : 'var(--warning)');
+      const pagamentoTexto = status === 'Devolvido' ? 'Estornado' : (pagamento === 'Recebido' ? 'Recebido' : 'A receber');
+      htmlVendas += `<tr><td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td><td><strong>${v.produtoNome}</strong></td><td>${v.loja}</td><td>${qtd} un</td><td style="color:var(--primary);font-weight:600;">R$ ${total.toFixed(2).replace('.', ',')}</td><td><span style="color:${cor};font-weight:600;">${status}</span><br><small style="color:var(--text-muted);">${pagamentoTexto}</small></td></tr>`;
+    });
+
+    document.getElementById('tabelaRelVisaoGeral').innerHTML = htmlVendas || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:25px;">Nenhuma venda encontrada.</td></tr>`;
+    document.getElementById('graficoFaturamentoMsg').innerHTML = totalFat > 0 ? `<strong style="color:var(--success);font-size:18px;">Faturamento realizado: R$ ${totalFat.toFixed(2).replace('.', ',')}</strong><br><span style="font-size:12px;color:var(--text-muted);">Considera apenas pedidos concluídos.</span>` : `Nenhum faturamento realizado no período.`;
+
+    const margemMedia = totalFat > 0 ? (lucroRealizado / totalFat) * 100 : 0;
+    const ticketMedio = totalPecasVendidas > 0 ? totalFat / totalPecasVendidas : 0;
 
     document.getElementById('lblRelFatTotal').innerText = `R$ ${totalFat.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelRecebido').innerText = `R$ ${totalFat.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelLucroLiq').innerText = `R$ ${(totalFat * 0.55).toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelRecebido').innerText = `R$ ${totalRecebido.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelAReceber').innerText = `R$ ${totalAReceber.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelEmProducao').innerText = `R$ ${totalEmProducao.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelLucroLiq').innerText = `R$ ${lucroRealizado.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelMargem').innerText = `${margemMedia.toFixed(1).replace('.', ',')}%`;
     document.getElementById('lblRelTotalPedidos').innerText = totalPecasVendidas;
-    document.getElementById('lblRelTicketMedio').innerText = `R$ ${(totalPecasVendidas > 0 ? totalFat / totalPecasVendidas : 0).toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelTicketMedio').innerText = `R$ ${ticketMedio.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelPedidosProducao').innerText = pedidosProducao;
+    document.getElementById('lblRelPedidosConcluidos').innerText = pedidosConcluidos;
     document.getElementById('lblRelHorasTotais').innerText = `${totalHoras.toFixed(1)}h`;
     document.getElementById('lblRelCatTotal').innerText = listaProdutosSalvos.length;
     document.getElementById('lblPerdasTotal').innerText = `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblLojasAtivas').innerText = lojasAtivasSalvas.length;
+    document.getElementById('lblLojasAtivas').innerText = obterLojasComProdutosSalvos().length;
 
     let totalFil = 0, totalRes = 0, estoqueAlertaCount = 0, valorEstoque = 0, htmlAlerta = '';
     listaMateriais.forEach(m => {
       valorEstoque += (m.precoPago || 85.00);
       if(m.tipo === 'Resina') totalRes++; else totalFil++;
-
       let pesoMax = m.pesoMax || 1000;
       let estoqueUsado = calcularEstoqueUsadoMaterial(m.id);
       let estoqueAtual = Math.max(0, pesoMax - estoqueUsado);
-
       if(estoqueAtual <= 200) {
         estoqueAlertaCount++;
         let st = obterStatusEstoque(estoqueAtual);
-        htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color: ${st.cor}; font-weight: 600;">${estoqueAtual}g</span></td><td><span style="color: ${st.cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${st.texto}</span></td></tr>`;
+        htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color:${st.cor};font-weight:600;">${estoqueAtual}g</span></td><td><span style="color:${st.cor};background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;font-size:11px;">${st.texto}</span></td></tr>`;
       }
     });
-
-    document.getElementById('lblEstTotalFilamentos').innerText = totalFil;
-    document.getElementById('lblEstTotalResinas').innerText = totalRes;
-    document.getElementById('lblEstCritico').innerText = estoqueAlertaCount;
-    document.getElementById('lblEstValorTotal').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    
-    if(htmlAlerta) {
-      document.getElementById('tabelaMateriaisAlerta').innerHTML = htmlAlerta;
-    } else {
-      document.getElementById('tabelaMateriaisAlerta').innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 25px;">Sem materiais em alerta. Tudo normal!</td></tr>`;
-    }
-  }
-
-  // --- FUNÇÕES DE EXPORTAR E IMPORTAR EXCEL ---
-  function exportarExcelVendas() {
-    if (listaVendas.length === 0) { mostrarToast("Nenhuma venda registrada para exportar."); return; }
-    const ws = XLSX.utils.json_to_sheet(listaVendas);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Vendas");
-    XLSX.writeFile(wb, "Vanmathi3_Vendas.xlsx");
-    mostrarToast("Vendas exportadas com sucesso!");
-  }
-
-  function importarExcelVendas(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(data, {type: 'array'});
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        if(rows.length > 0) {
-          listaVendas = rows;
-          salvarTudoLocal();
-          renderizarVendas();
-          atualizarFiltroAnosDinamico();
-          atualizarRelatorios();
-          mostrarToast("Vendas importadas com sucesso!");
-        }
-      } catch(err) { alert("Erro ao importar arquivo."); }
-      e.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  function exportarExcelEstoque() {
-    if (listaMateriais.length === 0) { mostrarToast("Nenhum material no estoque para exportar."); return; }
-    const ws = XLSX.utils.json_to_sheet(listaMateriais);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Estoque");
-    XLSX.writeFile(wb, "Vanmathi3_Estoque.xlsx");
-    mostrarToast("Estoque exportado com sucesso!");
-  }
-
-  function importarExcelEstoque(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(data, {type: 'array'});
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        if(rows.length > 0) {
-          listaMateriais = rows;
-          salvarTudoLocal();
-          filtrarTabela();
-          atualizarRelatorios();
-          renderizarSelectMaterialCalculadora();
-          mostrarToast("Estoque importado com sucesso!");
-        }
-      } catch(err) { alert("Erro ao importar arquivo."); }
-      e.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  function exportarExcelProdutos() {
-    if (listaProdutosSalvos.length === 0) { mostrarToast("Nenhum produto salvo para exportar."); return; }
-    const ws = XLSX.utils.json_to_sheet(listaProdutosSalvos);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Produtos");
-    XLSX.writeFile(wb, "Vanmathi3_Produtos.xlsx");
-    mostrarToast("Produtos salvos exportados com sucesso!");
-  }
-
-  function importarExcelProdutos(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(data, {type: 'array'});
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        if(rows.length > 0) {
-          listaProdutosSalvos = rows;
-          salvarTudoLocal();
-          renderizarProdutosSalvos();
-          atualizarFiltroLojasDinamico();
-          atualizarRelatorios();
-          mostrarToast("Produtos importados com sucesso!");
-        }
-      } catch(err) { alert("Erro ao importar arquivo."); }
-      e.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
+    document.getElementById('lblTotalFilamentos').innerText = totalFil;
+    document.getElementById('lblTotalResinas').innerText = totalRes;
+    document.getElementById('lblEstoqueAlertas').innerText = estoqueAlertaCount;
+    document.getElementById('lblValorEstoque').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
+    document.getElementById('tabelaAlertasEstoque').innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
   }
 
   filtrarTabela();
