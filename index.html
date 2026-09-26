@@ -1326,8 +1326,10 @@
   // apresenta como Custo Operacional unitário.
   function obterCustoOperacionalProduto(produto) {
     if (!produto) return 0;
-    const valorExibido = produto.custoOperacionalTotal ?? produto.custoOperacional;
-    return obterNumeroMoeda(valorExibido);
+    // O Custo Operacional unitário usado pela Gestão é exatamente o
+    // valor exibido em "Meus Produtos Salvos". Esse valor corresponde
+    // ao custo total de uma unidade (material + custos operacionais).
+    return obterNumeroMoeda(produto.custoOperacional);
   }
 
   function obterDadosFinanceirosCalculadora() {
@@ -1413,8 +1415,11 @@
       margem,
       taxaMarketplace: dadosFinanceiros.taxaMkt,
       valor: formatarMoeda(dadosFinanceiros.valor),
-      custoOperacional: formatarMoeda(dadosFinanceiros.custoOperacional),
-      custoOperacionalTotal: formatarMoeda(dadosFinanceiros.custoOperacional),
+      // Na lista de produtos, "Custo Operacional" é o custo TOTAL
+      // unitário do produto: material + energia + embalagem + frete.
+      // Ex.: R$ 0,61 + R$ 0,10 = R$ 0,71 por unidade.
+      custoOperacional: formatarMoeda(dadosFinanceiros.custoOperacionalTotal),
+      custoOperacionalTotal: formatarMoeda(dadosFinanceiros.custoOperacionalTotal),
       precoVenda: formatarMoeda(dadosFinanceiros.precoVenda),
       precoSugerido: formatarMoeda(dadosFinanceiros.precoVenda),
       lucro: formatarMoeda(dadosFinanceiros.lucro)
