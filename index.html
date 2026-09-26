@@ -441,13 +441,15 @@
               <th>Produto</th>
               <th>Loja Online</th>
               <th>Qtd</th>
-              <th>Valor Total</th>
+              <th>Lucro Operacional</th>
+              <th>Valor do Produto</th>
+              <th>Lucro</th>
               <th>Status</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaVendasCorpo">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
           </tbody>
         </table>
       </div>
@@ -625,14 +627,17 @@
               <th>Nome do Produto</th>
               <th>Loja Online</th>
               <th>Material Vinculado</th>
-              <th>Gramas</th>
+              <th>Grama</th>
               <th>Tempo</th>
-              <th>Preço Sugerido</th>
+              <th>Valor</th>
+              <th>Custo Operacional</th>
+              <th>Preço de Venda</th>
+              <th>Lucro</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaProdutosCorpo">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum produto salvo ainda. Crie na aba de Calculadora!</td></tr>
+            <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum produto salvo ainda. Crie na aba de Calculadora!</td></tr>
           </tbody>
         </table>
       </div>
@@ -643,7 +648,7 @@
   <div class="modal-overlay" id="modalRegistrarVenda">
     <div class="modal-box">
       <div class="modal-header">
-        <span>Registrar Nova Venda</span>
+        <span id="tituloModalVenda">Registrar Nova Venda</span>
         <span style="cursor: pointer; color: var(--text-muted);" onclick="fecharModalRegistrarVenda()">✕</span>
       </div>
       <div class="form-group">
@@ -664,7 +669,7 @@
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
-        <button class="btn-primary" onclick="salvarNovaVenda()">Salvar Venda</button>
+        <button class="btn-primary" id="btnSalvarVenda" onclick="salvarNovaVenda()">Salvar Venda</button>
       </div>
     </div>
   </div>
@@ -756,6 +761,7 @@
     { id: 3, nome: "Amazon", taxa: 15 }
   ];
   let editandoId = null;
+  let editandoVendaId = null;
   let editandoMaterialId = null;
 
   // --- LÓGICA DE INSTALAÇÃO DO APLICATIVO (PWA) ---
@@ -933,18 +939,49 @@
     calcularPreco();
   }
 
-  function abrirModalRegistrarVenda() {
-    if(listaProdutosSalvos.length === 0) { alert("Cadastre e salve pelo menos um produto na Calculadora primeiro!"); return; }
+  function preencherSelectProdutosVenda(produtoSelecionadoId = null) {
     const select = document.getElementById('vendaSelectProduto');
     let html = '';
-    listaProdutosSalvos.forEach(p => { html += `<option value="${p.id}">${p.nome} (${p.loja || 'Shopee'} - ${p.precoSugerido})</option>`; });
+    listaProdutosSalvos.forEach(p => {
+      const selecionado = parseInt(produtoSelecionadoId) === parseInt(p.id) ? ' selected' : '';
+      html += `<option value="${p.id}"${selecionado}>${p.nome} (${p.loja || 'Shopee'} - ${p.precoVenda || p.precoSugerido || 'R$ 0,00'})</option>`;
+    });
     select.innerHTML = html;
+  }
+
+  function abrirModalRegistrarVenda() {
+    if(listaProdutosSalvos.length === 0) { alert("Cadastre e salve pelo menos um produto na Calculadora primeiro!"); return; }
+    editandoVendaId = null;
+    preencherSelectProdutosVenda();
     document.getElementById('vendaQtd').value = 1;
     document.getElementById('vendaData').value = new Date().toISOString().split('T')[0];
+    document.getElementById('vendaStatus').value = 'Concluído';
+    document.getElementById('tituloModalVenda').innerText = 'Registrar Nova Venda';
+    document.getElementById('btnSalvarVenda').innerText = 'Salvar Venda';
     document.getElementById('modalRegistrarVenda').classList.add('active');
   }
 
-  function fecharModalRegistrarVenda() { document.getElementById('modalRegistrarVenda').classList.remove('active'); }
+  function abrirModalEditarVenda(id) {
+    const venda = listaVendas.find(v => v.id === id);
+    if(!venda) return;
+    if(listaProdutosSalvos.length === 0) { alert('Não há produtos salvos para editar esta venda.'); return; }
+    editandoVendaId = id;
+    const produtoVinculado = listaProdutosSalvos.find(p => p.id === venda.produtoId) || listaProdutosSalvos.find(p => p.nome === venda.produtoNome && (p.loja || 'Shopee') === venda.loja);
+    preencherSelectProdutosVenda(produtoVinculado ? produtoVinculado.id : null);
+    document.getElementById('vendaQtd').value = venda.qtd || 1;
+    document.getElementById('vendaData').value = venda.data || new Date().toISOString().split('T')[0];
+    document.getElementById('vendaStatus').value = venda.status || 'Concluído';
+    document.getElementById('tituloModalVenda').innerText = 'Editar Venda';
+    document.getElementById('btnSalvarVenda').innerText = 'Salvar Alterações';
+    document.getElementById('modalRegistrarVenda').classList.add('active');
+  }
+
+  function fecharModalRegistrarVenda() {
+    document.getElementById('modalRegistrarVenda').classList.remove('active');
+    editandoVendaId = null;
+    document.getElementById('tituloModalVenda').innerText = 'Registrar Nova Venda';
+    document.getElementById('btnSalvarVenda').innerText = 'Salvar Venda';
+  }
 
   function salvarNovaVenda() {
     const prodId = parseInt(document.getElementById('vendaSelectProduto').value);
@@ -955,22 +992,37 @@
     const produto = listaProdutosSalvos.find(p => p.id === prodId);
     if(!produto) return;
 
-    let numPreco = parseFloat(produto.precoSugerido.replace('R$', '').replace('.', '').replace(',', '.')) || 0;
-    let totalVenda = numPreco * qtd;
-    let totalHorasNum = (parseFloat(produto.horas) || 0) + ((parseFloat(produto.minutos) || 0) / 60);
+    const numPreco = obterNumeroMoeda(produto.precoVenda || produto.precoSugerido);
+    const totalVenda = numPreco * qtd;
+    const totalHorasNum = (parseFloat(produto.horas) || 0) + ((parseFloat(produto.minutos) || 0) / 60);
+    const lucroUnidade = obterNumeroMoeda(produto.lucro);
 
-    listaVendas.push({
-      id: Date.now(),
+    const dadosVenda = {
+      produtoId: produto.id,
       produtoNome: produto.nome,
-      loja: produto.loja || "Shopee",
+      loja: produto.loja || 'Shopee',
       materialId: produto.materialId,
       gramasUnidade: parseFloat(produto.gramas) || 0,
       horasUnidade: totalHorasNum,
       qtd: qtd,
       total: totalVenda,
+      lucroOperacionalUnidade: numPreco - obterNumeroMoeda(produto.custoOperacionalTotal || produto.custoOperacional || produto.valor),
+      lucroTotal: lucroUnidade * qtd,
+      valorProdutoUnidade: numPreco,
       data: data,
       status: status
-    });
+    };
+
+    if(editandoVendaId) {
+      const indice = listaVendas.findIndex(v => v.id === editandoVendaId);
+      if(indice !== -1) {
+        listaVendas[indice] = { ...listaVendas[indice], id: editandoVendaId, ...dadosVenda };
+        mostrarToast('Venda atualizada! Estoque e produção recalculados.');
+      }
+    } else {
+      listaVendas.push({ id: Date.now(), ...dadosVenda });
+      mostrarToast('Venda registrada! Estoque e produção atualizados.');
+    }
 
     salvarTudoLocal();
     fecharModalRegistrarVenda();
@@ -978,7 +1030,6 @@
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
-    mostrarToast(`Venda registrada! Estoque e produção atualizados.`);
   }
 
   function excluirVenda(id) {
@@ -1010,22 +1061,30 @@
     });
 
     if(vendasFiltradas.length === 0) {
-      corpo.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
       return;
     }
 
     let html = '';
     vendasFiltradas.forEach(v => {
       let cor = v.status === 'Concluído' ? 'var(--success)' : (v.status === 'Devolvido' ? 'var(--danger)' : 'var(--warning)');
+      const lucroOperacional = v.lucroOperacionalUnidade !== undefined ? (parseFloat(v.lucroOperacionalUnidade) || 0) : obterNumeroMoeda(v.lucro);
+      const lucroTotal = v.lucroTotal !== undefined ? (parseFloat(v.lucroTotal) || 0) : lucroOperacional * (parseInt(v.qtd) || 1);
+      const valorProduto = parseFloat(v.valorProdutoUnidade) || ((parseFloat(v.total) || 0) / (parseInt(v.qtd) || 1));
       html += `
         <tr>
-          <td>${v.data.split('-').reverse().join('/')}</td>
+          <td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td>
           <td><strong>${v.produtoNome}</strong></td>
           <td>${v.loja}</td>
           <td>${v.qtd} un</td>
-          <td style="color: var(--primary); font-weight: 600;">R$ ${v.total.toFixed(2).replace('.', ',')}</td>
+          <td style="color: var(--warning); font-weight: 600;">R$ ${lucroOperacional.toFixed(2).replace('.', ',')}</td>
+          <td style="color: var(--primary); font-weight: 600;">R$ ${(valorProduto * (parseInt(v.qtd) || 1)).toFixed(2).replace('.', ',')}</td>
+          <td style="color: var(--success); font-weight: 600;">R$ ${lucroTotal.toFixed(2).replace('.', ',')}</td>
           <td><span style="color: ${cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${v.status}</span></td>
-          <td><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirVenda(${v.id})">🗑️</button></td>
+          <td style="display: flex; gap: 6px;">
+            <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="abrirModalEditarVenda(${v.id})" title="Editar venda">✏️</button>
+            <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirVenda(${v.id})" title="Excluir venda">🗑️</button>
+          </td>
         </tr>`;
     });
     corpo.innerHTML = html;
@@ -1234,52 +1293,73 @@
     badge.innerText = total + (total === 1 ? " material" : " materiais");
   }
 
-  function calcularPreco() {
+  function obterNumeroMoeda(valor) {
+    if (valor === null || valor === undefined || valor === '') return 0;
+    if (typeof valor === 'number') return valor;
+    let texto = String(valor).replace(/R\$/g, '').trim();
+    if (texto.includes(',')) texto = texto.replace(/\./g, '').replace(',', '.');
+    const numero = parseFloat(texto);
+    return Number.isFinite(numero) ? numero : 0;
+  }
+
+  function obterDadosFinanceirosCalculadora() {
     const gramas = parseFloat(document.getElementById('calcGramas').value) || 0;
     const horas = parseFloat(document.getElementById('calcHoras').value) || 0;
     const minutos = parseFloat(document.getElementById('calcMinutos').value) || 0;
     const totalHoras = horas + (minutos / 60);
-
     const custoEnergiaHora = parseFloat(document.getElementById('configCustoEnergiaHora').value) || 0;
     const embalagem = parseFloat(document.getElementById('calcEmbalagem').value) || 0;
     const frete = parseFloat(document.getElementById('calcFrete').value) || 0;
     const taxaMkt = parseFloat(document.getElementById('calcTaxa').value) || 0;
     const margem = parseFloat(document.getElementById('calcMargem').value) || 0;
-
-    let matId = parseInt(document.getElementById('calcSelectMaterial').value);
-    let materialObj = listaMateriais.find(m => m.id === matId);
+    const matId = parseInt(document.getElementById('calcSelectMaterial').value);
+    const materialObj = listaMateriais.find(m => m.id === matId);
     let custoGramaReal = 0.085;
     if(materialObj) {
-      let pesoMax = materialObj.pesoMax || 1000;
-      let preco = materialObj.precoPago || 85;
+      const pesoMax = materialObj.pesoMax || 1000;
+      const preco = materialObj.precoPago || 85;
       custoGramaReal = pesoMax > 0 ? (preco / pesoMax) : 0.085;
     }
-
-    const cf = gramas * custoGramaReal;
+    const valor = gramas * custoGramaReal;
     const ce = totalHoras * custoEnergiaHora;
-    const ct = cf + ce + embalagem + frete;
+    const custoOperacional = ce + embalagem + frete;
+    const ct = valor + custoOperacional;
     const sub = ct + (ct * (margem / 100));
-    const pf = (1 - (taxaMkt / 100)) > 0 ? sub / (1 - (taxaMkt / 100)) : sub;
-    const liq = pf - ct - (pf * (taxaMkt / 100));
+    const precoVenda = (1 - (taxaMkt / 100)) > 0 ? sub / (1 - (taxaMkt / 100)) : sub;
+    const lucro = precoVenda - ct - (precoVenda * (taxaMkt / 100));
+    return { valor, custoOperacional, custoOperacionalTotal: ct, precoVenda, lucro, taxaMkt, totalHoras };
+  }
+
+  function calcularPreco() {
+    const dados = obterDadosFinanceirosCalculadora();
+    const gramas = parseFloat(document.getElementById('calcGramas').value) || 0;
+    const horas = parseFloat(document.getElementById('calcHoras').value) || 0;
+    const minutos = parseFloat(document.getElementById('calcMinutos').value) || 0;
+    const custoEnergiaHora = parseFloat(document.getElementById('configCustoEnergiaHora').value) || 0;
+    const embalagem = parseFloat(document.getElementById('calcEmbalagem').value) || 0;
+    const frete = parseFloat(document.getElementById('calcFrete').value) || 0;
+
+    const totalHoras = dados.totalHoras;
+    const cf = dados.valor;
+    const ce = totalHoras * custoEnergiaHora;
+    const ct = dados.custoOperacionalTotal;
 
     document.getElementById('lblCustoFilamento').innerText = `R$ ${cf.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoEnergia').innerText = `R$ ${ce.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoEmb').innerText = `R$ ${embalagem.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoFrete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoTotal').innerText = `R$ ${ct.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblPrecoSugerido').innerText = `R$ ${pf.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblLucroEstimado').innerText = `Lucro Líquido Estimado: R$ ${liq.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblPrecoSugerido').innerText = `R$ ${dados.precoVenda.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblLucroEstimado').innerText = `Lucro Líquido Estimado: R$ ${dados.lucro.toFixed(2).replace('.', ',')}`;
   }
 
   function salvarProdutoAtual() {
     const nome = document.getElementById('calcNomeProduto').value;
     const selectMkt = document.getElementById('selectMarketplace');
     const lojaNome = selectMkt.options[selectMkt.selectedIndex].text.split('(')[0].trim();
-    
     const selectMat = document.getElementById('calcSelectMaterial');
     const materialId = parseInt(selectMat.value);
-    const materialNome = selectMat.options[selectMat.selectedIndex] ? selectMat.options[selectMat.selectedIndex].text : "Nenhum";
-
+    const materialNome = selectMat.options[selectMat.selectedIndex] ? selectMat.options[selectMat.selectedIndex].text : 'Nenhum';
     const gramas = document.getElementById('calcGramas').value;
     const horas = document.getElementById('calcHoras').value;
     const minutos = document.getElementById('calcMinutos').value;
@@ -1287,46 +1367,45 @@
     const embalagem = document.getElementById('calcEmbalagem').value;
     const frete = document.getElementById('calcFrete').value;
     const margem = document.getElementById('calcMargem').value;
-    const precoSugerido = document.getElementById('lblPrecoSugerido').innerText;
-    if(!nome) { alert("Insira o nome do produto."); return; }
+    const dadosFinanceiros = obterDadosFinanceirosCalculadora();
+    const formatarMoeda = valor => `R$ ${valor.toFixed(2).replace('.', ',')}`;
+
+    if(!nome) { alert('Insira o nome do produto.'); return; }
+
+    const dadosProduto = {
+      loja: lojaNome,
+      materialId,
+      materialNome,
+      gramas,
+      horas,
+      minutos,
+      custoEnergiaHora,
+      embalagem,
+      frete,
+      margem,
+      taxaMarketplace: dadosFinanceiros.taxaMkt,
+      valor: formatarMoeda(dadosFinanceiros.valor),
+      custoOperacional: formatarMoeda(dadosFinanceiros.custoOperacional),
+      custoOperacionalTotal: formatarMoeda(dadosFinanceiros.custoOperacionalTotal),
+      precoVenda: formatarMoeda(dadosFinanceiros.precoVenda),
+      precoSugerido: formatarMoeda(dadosFinanceiros.precoVenda),
+      lucro: formatarMoeda(dadosFinanceiros.lucro)
+    };
 
     if(editandoId) {
-      let p = listaProdutosSalvos.find(item => item.id === editandoId);
-      if(p) { 
-        p.nome = nome; 
-        p.loja = lojaNome; 
-        p.materialId = materialId;
-        p.materialNome = materialNome;
-        p.gramas = gramas; 
-        p.horas = horas; 
-        p.minutos = minutos;
-        p.custoEnergiaHora = custoEnergiaHora;
-        p.embalagem = embalagem; 
-        p.frete = frete;
-        p.margem = margem; 
-        p.precoSugerido = precoSugerido; 
+      const produto = listaProdutosSalvos.find(item => item.id === editandoId);
+      if(produto) {
+        produto.nome = nome;
+        Object.assign(produto, dadosProduto);
       }
       editandoId = null;
-      document.getElementById('labelModoEdicao').innerText = "Modo Novo Produto";
-      mostrarToast("Produto atualizado!");
+      document.getElementById('labelModoEdicao').innerText = 'Modo Novo Produto';
+      mostrarToast('Produto atualizado!');
     } else {
-      listaProdutosSalvos.push({ 
-        id: Date.now(), 
-        nome, 
-        loja: lojaNome, 
-        materialId, 
-        materialNome, 
-        gramas, 
-        horas, 
-        minutos,
-        custoEnergiaHora,
-        embalagem, 
-        frete,
-        margem, 
-        precoSugerido 
-      });
-      mostrarToast("Produto salvo com sucesso!");
+      listaProdutosSalvos.push({ id: Date.now(), nome, ...dadosProduto });
+      mostrarToast('Produto salvo com sucesso!');
     }
+
     salvarTudoLocal();
     renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios();
     mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[4] }, 'produtos');
@@ -1337,14 +1416,20 @@
     if(!p) return;
     editandoId = p.id;
     document.getElementById('calcNomeProduto').value = p.nome;
+    renderizarSelectLojas();
+    const lojaOption = Array.from(document.getElementById('selectMarketplace').options).find(o => o.text.split('(')[0].trim() === (p.loja || 'Shopee'));
+    if(lojaOption) {
+      document.getElementById('selectMarketplace').value = lojaOption.value;
+      document.getElementById('calcTaxa').value = p.taxaMarketplace !== undefined ? p.taxaMarketplace : lojaOption.value;
+    }
     if(p.materialId) renderizarSelectMaterialCalculadora(p.materialId);
     document.getElementById('calcGramas').value = p.gramas;
     document.getElementById('calcHoras').value = p.horas || 0;
     document.getElementById('calcMinutos').value = p.minutos || 0;
-    document.getElementById('configCustoEnergiaHora').value = p.custoEnergiaHora || "0.20";
-    document.getElementById('calcEmbalagem').value = p.embalagem || "3.50";
-    document.getElementById('calcFrete').value = p.frete || "0.00";
-    if(p.margem) document.getElementById('calcMargem').value = p.margem;
+    document.getElementById('configCustoEnergiaHora').value = p.custoEnergiaHora || '0.20';
+    document.getElementById('calcEmbalagem').value = p.embalagem || '3.50';
+    document.getElementById('calcFrete').value = p.frete || '0.00';
+    if(p.margem !== undefined) document.getElementById('calcMargem').value = p.margem;
     document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
     mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
     calcularPreco(); mostrarToast(`Carregado "${p.nome}" para edição!`);
@@ -1358,19 +1443,23 @@
 
   function renderizarProdutosSalvos() {
     const corpo = document.getElementById('tabelaProdutosCorpo');
-    let lojaFiltro = document.getElementById('filtroLoja').value;
-    let produtosFiltrados = listaProdutosSalvos.filter(p => (lojaFiltro === 'todos' || p.loja === lojaFiltro));
+    const lojaFiltro = document.getElementById('filtroLoja').value;
+    const produtosFiltrados = listaProdutosSalvos.filter(p => (lojaFiltro === 'todos' || p.loja === lojaFiltro));
 
     if(produtosFiltrados.length === 0) {
-      corpo.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum produto encontrado.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum produto encontrado.</td></tr>`;
       return;
     }
 
     let html = '';
     produtosFiltrados.forEach((p) => {
-      let matLabel = p.materialNome || "Material não vinculado";
+      const matLabel = p.materialNome || 'Material não vinculado';
       let tempoStr = `${p.horas || 0}h`;
       if(p.minutos && parseInt(p.minutos) > 0) tempoStr += ` ${p.minutos}m`;
+      const valor = obterNumeroMoeda(p.valor);
+      const custoOperacional = obterNumeroMoeda(p.custoOperacionalTotal || p.custoOperacional);
+      const precoVenda = obterNumeroMoeda(p.precoVenda || p.precoSugerido);
+      const lucro = obterNumeroMoeda(p.lucro);
 
       html += `<tr>
         <td><strong>${p.nome}</strong></td>
@@ -1378,8 +1467,14 @@
         <td style="font-size: 12px; color: var(--text-muted);">${matLabel}</td>
         <td>${p.gramas}g</td>
         <td>${tempoStr}</td>
-        <td style="color: var(--primary); font-weight: 600;">${p.precoSugerido}</td>
-        <td style="display: flex; gap: 8px;"><button class="btn-secondary" style="padding: 6px 10px;" onclick="editarProduto(${p.id})">✏️ Editar</button><button class="btn-danger" style="padding: 6px 10px;" onclick="excluirProduto(${p.id})">🗑️ Excluir</button></td>
+        <td style="color: var(--text-color); font-weight: 600;">R$ ${valor.toFixed(2).replace('.', ',')}</td>
+        <td style="color: var(--warning); font-weight: 600;">R$ ${custoOperacional.toFixed(2).replace('.', ',')}</td>
+        <td style="color: var(--primary); font-weight: 600;">R$ ${precoVenda.toFixed(2).replace('.', ',')}</td>
+        <td style="color: var(--success); font-weight: 600;">R$ ${lucro.toFixed(2).replace('.', ',')}</td>
+        <td style="display: flex; gap: 6px;">
+          <button class="btn-secondary" style="padding: 6px 8px;" onclick="editarProduto(${p.id})" title="Editar produto">✏️</button>
+          <button class="btn-danger" style="padding: 6px 8px;" onclick="excluirProduto(${p.id})" title="Excluir produto">🗑️</button>
+        </td>
       </tr>`;
     });
     corpo.innerHTML = html;
