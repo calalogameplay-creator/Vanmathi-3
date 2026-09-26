@@ -441,7 +441,7 @@
               <th>Produto</th>
               <th>Loja Online</th>
               <th>Qtd</th>
-              <th>Lucro Operacional</th>
+              <th>Custo Operacional</th>
               <th>Valor do Produto</th>
               <th>Lucro</th>
               <th>Status</th>
@@ -1006,7 +1006,8 @@
       horasUnidade: totalHorasNum,
       qtd: qtd,
       total: totalVenda,
-      lucroOperacionalUnidade: numPreco - obterNumeroMoeda(produto.custoOperacionalTotal || produto.custoOperacional || produto.valor),
+      custoOperacionalUnidade: obterNumeroMoeda(produto.custoOperacional),
+      custoOperacionalTotal: obterNumeroMoeda(produto.custoOperacional) * qtd,
       lucroTotal: lucroUnidade * qtd,
       valorProdutoUnidade: numPreco,
       data: data,
@@ -1068,16 +1069,35 @@
     let html = '';
     vendasFiltradas.forEach(v => {
       let cor = v.status === 'Concluído' ? 'var(--success)' : (v.status === 'Devolvido' ? 'var(--danger)' : 'var(--warning)');
-      const lucroOperacional = v.lucroOperacionalUnidade !== undefined ? (parseFloat(v.lucroOperacionalUnidade) || 0) : obterNumeroMoeda(v.lucro);
-      const lucroTotal = v.lucroTotal !== undefined ? (parseFloat(v.lucroTotal) || 0) : lucroOperacional * (parseInt(v.qtd) || 1);
-      const valorProduto = parseFloat(v.valorProdutoUnidade) || ((parseFloat(v.total) || 0) / (parseInt(v.qtd) || 1));
+      const qtdVenda = parseInt(v.qtd) || 1;
+      // Na Gestão, o custo operacional deve vir do produto salvo (valor unitário)
+      // e ser multiplicado pela quantidade desta venda.
+      // O custo operacional da Gestão é sempre o custo OPERACIONAL UNITÁRIO
+      // do produto em "Meus Produtos Salvos", multiplicado pela quantidade da venda.
+      // Vendas antigas podem não ter produtoId; por isso também fazemos a vinculação
+      // pelo nome + loja antes de usar qualquer valor gravado na própria venda.
+      const produtoSalvo = listaProdutosSalvos.find(p => String(p.id) === String(v.produtoId))
+        || listaProdutosSalvos.find(p =>
+          String(p.nome || '').trim().toLowerCase() === String(v.produtoNome || '').trim().toLowerCase()
+          && String(p.loja || 'Shopee').trim().toLowerCase() === String(v.loja || 'Shopee').trim().toLowerCase()
+        )
+        || listaProdutosSalvos.find(p =>
+          String(p.nome || '').trim().toLowerCase() === String(v.produtoNome || '').trim().toLowerCase()
+        );
+      // IMPORTANTE: usa exatamente o valor de "Custo Operacional"
+      // exibido em Meus Produtos Salvos como valor UNITÁRIO.
+      // Depois multiplica pela quantidade da venda.
+      const custoOperacionalUnitario = obterCustoOperacionalProduto(produtoSalvo);
+      const custoOperacionalTotal = custoOperacionalUnitario * qtdVenda;
+      const lucroTotal = v.lucroTotal !== undefined ? (parseFloat(v.lucroTotal) || 0) : obterNumeroMoeda(v.lucro) * qtdVenda;
+      const valorProduto = parseFloat(v.valorProdutoUnidade) || ((parseFloat(v.total) || 0) / qtdVenda);
       html += `
         <tr>
           <td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td>
           <td><strong>${v.produtoNome}</strong></td>
           <td>${v.loja}</td>
           <td>${v.qtd} un</td>
-          <td style="color: var(--warning); font-weight: 600;">R$ ${lucroOperacional.toFixed(2).replace('.', ',')}</td>
+          <td style="color: var(--warning); font-weight: 600;">R$ ${custoOperacionalTotal.toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--primary); font-weight: 600;">R$ ${(valorProduto * (parseInt(v.qtd) || 1)).toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--success); font-weight: 600;">R$ ${lucroTotal.toFixed(2).replace('.', ',')}</td>
           <td><span style="color: ${cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${v.status}</span></td>
@@ -1302,6 +1322,14 @@
     return Number.isFinite(numero) ? numero : 0;
   }
 
+  // Retorna exatamente o valor que a aba "Meus Produtos Salvos"
+  // apresenta como Custo Operacional unitário.
+  function obterCustoOperacionalProduto(produto) {
+    if (!produto) return 0;
+    const valorExibido = produto.custoOperacionalTotal ?? produto.custoOperacional;
+    return obterNumeroMoeda(valorExibido);
+  }
+
   function obterDadosFinanceirosCalculadora() {
     const gramas = parseFloat(document.getElementById('calcGramas').value) || 0;
     const horas = parseFloat(document.getElementById('calcHoras').value) || 0;
@@ -1386,7 +1414,7 @@
       taxaMarketplace: dadosFinanceiros.taxaMkt,
       valor: formatarMoeda(dadosFinanceiros.valor),
       custoOperacional: formatarMoeda(dadosFinanceiros.custoOperacional),
-      custoOperacionalTotal: formatarMoeda(dadosFinanceiros.custoOperacionalTotal),
+      custoOperacionalTotal: formatarMoeda(dadosFinanceiros.custoOperacional),
       precoVenda: formatarMoeda(dadosFinanceiros.precoVenda),
       precoSugerido: formatarMoeda(dadosFinanceiros.precoVenda),
       lucro: formatarMoeda(dadosFinanceiros.lucro)
@@ -1457,7 +1485,7 @@
       let tempoStr = `${p.horas || 0}h`;
       if(p.minutos && parseInt(p.minutos) > 0) tempoStr += ` ${p.minutos}m`;
       const valor = obterNumeroMoeda(p.valor);
-      const custoOperacional = obterNumeroMoeda(p.custoOperacionalTotal || p.custoOperacional);
+      const custoOperacional = obterCustoOperacionalProduto(p);
       const precoVenda = obterNumeroMoeda(p.precoVenda || p.precoSugerido);
       const lucro = obterNumeroMoeda(p.lucro);
 
