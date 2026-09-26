@@ -564,6 +564,7 @@
             </div>
             <div class="form-row">
               <div class="form-group"><label>Frete / Logística (R$)</label><input type="number" id="calcFrete" value="0.00" step="0.50" oninput="calcularPreco()"></div>
+              <div class="form-group"><label>Acessórios / Componentes (R$)</label><input type="number" id="calcAcessorios" value="0.00" min="0" step="0.01" oninput="calcularPreco()"></div>
             </div>
           </div>
 
@@ -589,6 +590,9 @@
             </div>
             <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
               <span>Frete / Logística:</span> <strong id="lblCustoFrete" style="color: var(--text-color);">R$ 0,00</strong>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Acessórios / Componentes:</span> <strong id="lblCustoAcessorios" style="color: var(--text-color);">R$ 0,00</strong>
             </div>
             <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
               <span>Custo Operacional Total:</span> <strong id="lblCustoTotal" style="color: var(--warning);">R$ 0,00</strong>
@@ -1340,6 +1344,7 @@
     const custoEnergiaHora = parseFloat(document.getElementById('configCustoEnergiaHora').value) || 0;
     const embalagem = parseFloat(document.getElementById('calcEmbalagem').value) || 0;
     const frete = parseFloat(document.getElementById('calcFrete').value) || 0;
+    const acessorios = parseFloat(document.getElementById('calcAcessorios').value) || 0;
     const taxaMkt = parseFloat(document.getElementById('calcTaxa').value) || 0;
     const margem = parseFloat(document.getElementById('calcMargem').value) || 0;
     const matId = parseInt(document.getElementById('calcSelectMaterial').value);
@@ -1352,12 +1357,12 @@
     }
     const valor = gramas * custoGramaReal;
     const ce = totalHoras * custoEnergiaHora;
-    const custoOperacional = ce + embalagem + frete;
+    const custoOperacional = ce + embalagem + frete + acessorios;
     const ct = valor + custoOperacional;
     const sub = ct + (ct * (margem / 100));
     const precoVenda = (1 - (taxaMkt / 100)) > 0 ? sub / (1 - (taxaMkt / 100)) : sub;
     const lucro = precoVenda - ct - (precoVenda * (taxaMkt / 100));
-    return { valor, custoOperacional, custoOperacionalTotal: ct, precoVenda, lucro, taxaMkt, totalHoras };
+    return { valor, custoOperacional, custoOperacionalTotal: ct, precoVenda, lucro, taxaMkt, totalHoras, acessorios };
   }
 
   function calcularPreco() {
@@ -1368,6 +1373,7 @@
     const custoEnergiaHora = parseFloat(document.getElementById('configCustoEnergiaHora').value) || 0;
     const embalagem = parseFloat(document.getElementById('calcEmbalagem').value) || 0;
     const frete = parseFloat(document.getElementById('calcFrete').value) || 0;
+    const acessorios = parseFloat(document.getElementById('calcAcessorios').value) || 0;
 
     const totalHoras = dados.totalHoras;
     const cf = dados.valor;
@@ -1378,6 +1384,7 @@
     document.getElementById('lblCustoEnergia').innerText = `R$ ${ce.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoEmb').innerText = `R$ ${embalagem.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoFrete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblCustoAcessorios').innerText = `R$ ${acessorios.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoTotal').innerText = `R$ ${ct.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblPrecoSugerido').innerText = `R$ ${dados.precoVenda.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblLucroEstimado').innerText = `Lucro Líquido Estimado: R$ ${dados.lucro.toFixed(2).replace('.', ',')}`;
@@ -1396,6 +1403,7 @@
     const custoEnergiaHora = document.getElementById('configCustoEnergiaHora').value;
     const embalagem = document.getElementById('calcEmbalagem').value;
     const frete = document.getElementById('calcFrete').value;
+    const acessorios = document.getElementById('calcAcessorios').value;
     const margem = document.getElementById('calcMargem').value;
     const dadosFinanceiros = obterDadosFinanceirosCalculadora();
     const formatarMoeda = valor => `R$ ${valor.toFixed(2).replace('.', ',')}`;
@@ -1412,11 +1420,12 @@
       custoEnergiaHora,
       embalagem,
       frete,
+      acessorios,
       margem,
       taxaMarketplace: dadosFinanceiros.taxaMkt,
       valor: formatarMoeda(dadosFinanceiros.valor),
       // Na lista de produtos, "Custo Operacional" é o custo TOTAL
-      // unitário do produto: material + energia + embalagem + frete.
+      // unitário do produto: material + energia + embalagem + frete + acessórios.
       // Ex.: R$ 0,61 + R$ 0,10 = R$ 0,71 por unidade.
       custoOperacional: formatarMoeda(dadosFinanceiros.custoOperacionalTotal),
       custoOperacionalTotal: formatarMoeda(dadosFinanceiros.custoOperacionalTotal),
@@ -1462,6 +1471,7 @@
     document.getElementById('configCustoEnergiaHora').value = p.custoEnergiaHora || '0.20';
     document.getElementById('calcEmbalagem').value = p.embalagem || '3.50';
     document.getElementById('calcFrete').value = p.frete || '0.00';
+    document.getElementById('calcAcessorios').value = p.acessorios || '0.00';
     if(p.margem !== undefined) document.getElementById('calcMargem').value = p.margem;
     document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
     mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
