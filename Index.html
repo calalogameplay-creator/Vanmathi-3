@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vanmathi 3 - Painel de Gestão e Impressão 3D</title>
+  
+  <!-- CONFIGURAÇÕES DE PWA (APLICATIVO) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vanmathi 3">
+
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-sidebar: #131b2e;
+      --card-bg: #131b2e;
+      --text-color: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --border: #1e293b;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-color);
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    aside {
+      width: 260px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      transition: transform 0.3s ease;
+      z-index: 200;
+    }
+    .logo-area { font-size: 20px; font-weight: bold; color: var(--primary); margin-bottom: 25px; display: flex; align-items: center; gap: 8px; }
+    .menu-section { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 1px; }
+    .nav-links { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+    .nav-links li { margin-bottom: 4px; }
+    .nav-links a {
+      display: block; padding: 10px 12px; color: var(--text-muted); text-decoration: none; border-radius: 6px; font-size: 14px; transition: all 0.2s; cursor: pointer;
+    }
+    .nav-links a:hover, .nav-links a.active { background: rgba(59, 130, 246, 0.15); color: var(--primary); font-weight: 600; }
+    .user-info { font-size: 14px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 15px; }
+
+    .mobile-header {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 150;
+    }
+    .hamburger-btn { background: none; border: none; color: var(--text-color); font-size: 24px; cursor: pointer; }
+    .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; z-index: 180; }
+    .sidebar-overlay.active { display: block; }
+
+    main { flex-grow: 1; padding: 30px; overflow-y: auto; position: relative; }
+    .content-section { display: none; }
+    .content-section.active { display: block; }
+
+    .header-painel { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+    .header-title small { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px; }
+    .header-title h1 { margin: 0; font-size: 24px; color: var(--text-color); }
+    .header-title p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 13px; }
+    
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; }
+    .filters select {
+      background: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); padding: 8px 14px; border-radius: 6px; outline: none; font-size: 13px; cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--primary); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    .btn-danger { background: var(--danger); color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+    .tab-menu { display: flex; gap: 20px; border-bottom: 1px solid var(--border); margin-bottom: 25px; overflow-x: auto; padding-bottom: 4px; }
+    .tab-btn {
+      background: none; border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 10px 4px; font-weight: 500; position: relative; transition: color 0.2s; white-space: nowrap;
+    }
+    .tab-btn:hover, .tab-btn.active { color: var(--primary); }
+    .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--primary); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .metric-card { background: var(--card-bg); border: 1px solid var(--border); padding: 18px; border-radius: 10px; position: relative; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
+    .metric-card span { color: var(--text-muted); font-size: 12px; display: block; margin-bottom: 10px; }
+    .metric-card h3 { margin: 0; font-size: 20px; color: var(--text-color); }
+    .metric-icon { position: absolute; top: 18px; right: 18px; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+    .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .card-box { background: var(--card-bg); border: 1px solid var(--border); padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+    .card-box h3 { margin-top: 0; margin-bottom: 6px; font-size: 15px; color: var(--text-color); }
+    .card-box p.subtitle { margin: 0 0 15px 0; color: var(--text-muted); font-size: 12px; }
+
+    .table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+    .search-box { position: relative; width: 100%; max-width: 320px; }
+    .search-box input { width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); padding: 10px 14px 10px 36px; border-radius: 8px; font-size: 13px; outline: none; }
+    .search-box span { position: absolute; left: 12px; top: 10px; color: var(--text-muted); }
+    .badge-count { background: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+
+    .table-container { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; margin-bottom: 15px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 550px; }
+    th, td { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-muted); font-weight: 500; background: rgba(255,255,255,0.01); }
+    td { color: var(--text-color); }
+    .stock-indicator { display: flex; align-items: center; gap: 10px; }
+    .stock-bar { width: 80px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .stock-fill { height: 100%; transition: width 0.3s; }
+
+    .calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .calc-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+    .form-group input, .form-group select { width: 100%; background: var(--bg-sidebar); border: 1px solid var(--border); color: var(--text-color); padding: 10px; border-radius: 8px; font-size: 13px; outline: none; }
+    
+    .resultado-box { background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary); border-radius: 10px; padding: 16px; margin-top: 15px; text-align: center; }
+    .resultado-box h3 { margin: 0 0 5px 0; color: var(--primary); font-size: 20px; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; padding: 15px; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: var(--bg-sidebar); border: 1px solid var(--border); width: 100%; max-width: 480px; border-radius: 12px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 16px; font-weight: 600; }
+    .form-row { display: flex; gap: 15px; margin-bottom: 16px; flex-wrap: wrap; }
+    .form-row .form-group { flex: 1; min-width: 140px; }
+
+    .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+    .toast { background: #0f172a; border: 1px solid var(--success); color: #fff; padding: 14px 20px; border-radius: 10px; font-size: 13px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; transform: translateX(120%); transition: transform 0.35s; pointer-events: auto; }
+    .toast.show { transform: translateX(0); }
+    .toast-icon { background: var(--success); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0; }
+
+    @media (max-width: 900px) {
+      body { flex-direction: column; height: auto; overflow: auto; }
+      aside { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-100%); width: 280px; }
+      aside.mobile-open { transform: translateX(0); }
+      .mobile-header { display: flex; }
+      main { padding: 15px; overflow-y: visible; height: auto; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .calc-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="mobile-header">
+    <div class="logo-area" style="margin: 0; font-size: 18px;">🖨️ Vanmathi 3</div>
+    <button class="hamburger-btn" onclick="toggleMenuMobile()">☰</button>
+  </div>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMenuMobile()"></div>
+
+  <aside id="asideMenu">
+    <div>
+      <div class="logo-area">🖨️ Vanmathi 3</div>
+      <div class="menu-section">Organização</div>
+      <ul class="nav-links">
+        <li><a class="active" onclick="mudarAbaMenu(event, 'relatorios')">📊 Relatórios & Visão</a></li>
+        <li><a onclick="mudarAbaMenu(event, 'vendas')">🛒 Gestão de Vendas</a></li>
+        <li><a onclick="mudarAbaMenu(event, 'estoque')">📦 Estoque de Filamentos</a></li>
+        <li><a onclick="mudarAbaMenu(event, 'precificacao')">💰 Calculadora & Lojas</a></li>
+        <li><a onclick="mudarAbaMenu(event, 'produtos')">🏷️ Meus Produtos Salvos</a></li>
+      </ul>
+    </div>
+    <div class="user-info">
+      <strong>Matheus Galdino</strong><br>
+      <span style="font-size: 12px; color: var(--success);">● Servidor Local Seguro</span>
+    </div>
+  </aside>
+
+  <main>
+    <div class="header-painel">
+      <div class="header-title">
+        <small>Painel de Controle</small>
+        <h1 id="tituloPagina">Relatórios</h1>
+        <p id="subtituloPagina">Visão completa da sua operação: financeiro, produção, custos e estoque em tempo real.</p>
+      </div>
+      <div class="filters" id="painelFiltrosTopo">
+        <select id="filtroLoja" onchange="aplicarFiltrosGlobais()">
+          <option value="todos">Todas as Lojas</option>
+        </select>
+        <select id="filtroTempo" onchange="aplicarFiltrosGlobais()">
+          <option value="este-mes">Este Mês</option>
+          <option value="mes-passado">Mês Passado</option>
+          <option value="ano">Este Ano</option>
+          <option value="todos-periodos">Todo o Período</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 1: RELATÓRIOS -->
+    <div id="secao-relatorios" class="content-section active">
+      <div class="tab-menu">
+        <button class="tab-btn active" onclick="mudarTabRelatorio(event, 'visao-geral')">Visão Geral</button>
+        <button class="tab-btn" onclick="mudarTabRelatorio(event, 'producao-rel')">Produção</button>
+        <button class="tab-btn" onclick="mudarTabRelatorio(event, 'custos-perdas')">Custos & Perdas</button>
+        <button class="tab-btn" onclick="mudarTabRelatorio(event, 'estoque-catalogo')">Estoque & Catálogo</button>
+      </div>
+
+      <div id="visao-geral" class="tab-content active">
+        <div class="metrics-grid">
+          <div class="metric-card"><span>Faturamento Total</span><h3 id="lblRelFatTotal">R$ 0,00</h3></div>
+          <div class="metric-card"><span>Recebido</span><h3 style="color: var(--success);" id="lblRelRecebido">R$ 0,00</h3></div>
+          <div class="metric-card"><span>A Receber</span><h3 style="color: var(--warning);">R$ 0,00</h3></div>
+          <div class="metric-card"><span>Lucro Líquido Real</span><h3 id="lblRelLucroLiq">R$ 0,00</h3></div>
+          <div class="metric-card"><span>Margem Média</span><h3 id="lblRelMargem">55%</h3></div>
+          <div class="metric-card"><span>Total de Peças Vendidas</span><h3 id="lblRelTotalPedidos">0</h3></div>
+          <div class="metric-card"><span>Ticket Médio</span><h3 id="lblRelTicketMedio">R$ 0,00</h3></div>
+          <div class="metric-card"><span>Lojas Ativas</span><h3 id="lblLojasAtivas">1</h3></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card-box">
+            <h3>Faturamento</h3>
+            <p class="subtitle">Evolução baseada nas vendas registradas</p>
+            <div style="height: 160px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px;" id="graficoFaturamentoMsg">Nenhum dado financeiro para o período.</div>
+          </div>
+          <div class="card-box">
+            <h3>Status dos Pedidos</h3>
+            <p class="subtitle">Distribuição mensal</p>
+            <div style="height: 160px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px;">100% Concluídos / Entregues</div>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span>Pedidos em atraso</span>
+            <h3 style="color: var(--danger);">0</h3>
+            <div class="metric-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">⚠️</div>
+          </div>
+          <div class="metric-card">
+            <span>Prontos para entrega</span>
+            <h3 style="color: var(--success);">0</h3>
+            <div class="metric-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">📦</div>
+          </div>
+          <div class="metric-card">
+            <span>Horas impressas</span>
+            <h3 id="lblRelHorasTotais">0h</h3>
+            <div class="metric-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">⏱️</div>
+          </div>
+          <div class="metric-card">
+            <span>Produtos no catálogo</span>
+            <h3 id="lblRelCatTotal">0</h3>
+            <div class="metric-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">🧊</div>
+          </div>
+        </div>
+
+        <div class="card-box">
+          <h3>Vendas Recentes</h3>
+          <p class="subtitle">Últimas transações registradas no controle de vendas</p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Produto</th>
+                  <th>Loja</th>
+                  <th>Qtd</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaRelVisaoGeral">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 25px;">Nenhuma venda registrada no período.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="producao-rel" class="tab-content">
+        <div class="grid-2">
+          <div class="card-box">
+            <h3>Top Produtos Mais Vendidos</h3>
+            <p class="subtitle">Baseado na Gestão de Vendas</p>
+            <div id="listaTopProdutos" style="font-size: 13px; color: var(--text-muted);">Nenhuma venda concluída no período.</div>
+          </div>
+          <div class="card-box">
+            <h3>Performance por Impressora</h3>
+            <p class="subtitle">Máquinas conectadas via LAN</p>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th>Impressora</th><th>Status</th><th>Conexão</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><strong>Bambu Lab A1 Mini</strong></td><td style="color: var(--success);">Disponível</td><td>LAN Direta</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="custos-perdas" class="tab-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span>Perdas / Devoluções</span>
+            <h3 style="color: var(--danger);" id="lblPerdasTotal">R$ 0,00</h3>
+            <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display:block;">Itens devolvidos ou cancelados</span>
+            <div class="metric-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">📉</div>
+          </div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 15px;">Sem registros de perdas ou devoluções no período.</p>
+      </div>
+
+      <div id="estoque-catalogo" class="tab-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span>Filamentos em Estoque</span>
+            <h3 id="lblEstTotalFilamentos">0</h3>
+            <div class="metric-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">🧵</div>
+          </div>
+          <div class="metric-card">
+            <span>Resinas em Estoque</span>
+            <h3 id="lblEstTotalResinas">0</h3>
+            <div class="metric-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">💧</div>
+          </div>
+          <div class="metric-card">
+            <span>Estoque Crítico (&lt; 200g)</span>
+            <h3 style="color: var(--warning);" id="lblEstCritico">0</h3>
+          </div>
+          <div class="metric-card">
+            <span>Valor Total em Estoque</span>
+            <h3 id="lblEstValorTotal">R$ 0,00</h3>
+            <div class="metric-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">💰</div>
+          </div>
+        </div>
+        
+        <div class="card-box">
+          <h3>Materiais em Alerta</h3>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Material</th><th>Estoque Atual</th><th>Status</th></tr></thead>
+              <tbody id="tabelaMateriaisAlerta"><tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 25px;">Sem materiais em alerta. Tudo normal!</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 2: GESTÃO DE VENDAS -->
+    <div id="secao-vendas" class="content-section">
+      <div class="header-painel">
+        <div class="header-title">
+          <small>Comercial</small>
+          <h1>Controle de Vendas & Pedidos</h1>
+          <p>Registre suas vendas: o sistema abate o filamento do estoque e atualiza o financeiro automaticamente.</p>
+        </div>
+        <button class="btn-primary" onclick="abrirModalRegistrarVenda()">+ Registrar Venda</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Produto</th>
+              <th>Loja Online</th>
+              <th>Qtd</th>
+              <th>Valor Total</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaVendasCorpo">
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 3: ESTOQUE -->
+    <div id="secao-estoque" class="content-section">
+      <div class="header-painel">
+        <div class="header-title">
+          <small>Gerenciamento</small>
+          <h1>Estoque de Filamentos & Resinas</h1>
+          <p>Controle manual de estoque e custo por grama de cada bobina ou frasco.</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn-secondary" onclick="abrirModalGerenciarMarcas()">🏷️ Gerenciar Marcas</button>
+          <button class="btn-primary" onclick="abrirModalAdicionarMaterial()">+ Adicionar Material</button>
+        </div>
+      </div>
+
+      <div class="table-toolbar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" id="inputBusca" placeholder="Pesquisar material, cor ou marca" oninput="filtrarTabela()">
+        </div>
+        <div class="badge-count" id="badgeQtdMateriais">1 material</div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th><th>Tipo</th><th>Cor</th><th>Marca</th><th>Modelo</th><th>Estoque Atual</th><th>Custo / g</th><th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaEstoqueCorpo"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 4: PRECIFICAÇÃO -->
+    <div id="secao-precificacao" class="content-section">
+      <div class="header-painel">
+        <div class="header-title">
+          <small>Precificação Inteligente</small>
+          <h1>Calculadora de Custos & Lojas Online</h1>
+          <p id="labelModoEdicao" style="color: var(--primary); font-weight: 600; margin: 0;">Modo Novo Produto</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn-secondary" onclick="abrirModalGerenciarLojas()">⚙️ Gerenciar Lojas</button>
+          <button class="btn-primary" onclick="abrirModalNovaLoja()">+ Adicionar Loja</button>
+        </div>
+      </div>
+
+      <div class="calc-grid">
+        <div class="calc-card">
+          <h3 style="margin-top: 0; font-size: 16px; margin-bottom: 15px;">Parâmetros da Peça</h3>
+          
+          <div class="form-group">
+            <label>Nome do Produto</label>
+            <input type="text" id="calcNomeProduto" value="Vaso 3D Geométrico" placeholder="Ex: Suporte Headset 3D">
+          </div>
+
+          <div class="form-group">
+            <label>Selecione a Loja Online / Marketplace</label>
+            <select id="selectMarketplace" onchange="atualizarTaxaLoja()"></select>
+          </div>
+
+          <div class="form-group">
+            <label>Taxa da Loja Selecionada (%)</label>
+            <input type="number" id="calcTaxa" value="18" oninput="calcularPreco()">
+          </div>
+
+          <div class="form-group">
+            <label>Gramas de Filamento Utilizadas</label>
+            <input type="number" id="calcGramas" value="120" oninput="calcularPreco()">
+          </div>
+
+          <div class="form-group">
+            <label>Tempo de Impressão (Horas)</label>
+            <input type="number" id="calcHoras" value="4" oninput="calcularPreco()">
+          </div>
+
+          <div class="form-group">
+            <label>Custo de Embalagem e Proteção (R$)</label>
+            <input type="number" id="calcEmbalagem" value="3.50" oninput="calcularPreco()">
+          </div>
+
+          <div class="form-group">
+            <label>Margem de Lucro Desejada (%)</label>
+            <input type="number" id="calcMargem" value="100" oninput="calcularPreco()">
+          </div>
+
+          <button class="btn-primary" style="width: 100%; margin-top: 10px;" onclick="salvarProdutoAtual()">💾 Salvar Produto na Lista</button>
+        </div>
+
+        <div class="calc-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <h3 style="margin-top: 0; font-size: 16px; margin-bottom: 15px;">Resumo dos Custos</h3>
+            <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Custo de Filamento:</span> <strong id="lblCustoFilamento" style="color: var(--text-color);">R$ 12,00</strong>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Custo de Energia (kWh):</span> <strong id="lblCustoEnergia" style="color: var(--text-color);">R$ 2,40</strong>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Embalagem:</span> <strong id="lblCustoEmb" style="color: var(--text-color);">R$ 3,50</strong>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+              <span>Custo Operacional Total:</span> <strong id="lblCustoTotal" style="color: var(--warning);">R$ 17,90</strong>
+            </div>
+          </div>
+
+          <div class="resultado-box">
+            <span>Preço de Venda Sugerido para a Loja</span>
+            <h3 id="lblPrecoSugerido">R$ 43,66</h3>
+            <span style="font-size: 11px; color: var(--success);" id="lblLucroEstimado">Lucro Líquido: R$ 17,90</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 5: PRODUTOS SALVOS -->
+    <div id="secao-produtos" class="content-section">
+      <div class="header-painel">
+        <div class="header-title">
+          <small>Histórico</small>
+          <h1>Meus Produtos Salvos</h1>
+          <p>Gerencie seus itens criados e suas respectivas lojas. Clique em Editar para carregá-los na calculadora.</p>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome do Produto</th>
+              <th>Loja Online</th>
+              <th>Gramas</th>
+              <th>Tempo (h)</th>
+              <th>Embalagem</th>
+              <th>Preço Sugerido</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaProdutosCorpo">
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum produto salvo ainda. Crie na aba de Calculadora!</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAIS -->
+  <div class="modal-overlay" id="modalRegistrarVenda">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>Registrar Nova Venda</span>
+        <span style="cursor: pointer; color: var(--text-muted);" onclick="fecharModalRegistrarVenda()">✕</span>
+      </div>
+      <div class="form-group">
+        <label>Selecione o Produto Salvo</label>
+        <select id="vendaSelectProduto"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Quantidade Vendida</label><input type="number" id="vendaQtd" value="1" min="1"></div>
+        <div class="form-group"><label>Data da Venda</label><input type="date" id="vendaData"></div>
+      </div>
+      <div class="form-group">
+        <label>Status do Pedido</label>
+        <select id="vendaStatus">
+          <option value="Concluído">Concluído / Entregue</option>
+          <option value="Em Produção">Em Produção</option>
+          <option value="Devolvido">Devolvido / Cancelado</option>
+        </select>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
+        <button class="btn-primary" onclick="salvarNovaVenda()">Salvar Venda</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalAdicionarMaterial">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="tituloModalMaterial">Adicionar Novo Material</span>
+        <span style="cursor: pointer; color: var(--text-muted);" onclick="fecharModalAdicionarMaterial()">✕</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex: 2;"><label>Nome / Descrição</label><input type="text" id="addNome" value="PLA Azul Celeste"></div>
+        <div class="form-group" style="flex: 1.5;"><label>Tipo</label><select id="addTipo"><option value="Filamento">Filamento</option><option value="Resina">Resina</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex: 2;"><label>Marca</label><select id="selectMarca" onchange="verificarOutraMarca(this.value)"></select></div>
+        <div class="form-group" id="divOutraMarca" style="flex: 2; display: none;"><label>Nova Marca</label><input type="text" id="addMarcaNova" placeholder="Ex: Fusion X"></div>
+        <div class="form-group" style="flex: 1.5;"><label>Modelo</label><input type="text" id="addModelo" value="PLA"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Cor</label><input type="text" id="addCor" value="Azul Celeste"></div>
+        <div class="form-group"><label>Estoque Atual (g)</label><input type="number" id="addEstoque" value="1000"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Peso Máx / Rolo (g)</label><input type="number" id="addPesoMax" value="1000"></div>
+        <div class="form-group"><label>Preço Pago (R$)</label><input type="number" id="addPreco" value="85.00"></div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn-secondary" onclick="fecharModalAdicionarMaterial()">Cancelar</button>
+        <button class="btn-primary" onclick="salvarMaterialEstoque()">Salvar Material</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalGerenciarMarcas">
+    <div class="modal-box" style="width: 440px;">
+      <div class="modal-header">
+        <span>Gerenciar / Excluir Marcas</span>
+        <span style="cursor: pointer; color: var(--text-muted);" onclick="fecharModalGerenciarMarcas()">✕</span>
+      </div>
+      <div class="table-container" style="max-height: 220px; overflow-y: auto;">
+        <table><thead><tr><th>Marca</th><th style="text-align: right;">Ação</th></tr></thead><tbody id="tabelaMarcasCorpo"></tbody></table>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 20px;"><button class="btn-primary" onclick="fecharModalGerenciarMarcas()">Concluído</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalNovaLoja">
+    <div class="modal-box" style="width: 400px;">
+      <div class="modal-header">
+        <span>Adicionar Nova Loja Online</span>
+        <span style="cursor: pointer; color: var(--text-muted);" onclick="fecharModalNovaLoja()">✕</span>
+      </div>
+      <div class="form-group"><label>Nome da Loja</label><input type="text" id="inputNomeNovaLoja" placeholder="Ex: Magalu"></div>
+      <div class="form-group"><label>Taxa (%)</label><input type="number" id="inputTaxaNovaLoja" value="16"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn-secondary" onclick="fecharModalNovaLoja()">Cancelar</button>
+        <button class="btn-primary" onclick="cadastrarNovaLoja()">Adicionar Loja</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalGerenciarLojas">
+    <div class="modal-box" style="width: 520px;">
+      <div class="modal-header">
+        <span>Gerenciar Lojas & Taxas</span>
+        <span style="cursor: pointer; color: var(--text-muted);" onclick="fecharModalGerenciarLojas()">✕</span>
+      </div>
+      <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+        <table><thead><tr><th>Loja</th><th>Taxa (%)</th><th>Ações</th></tr></thead><tbody id="tabelaLojasCorpo"></tbody></table>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 20px;"><button class="btn-primary" onclick="fecharModalGerenciarLojas()">Concluído</button></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  let listaMateriais = [
+    { id: 1, nome: "PLA Azul Celeste", tipo: "Filamento", cor: "Azul Celeste", marca: "3D Brothers", modelo: "PLA", estoque: 850, maxEstoque: 1000, precoPago: 85.00, custo: "R$ 0,0850" }
+  ];
+  let listaMarcas = ["3D Brothers", "Bambu Lab", "Fusion X", "Voolt3D", "3D Fila"];
+  let listaProdutosSalvos = [
+    { id: 101, nome: "Vaso 3D Geométrico", loja: "Shopee", gramas: 120, horas: 4, embalagem: "3.50", margem: 100, precoSugerido: "R$ 43,66" }
+  ];
+  let listaVendas = [];
+  let listaLojas = [
+    { id: 1, nome: "Shopee", taxa: 18 },
+    { id: 2, nome: "Mercado Livre", taxa: 13 },
+    { id: 3, nome: "Amazon", taxa: 15 }
+  ];
+  let editandoId = null;
+  let editandoMaterialId = null;
+
+  // Registrar o Service Worker do PWA automaticamente
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW erro:', err));
+    });
+  }
+
+  function toggleMenuMobile() {
+    const aside = document.getElementById('asideMenu');
+    const overlay = document.getElementById('sidebarOverlay');
+    aside.classList.toggle('mobile-open');
+    overlay.classList.toggle('active');
+  }
+
+  function mudarAbaMenu(event, secaoId) {
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    event.target.classList.add('active');
+
+    document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
+    document.getElementById('secao-' + secaoId).classList.add('active');
+    
+    document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
+
+    const painelFiltros = document.getElementById('painelFiltrosTopo');
+    
+    if (secaoId === 'relatorios' || secaoId === 'vendas') {
+      painelFiltros.style.display = 'flex';
+      document.getElementById('filtroTempo').style.display = 'inline-block';
+      atualizarFiltroLojasDinamico();
+      atualizarFiltroMesesDinamico();
+      if(secaoId === 'relatorios') atualizarRelatorios();
+      if(secaoId === 'vendas') renderizarVendas();
+    } else if (secaoId === 'produtos') {
+      painelFiltros.style.display = 'flex';
+      document.getElementById('filtroTempo').style.display = 'none';
+      atualizarFiltroLojasDinamico();
+      renderizarProdutosSalvos();
+    } else {
+      painelFiltros.style.display = 'none';
+    }
+
+    if(window.innerWidth <= 900) { toggleMenuMobile(); }
+  }
+
+  function mudarTabRelatorio(event, tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  function mostrarToast(mensagem) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<div class="toast-icon">✓</div><span>${mensagem}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 50);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 350);
+    }, 3500);
+  }
+
+  function obterLojasComProdutosSalvos() {
+    let lojasSet = new Set();
+    listaProdutosSalvos.forEach(p => { if(p.loja) lojasSet.add(p.loja); });
+    return Array.from(lojasSet);
+  }
+
+  function atualizarFiltroLojasDinamico() {
+    const selectLoja = document.getElementById('filtroLoja');
+    let valorAtual = selectLoja.value;
+    let lojasAtivas = obterLojasComProdutosSalvos();
+    let html = `<option value="todos">Todas as Lojas</option>`;
+    lojasAtivas.forEach(lojaNome => { html += `<option value="${lojaNome}">${lojaNome}</option>`; });
+    selectLoja.innerHTML = html;
+    selectLoja.value = (lojasAtivas.includes(valorAtual) || valorAtual === 'todos') ? valorAtual : 'todos';
+  }
+
+  function atualizarFiltroMesesDinamico() {
+    const selectTempo = document.getElementById('filtroTempo');
+    let valorAtual = selectTempo.value;
+    let mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    let mesesDisponiveis = new Set();
+
+    listaVendas.forEach(v => {
+      if(v.data) {
+        let partes = v.data.split('-');
+        mesesDisponiveis.add(`${partes[0]}-${partes[1]}`);
+      }
+    });
+
+    let html = `
+      <option value="este-mes">Este Mês</option>
+      <option value="mes-passado">Mês Passado</option>
+      <option value="ano">Este Ano</option>
+      <option value="todos-periodos">Todo o Período</option>
+    `;
+
+    if(mesesDisponiveis.size > 0) {
+      html += `<optgroup label="Meses com Vendas">`;
+      Array.from(mesesDisponiveis).sort().reverse().forEach(item => {
+        let [ano, mes] = item.split('-');
+        html += `<option value="${item}">${mesesNomes[parseInt(mes) - 1]} de ${ano}</option>`;
+      });
+      html += `</optgroup>`;
+    }
+
+    selectTempo.innerHTML = html;
+    selectTempo.value = valorAtual;
+  }
+
+  function aplicarFiltrosGlobais() {
+    let abaAtiva = document.querySelector('.content-section.active').id;
+    if(abaAtiva === 'secao-vendas') renderizarVendas();
+    else if(abaAtiva === 'secao-relatorios') atualizarRelatorios();
+    else if(abaAtiva === 'secao-produtos') renderizarProdutosSalvos();
+  }
+
+  function abrirModalRegistrarVenda() {
+    if(listaProdutosSalvos.length === 0) { alert("Cadastre e salve pelo menos um produto na Calculadora primeiro!"); return; }
+    const select = document.getElementById('vendaSelectProduto');
+    let html = '';
+    listaProdutosSalvos.forEach(p => { html += `<option value="${p.id}">${p.nome} (${p.loja || 'Shopee'} - ${p.precoSugerido})</option>`; });
+    select.innerHTML = html;
+    document.getElementById('vendaQtd').value = 1;
+    document.getElementById('vendaData').value = new Date().toISOString().split('T')[0];
+    document.getElementById('modalRegistrarVenda').classList.add('active');
+  }
+
+  function fecharModalRegistrarVenda() { document.getElementById('modalRegistrarVenda').classList.remove('active'); }
+
+  function salvarNovaVenda() {
+    const prodId = parseInt(document.getElementById('vendaSelectProduto').value);
+    const qtd = parseInt(document.getElementById('vendaQtd').value) || 1;
+    const data = document.getElementById('vendaData').value;
+    const status = document.getElementById('vendaStatus').value;
+
+    const produto = listaProdutosSalvos.find(p => p.id === prodId);
+    if(!produto) return;
+
+    let numPreco = parseFloat(produto.precoSugerido.replace('R$', '').replace('.', '').replace(',', '.')) || 0;
+    let totalVenda = numPreco * qtd;
+    let gramasConsumidas = (parseFloat(produto.gramas) || 0) * qtd;
+
+    if(status === 'Concluído' && listaMateriais.length > 0) {
+      listaMateriais[0].estoque = Math.max(0, listaMateriais[0].estoque - gramasConsumidas);
+    }
+
+    listaVendas.push({
+      id: Date.now(),
+      produtoNome: produto.nome,
+      loja: produto.loja || "Shopee",
+      gramasUnidade: parseFloat(produto.gramas) || 0,
+      horasUnidade: parseFloat(produto.horas) || 0,
+      qtd: qtd,
+      total: totalVenda,
+      data: data,
+      status: status
+    });
+
+    fecharModalRegistrarVenda();
+    renderizarVendas();
+    filtrarTabela();
+    atualizarFiltroMesesDinamico();
+    atualizarRelatorios();
+    mostrarToast(`Venda registrada! Baixa de ${gramasConsumidas}g realizada no estoque.`);
+  }
+
+  function excluirVenda(id) {
+    listaVendas = listaVendas.filter(v => v.id !== id);
+    renderizarVendas();
+    atualizarFiltroMesesDinamico();
+    atualizarRelatorios();
+    mostrarToast("Registro de venda removido.");
+  }
+
+  function renderizarVendas() {
+    const corpo = document.getElementById('tabelaVendasCorpo');
+    let lojaFiltro = document.getElementById('filtroLoja').value;
+    let tempoFiltro = document.getElementById('filtroTempo').value;
+
+    let agora = new Date();
+    let mesAtual = agora.getMonth();
+    let anoAtual = agora.getFullYear();
+
+    let vendasFiltradas = listaVendas.filter(v => {
+      if(lojaFiltro !== 'todos' && v.loja !== lojaFiltro) return false;
+      if(tempoFiltro !== 'todos-periodos' && v.data) {
+        let partes = v.data.split('-');
+        let vAno = parseInt(partes[0]), vMes = parseInt(partes[1]) - 1;
+        if(tempoFiltro === 'este-mes' && (vMes !== mesAtual || vAno !== anoAtual)) return false;
+        if(tempoFiltro === 'mes-passado') {
+          let mP = mesAtual === 0 ? 11 : mesAtual - 1;
+          let aP = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+          if(vMes !== mP || vAno !== aP) return false;
+        }
+        if(tempoFiltro === 'ano' && vAno !== anoAtual) return false;
+        if(tempoFiltro.includes('-')) {
+          let [fAno, fMes] = tempoFiltro.split('-');
+          if(vAno !== parseInt(fAno) || vMes !== (parseInt(fMes) - 1)) return false;
+        }
+      }
+      return true;
+    });
+
+    if(vendasFiltradas.length === 0) {
+      corpo.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    vendasFiltradas.forEach(v => {
+      let cor = v.status === 'Concluído' ? 'var(--success)' : (v.status === 'Devolvido' ? 'var(--danger)' : 'var(--warning)');
+      html += `
+        <tr>
+          <td>${v.data.split('-').reverse().join('/')}</td>
+          <td><strong>${v.produtoNome}</strong></td>
+          <td>${v.loja}</td>
+          <td>${v.qtd} un</td>
+          <td style="color: var(--primary); font-weight: 600;">R$ ${v.total.toFixed(2).replace('.', ',')}</td>
+          <td><span style="color: ${cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${v.status}</span></td>
+          <td><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirVenda(${v.id})">🗑️</button></td>
+        </tr>`;
+    });
+    corpo.innerHTML = html;
+  }
+
+  function renderizarSelectMarcas(marcaSelecionada = "") {
+    const select = document.getElementById('selectMarca');
+    let html = '';
+    listaMarcas.forEach(m => { html += `<option value="${m}" ${(m === marcaSelecionada)?'selected':''}>${m}</option>`; });
+    html += `<option value="OUTRA" style="color: var(--primary);">+ Adicionar Nova Marca...</option>`;
+    select.innerHTML = html;
+    verificarOutraMarca(select.value);
+  }
+
+  function verificarOutraMarca(valor) {
+    document.getElementById('divOutraMarca').style.display = (valor === "OUTRA") ? "block" : "none";
+  }
+
+  function abrirModalGerenciarMarcas() { renderizarTabelaMarcas(); document.getElementById('modalGerenciarMarcas').classList.add('active'); }
+  function fecharModalGerenciarMarcas() { document.getElementById('modalGerenciarMarcas').classList.remove('active'); }
+
+  function renderizarTabelaMarcas() {
+    let html = '';
+    listaMarcas.forEach((m, index) => {
+      html += `<tr><td><strong>${m}</strong></td><td style="text-align: right;"><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirMarca(${index})">⛔ Remover</button></td></tr>`;
+    });
+    document.getElementById('tabelaMarcasCorpo').innerHTML = html;
+  }
+
+  function excluirMarca(index) {
+    if(listaMarcas.length <= 1) { alert("Mantenha ao menos uma marca."); return; }
+    listaMarcas.splice(index, 1);
+    renderizarTabelaMarcas(); renderizarSelectMarcas(); mostrarToast("Marca removida.");
+  }
+
+  function abrirModalAdicionarMaterial() {
+    editandoMaterialId = null;
+    document.getElementById('tituloModalMaterial').innerText = "Adicionar Novo Material";
+    document.getElementById('addNome').value = "PLA Novo";
+    document.getElementById('addTipo').value = "Filamento";
+    renderizarSelectMarcas();
+    document.getElementById('addModelo').value = "PLA";
+    document.getElementById('addCor').value = "Preto";
+    document.getElementById('addEstoque').value = "1000";
+    document.getElementById('addPesoMax').value = "1000";
+    document.getElementById('addPreco').value = "85.00";
+    document.getElementById('modalAdicionarMaterial').classList.add('active');
+  }
+
+  function editarMaterialEstoque(id) {
+    const m = listaMateriais.find(item => item.id === id);
+    if(!m) return;
+    editandoMaterialId = m.id;
+    document.getElementById('tituloModalMaterial').innerText = "Editar Material";
+    document.getElementById('addNome').value = m.nome;
+    document.getElementById('addTipo').value = m.tipo || "Filamento";
+    if(!listaMarcas.includes(m.marca)) listaMarcas.push(m.marca);
+    renderizarSelectMarcas(m.marca);
+    document.getElementById('addModelo').value = m.modelo || "PLA";
+    document.getElementById('addCor').value = m.cor;
+    document.getElementById('addEstoque').value = m.estoque;
+    document.getElementById('addPesoMax').value = m.maxEstoque;
+    document.getElementById('addPreco').value = m.precoPago || 85.00;
+    document.getElementById('modalAdicionarMaterial').classList.add('active');
+  }
+
+  function fecharModalAdicionarMaterial() { document.getElementById('modalAdicionarMaterial').classList.remove('active'); }
+
+  function salvarMaterialEstoque() {
+    const nome = document.getElementById('addNome').value;
+    const tipo = document.getElementById('addTipo').value;
+    let marca = document.getElementById('selectMarca').value;
+    if (marca === "OUTRA") {
+      marca = document.getElementById('addMarcaNova').value.trim();
+      if (!marca) { alert("Digite a nova marca."); return; }
+      if (!listaMarcas.includes(marca)) listaMarcas.push(marca);
+    }
+    const modelo = document.getElementById('addModelo').value.trim() || "PLA";
+    const cor = document.getElementById('addCor').value;
+    const estoque = parseInt(document.getElementById('addEstoque').value) || 1000;
+    const pesoMax = parseInt(document.getElementById('addPesoMax').value) || 1000;
+    const preco = parseFloat(document.getElementById('addPreco').value) || 80;
+    const custoGrama = (preco / pesoMax).toFixed(4);
+
+    if(editandoMaterialId) {
+      let m = listaMateriais.find(item => item.id === editandoMaterialId);
+      if(m) { m.nome = nome; m.tipo = tipo; m.marca = marca; m.modelo = modelo; m.cor = cor; m.estoque = estoque; m.maxEstoque = pesoMax; m.precoPago = preco; m.custo = `R$ ${custoGrama.replace('.', ',')}`; }
+      mostrarToast("Material atualizado!");
+    } else {
+      listaMateriais.push({ id: Date.now(), nome, tipo, cor, marca, modelo, estoque, maxEstoque: pesoMax, precoPago: preco, custo: `R$ ${custoGrama.replace('.', ',')}` });
+      mostrarToast("Material cadastrado!");
+    }
+    fecharModalAdicionarMaterial(); filtrarTabela(); atualizarRelatorios();
+  }
+
+  function excluirMaterial(id) {
+    listaMateriais = listaMateriais.filter(item => item.id !== id);
+    filtrarTabela(); atualizarRelatorios(); mostrarToast("Material removido.");
+  }
+
+  function abrirModalNovaLoja() { document.getElementById('modalNovaLoja').classList.add('active'); }
+  function fecharModalNovaLoja() { document.getElementById('modalNovaLoja').classList.remove('active'); }
+  function abrirModalGerenciarLojas() { renderizarTabelaLojas(); document.getElementById('modalGerenciarLojas').classList.add('active'); }
+  function fecharModalGerenciarLojas() { document.getElementById('modalGerenciarLojas').classList.remove('active'); }
+
+  function renderizarSelectLojas() {
+    const select = document.getElementById('selectMarketplace');
+    let html = '';
+    listaLojas.forEach(l => { html += `<option value="${l.taxa}">${l.nome} (${l.taxa}%)</option>`; });
+    select.innerHTML = html;
+    atualizarTaxaLoja();
+  }
+
+  function renderizarTabelaLojas() {
+    let html = '';
+    listaLojas.forEach((l, index) => {
+      html += `<tr><td><strong>${l.nome}</strong></td><td><input type="number" value="${l.taxa}" style="width: 70px; background: var(--bg-main); border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px;" oninput="alterarTaxaLojaDireto(${index}, this.value)"></td><td><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirLoja(${index})">Remover</button></td></tr>`;
+    });
+    document.getElementById('tabelaLojasCorpo').innerHTML = html;
+  }
+
+  function alterarTaxaLojaDireto(index, novaTaxa) { listaLojas[index].taxa = parseFloat(novaTaxa) || 0; renderizarSelectLojas(); }
+  function cadastrarNovaLoja() {
+    const nome = document.getElementById('inputNomeNovaLoja').value;
+    const taxa = parseFloat(document.getElementById('inputTaxaNovaLoja').value) || 0;
+    if(!nome) return;
+    listaLojas.push({ id: Date.now(), nome, taxa });
+    renderizarSelectLojas(); fecharModalNovaLoja(); mostrarToast(`Loja "${nome}" adicionada!`);
+  }
+  function excluirLoja(index) {
+    if(listaLojas.length <= 1) { alert("Mantenha ao menos uma loja."); return; }
+    listaLojas.splice(index, 1); renderizarSelectLojas(); renderizarTabelaLojas(); mostrarToast("Loja removida.");
+  }
+  function atualizarTaxaLoja() { document.getElementById('calcTaxa').value = document.getElementById('selectMarketplace').value; calcularPreco(); }
+
+  function filtrarTabela() {
+    const busca = document.getElementById('inputBusca').value.toLowerCase();
+    const corpo = document.getElementById('tabelaEstoqueCorpo');
+    const badge = document.getElementById('badgeQtdMateriais');
+    let html = '', total = 0;
+    listaMateriais.forEach((item) => {
+      if (item.nome.toLowerCase().includes(busca) || item.cor.toLowerCase().includes(busca) || item.marca.toLowerCase().includes(busca) || item.modelo.toLowerCase().includes(busca)) {
+        total++;
+        let p = Math.min(100, (item.estoque / item.maxEstoque) * 100);
+        html += `<tr><td><strong>${item.nome}</strong></td><td>${item.tipo}</td><td>${item.cor}</td><td>${item.marca}</td><td>${item.modelo}</td><td><div class="stock-indicator"><div class="stock-bar"><div class="stock-fill" style="width: ${p}%; background: var(--success);"></div></div><span style="font-weight: 600;">${item.estoque}g</span></div></td><td style="color: var(--success); font-weight: 600;">${item.custo}</td><td style="display: flex; gap: 6px;"><button class="btn-secondary" style="padding: 6px 8px;" onclick="editarMaterialEstoque(${item.id})">✏️</button><button class="btn-danger" style="padding: 6px 8px;" onclick="excluirMaterial(${item.id})">🗑️</button></td></tr>`;
+      }
+    });
+    corpo.innerHTML = total === 0 ? `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum material encontrado.</td></tr>` : html;
+    badge.innerText = listaMateriais.length + (listaMateriais.length === 1 ? " material" : " materiais");
+  }
+
+  function calcularPreco() {
+    const gramas = parseFloat(document.getElementById('calcGramas').value) || 0;
+    const horas = parseFloat(document.getElementById('calcHoras').value) || 0;
+    const embalagem = parseFloat(document.getElementById('calcEmbalagem').value) || 0;
+    const taxaMkt = parseFloat(document.getElementById('calcTaxa').value) || 0;
+    const margem = parseFloat(document.getElementById('calcMargem').value) || 0;
+
+    const cf = gramas * 0.085;
+    const ce = horas * 0.60;
+    const ct = cf + ce + embalagem;
+    const sub = ct + (ct * (margem / 100));
+    const pf = (1 - (taxaMkt / 100)) > 0 ? sub / (1 - (taxaMkt / 100)) : sub;
+    const liq = pf - ct - (pf * (taxaMkt / 100));
+
+    document.getElementById('lblCustoFilamento').innerText = `R$ ${cf.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblCustoEnergia').innerText = `R$ ${ce.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblCustoEmb').innerText = `R$ ${embalagem.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblCustoTotal').innerText = `R$ ${ct.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblPrecoSugerido').innerText = `R$ ${pf.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblLucroEstimado').innerText = `Lucro Líquido Estimado: R$ ${liq.toFixed(2).replace('.', ',')}`;
+  }
+
+  function salvarProdutoAtual() {
+    const nome = document.getElementById('calcNomeProduto').value;
+    const selectMkt = document.getElementById('selectMarketplace');
+    const lojaNome = selectMkt.options[selectMkt.selectedIndex].text.split('(')[0].trim();
+    const gramas = document.getElementById('calcGramas').value;
+    const horas = document.getElementById('calcHoras').value;
+    const embalagem = document.getElementById('calcEmbalagem').value;
+    const margem = document.getElementById('calcMargem').value;
+    const precoSugerido = document.getElementById('lblPrecoSugerido').innerText;
+    if(!nome) { alert("Insira o nome do produto."); return; }
+
+    if(editandoId) {
+      let p = listaProdutosSalvos.find(item => item.id === editandoId);
+      if(p) { p.nome = nome; p.loja = lojaNome; p.gramas = gramas; p.horas = horas; p.embalagem = embalagem; p.margem = margem; p.precoSugerido = precoSugerido; }
+      editandoId = null;
+      document.getElementById('labelModoEdicao').innerText = "Modo Novo Produto";
+      mostrarToast("Produto atualizado!");
+    } else {
+      listaProdutosSalvos.push({ id: Date.now(), nome, loja: lojaNome, gramas, horas, embalagem, margem, precoSugerido });
+      mostrarToast("Produto salvo com sucesso!");
+    }
+    renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios();
+    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[4] }, 'produtos');
+  }
+
+  function editarProduto(id) {
+    const p = listaProdutosSalvos.find(item => item.id === id);
+    if(!p) return;
+    editandoId = p.id;
+    document.getElementById('calcNomeProduto').value = p.nome;
+    document.getElementById('calcGramas').value = p.gramas;
+    document.getElementById('calcHoras').value = p.horas;
+    document.getElementById('calcEmbalagem').value = p.embalagem;
+    if(p.margem) document.getElementById('calcMargem').value = p.margem;
+    document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
+    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
+    calcularPreco(); mostrarToast(`Carregado "${p.nome}" para edição!`);
+  }
+
+  function excluirProduto(id) {
+    listaProdutosSalvos = listaProdutosSalvos.filter(item => item.id !== id);
+    renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios(); mostrarToast("Produto removido.");
+  }
+
+  function renderizarProdutosSalvos() {
+    const corpo = document.getElementById('tabelaProdutosCorpo');
+    let lojaFiltro = document.getElementById('filtroLoja').value;
+    let produtosFiltrados = listaProdutosSalvos.filter(p => (lojaFiltro === 'todos' || p.loja === lojaFiltro));
+
+    if(produtosFiltrados.length === 0) {
+      corpo.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum produto encontrado.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    produtosFiltrados.forEach((p) => {
+      html += `<tr><td><strong>${p.nome}</strong></td><td><span style="color: var(--primary); background: rgba(59,130,246,0.1); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${p.loja || 'Shopee'}</span></td><td>${p.gramas}g</td><td>${p.horas}h</td><td>R$ ${p.embalagem}</td><td style="color: var(--primary); font-weight: 600;">${p.precoSugerido}</td><td style="display: flex; gap: 8px;"><button class="btn-secondary" style="padding: 6px 10px;" onclick="editarProduto(${p.id})">✏️ Editar</button><button class="btn-danger" style="padding: 6px 10px;" onclick="excluirProduto(${p.id})">🗑️ Excluir</button></td></tr>`;
+    });
+    corpo.innerHTML = html;
+  }
+
+  function atualizarRelatorios() {
+    let totalFat = 0, totalHoras = 0, totalPerdas = 0, totalPecasVendidas = 0, htmlVendas = '';
+    let lojaFiltro = document.getElementById('filtroLoja').value;
+    let tempoFiltro = document.getElementById('filtroTempo').value;
+
+    let agora = new Date(), mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
+
+    let vendasFiltradas = listaVendas.filter(v => {
+      if(lojaFiltro !== 'todos' && v.loja !== lojaFiltro) return false;
+      if(tempoFiltro !== 'todos-periodos' && v.data) {
+        let partes = v.data.split('-');
+        let vAno = parseInt(partes[0]), vMes = parseInt(partes[1]) - 1;
+        if(tempoFiltro === 'este-mes' && (vMes !== mesAtual || vAno !== anoAtual)) return false;
+        if(tempoFiltro === 'mes-passado') {
+          let mP = mesAtual === 0 ? 11 : mesAtual - 1;
+          let aP = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+          if(vMes !== mP || vAno !== aP) return false;
+        }
+        if(tempoFiltro === 'ano' && vAno !== anoAtual) return false;
+        if(tempoFiltro.includes('-')) {
+          let [fAno, fMes] = tempoFiltro.split('-');
+          if(vAno !== parseInt(fAno) || vMes !== (parseInt(fMes) - 1)) return false;
+        }
+      }
+      return true;
+    });
+
+    if(vendasFiltradas.length > 0) {
+      vendasFiltradas.forEach(v => {
+        if(v.status === 'Devolvido') totalPerdas += v.total;
+        else {
+          totalFat += v.total;
+          totalHoras += (v.horasUnidade * v.qtd);
+          totalPecasVendidas += parseInt(v.qtd) || 0;
+        }
+        htmlVendas += `<tr><td>${v.data.split('-').reverse().join('/')}</td><td><strong>${v.produtoNome}</strong></td><td>${v.loja}</td><td>${v.qtd} un</td><td style="color: var(--primary); font-weight: 600;">R$ ${v.total.toFixed(2).replace('.', ',')}</td><td>${v.status}</td></tr>`;
+      });
+      document.getElementById('tabelaRelVisaoGeral').innerHTML = htmlVendas;
+      document.getElementById('graficoFaturamentoMsg').innerHTML = `<strong style="color: var(--success); font-size: 18px;">Total no Período: R$ ${totalFat.toFixed(2).replace('.', ',')}</strong>`;
+    } else {
+      document.getElementById('tabelaRelVisaoGeral').innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 25px;">Nenhuma venda encontrada.</td></tr>`;
+      document.getElementById('graficoFaturamentoMsg').innerHTML = `Nenhum dado financeiro para o período selecionado.`;
+    }
+
+    let lojasAtivasSalvas = obterLojasComProdutosSalvos();
+
+    document.getElementById('lblRelFatTotal').innerText = `R$ ${totalFat.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelRecebido').innerText = `R$ ${totalFat.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelLucroLiq').innerText = `R$ ${(totalFat * 0.55).toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelTotalPedidos').innerText = totalPecasVendidas;
+    document.getElementById('lblRelTicketMedio').innerText = `R$ ${(totalPecasVendidas > 0 ? totalFat / totalPecasVendidas : 0).toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblRelHorasTotais').innerText = `${totalHoras}h`;
+    document.getElementById('lblRelCatTotal').innerText = listaProdutosSalvos.length;
+    document.getElementById('lblPerdasTotal').innerText = `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`;
+    document.getElementById('lblLojasAtivas').innerText = lojasAtivasSalvas.length;
+
+    let totalFil = 0, totalRes = 0, estoqueCritico = 0, valorEstoque = 0, htmlAlerta = '';
+    listaMateriais.forEach(m => {
+      valorEstoque += (m.precoPago || 85.00);
+      if(m.tipo === 'Resina') totalRes++; else totalFil++;
+      if(m.estoque < 200) {
+        estoqueCritico++;
+        htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td>${m.estoque}g</td><td><span style="color: var(--warning);">Baixo Estoque</span></td></tr>`;
+      }
+    });
+
+    document.getElementById('lblEstTotalFilamentos').innerText = totalFil;
+    document.getElementById('lblEstTotalResinas').innerText = totalRes;
+    document.getElementById('lblEstCritico').innerText = estoqueCritico;
+    document.getElementById('lblEstValorTotal').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
+    if(htmlAlerta) document.getElementById('tabelaMateriaisAlerta').innerHTML = htmlAlerta;
+  }
+
+  filtrarTabela();
+  renderizarSelectLojas();
+  renderizarProdutosSalvos();
+  renderizarVendas();
+  calcularPreco();
+  atualizarFiltroLojasDinamico();
+  atualizarFiltroMesesDinamico();
+  atualizarRelatorios();
+</script>
+</body>
+</html>
