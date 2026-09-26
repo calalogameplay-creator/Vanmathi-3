@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vanmathi 3 - Gestão</title>
+    <title>Vanmathi 3 - Painel Multiusuário</title>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -29,98 +29,177 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
         h2 {
-            margin-top: 0;
             color: #ffffff;
-            font-size: 1.5rem;
+            margin-top: 0;
         }
-        textarea {
+        /* Estilo das Abas */
+        .abas {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn-aba {
+            flex: 1;
+            padding: 10px;
+            background-color: #21262d;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-aba.ativo {
+            background-color: var(--accent-color);
+            color: #0b0f19;
+            border-color: var(--accent-color);
+        }
+        .conteudo-aba {
+            display: none;
+        }
+        .conteudo-aba.ativo {
+            display: block;
+        }
+        input, button.acao {
             width: 100%;
-            height: 120px;
+            padding: 10px;
+            margin-top: 8px;
+            margin-bottom: 12px;
             background: #0d1117;
             color: var(--text-color);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 10px;
-            font-size: 1rem;
+            border-radius: 6px;
             box-sizing: border-box;
-            resize: vertical;
+            font-size: 1rem;
         }
-        button {
+        button.acao {
             background-color: #238636;
             color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 1rem;
             font-weight: bold;
-            border-radius: 8px;
             cursor: pointer;
-            width: 100%;
-            margin-top: 10px;
-            transition: background 0.2s;
+            border: none;
         }
-        button:hover {
+        button.acao:hover {
             background-color: #2ea043;
         }
-        .status {
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: #8b949e;
-            text-align: center;
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 6px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Vanmathi 3 - Painel Seguro</h2>
-        <p>Suas informações salvas aqui nunca se perdem ao atualizar o código.</p>
+        <h2>Vanmathi 3 - Gestão</h2>
         
-        <label for="campoDados"><strong>Suas Anotações / Dados:</strong></label>
-        <textarea id="campoDados" placeholder="Digite ou cole suas informações aqui..."></textarea>
-        
-        <button onclick="salvarDados()">Salvar Informações</button>
-        <div id="statusMsg" class="status"></div>
+        <!-- Botões de Navegação das Abas -->
+        <div class="abas">
+            <button class="btn-aba ativo" onclick="mudarAba('produtos')">Produtos</button>
+            <button class="btn-aba" onclick="mudarAba('vendas')">Vendas / Outros</button>
+        </div>
+
+        <!-- ABA 1: PRODUTOS -->
+        <div id="aba-produtos" class="conteudo-aba ativo">
+            <h3>Cadastro de Produtos</h3>
+            <input type="text" id="nomeProduto" placeholder="Nome do produto...">
+            <button class="acao" onclick="adicionarItem('produtos', 'nomeProduto')">Salvar Produto</button>
+            
+            <h4>Itens Salvos:</h4>
+            <ul id="lista-produtos"></ul>
+        </div>
+
+        <!-- ABA 2: VENDAS -->
+        <div id="aba-vendas" class="conteudo-aba">
+            <h3>Registro de Vendas</h3>
+            <input type="text" id="detalheVenda" placeholder="Descrição da venda...">
+            <button class="acao" onclick="adicionarItem('vendas', 'detalheVenda')">Salvar Venda</button>
+            
+            <h4>Itens Salvos:</h4>
+            <ul id="lista-vendas"></ul>
+        </div>
     </div>
 
     <script>
-        // Nome exato da chave combinada
         const CHAVE_STORAGE = 'Vanmathi_Dados';
 
-        // Assim que a página abre, carrega os dados salvos anteriormente
+        // Estrutura padrão que guarda os dados de todas as abas
+        let dadosGlobais = {
+            produtos: [],
+            vendas: []
+        };
+
+        // Assim que a página abre, puxa tudo o que está salvo na chave Vanmathi_Dados
         window.addEventListener('DOMContentLoaded', () => {
-            const dadosSalvos = localStorage.getItem(CHAVE_STORAGE);
-            if (dadosSalvos) {
+            const salvo = localStorage.getItem(CHAVE_STORAGE);
+            if (salvo) {
                 try {
-                    const objetoDados = JSON.parse(dadosSalvos);
-                    document.getElementById('campoDados').value = objetoDados.texto || '';
-                    document.getElementById('statusMsg').innerText = 'Dados carregados com sucesso da memória segura!';
+                    dadosGlobais = JSON.parse(salvo);
                 } catch (e) {
-                    console.error("Erro ao ler os dados", e);
+                    console.error("Erro ao carregar dados do navegador", e);
                 }
             }
+            atualizarTodasAsAbas();
         });
 
-        // Função chamada ao clicar no botão salvar
-        function salvarDados() {
-            const valorDigitado = document.getElementById('campoDados').value;
-            
-            // Cria o objeto para guardar
-            const dadosParaSalvar = {
-                texto: valorDigitado,
-                ultimaAtualizacao: new Date().toLocaleString('pt-BR')
-            };
+        // Função para alternar visualmente entre as abas
+        function mudarAba(nomeAba) {
+            document.querySelectorAll('.conteudo-aba').forEach(aba => aba.classList.remove('ativo'));
+            document.querySelectorAll('.btn-aba').forEach(btn => btn.classList.remove('ativo'));
 
-            // Salva na memória do navegador usando a chave exata
-            localStorage.setItem(CHAVE_STORAGE, JSON.stringify(dadosParaSalvar));
+            document.getElementById('aba-' + nomeAba).classList.add('ativo');
+            event.currentTarget.classList.add('ativo');
+        }
 
-            // Mensagem visual para confirmar
-            const msg = document.getElementById('statusMsg');
-            msg.style.color = '#3fb950';
-            msg.innerText = 'Salvo com sucesso às ' + new Date().toLocaleTimeString() + '!';
-            
-            setTimeout(() => {
-                msg.style.color = '#8b949e';
-            }, 3000);
+        // Adicionar um item em qualquer aba e salvar tudo junto
+        function adicionarItem(tipoAba, idInput) {
+            const input = document.getElementById(idInput);
+            const valor = input.value.trim();
+
+            if (!valor) {
+                alert('Digite alguma informação antes de salvar!');
+                return;
+            }
+
+            // Adiciona na aba correta dentro do pacote global
+            dadosGlobais[tipoAba].push(valor);
+
+            // Salva o pacote inteiro no navegador usando a chave definitiva
+            localStorage.setItem(CHAVE_STORAGE, JSON.stringify(dadosGlobais));
+
+            // Limpa o campo e atualiza a tela
+            input.value = '';
+            atualizarTodasAsAbas();
+        }
+
+        // Desenha as listas de todas as abas na tela
+        function atualizarTodasAsAbas() {
+            // Atualiza Produtos
+            const listaProd = document.getElementById('lista-produtos');
+            listaProd.innerHTML = '';
+            if (dadosGlobais.produtos.length === 0) {
+                listaProd.innerHTML = '<li style="color:#8b949e;">Nenhum produto cadastrado.</li>';
+            } else {
+                dadosGlobais.produtos.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    listaProd.appendChild(li);
+                });
+            }
+
+            // Atualiza Vendas
+            const listaVendas = document.getElementById('lista-vendas');
+            listaVendas.innerHTML = '';
+            if (dadosGlobais.vendas.length === 0) {
+                listaVendas.innerHTML = '<li style="color:#8b949e;">Nenhuma venda registrada.</li>';
+            } else {
+                dadosGlobais.vendas.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    listaVendas.appendChild(li);
+                });
+            }
         }
     </script>
 
