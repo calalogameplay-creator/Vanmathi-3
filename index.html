@@ -1910,7 +1910,10 @@
     const elTotalResinas = document.getElementById('lblTotalResinas'); if (elTotalResinas) elTotalResinas.innerText = totalRes;
     const elEstoqueAlertas = document.getElementById('lblEstoqueAlertas'); if (elEstoqueAlertas) elEstoqueAlertas.innerText = estoqueAlertaCount;
     const elValorEstoque = document.getElementById('lblValorEstoque'); if (elValorEstoque) elValorEstoque.innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    document.getElementById('tabelaAlertasEstoque').innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
+    const tabelaAlertasEstoque = document.getElementById('tabelaAlertasEstoque');
+    if (tabelaAlertasEstoque) {
+      tabelaAlertasEstoque.innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
+    }
   }
 
   filtrarTabela();
