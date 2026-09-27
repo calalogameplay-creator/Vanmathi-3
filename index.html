@@ -1993,11 +1993,18 @@
         htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color:${st.cor};font-weight:600;">${estoqueAtual}g</span></td><td><span style="color:${st.cor};background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;font-size:11px;">${st.texto}</span></td></tr>`;
       }
     });
-    document.getElementById('lblTotalFilamentos').innerText = totalFil;
-    document.getElementById('lblTotalResinas').innerText = totalRes;
-    document.getElementById('lblEstoqueAlertas').innerText = estoqueAlertaCount;
-    document.getElementById('lblValorEstoque').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    document.getElementById('tabelaAlertasEstoque').innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
+    const elTotalFilamentos = document.getElementById('lblTotalFilamentos');
+    if (elTotalFilamentos) elTotalFilamentos.innerText = totalFil;
+    const elTotalResinas = document.getElementById('lblTotalResinas');
+    if (elTotalResinas) elTotalResinas.innerText = totalRes;
+    const elEstoqueAlertas = document.getElementById('lblEstoqueAlertas');
+    if (elEstoqueAlertas) elEstoqueAlertas.innerText = estoqueAlertaCount;
+    const elValorEstoque = document.getElementById('lblValorEstoque');
+    if (elValorEstoque) elValorEstoque.innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
+    const tabelaAlertasEstoque = document.getElementById('tabelaAlertasEstoque');
+    if (tabelaAlertasEstoque) {
+      tabelaAlertasEstoque.innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
+    }
   }
 
   filtrarTabela();
