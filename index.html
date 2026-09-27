@@ -1003,21 +1003,15 @@
       if (vanmathiListener) vanmathiListener();
       vanmathiListener = dadosRef.onSnapshot((snapshot) => {
         if (!snapshot.exists()) return;
-
-        // Ignora somente o evento local ainda pendente. Assim que o Firestore
-        // confirmar a gravação no servidor, o snapshot é aplicado normalmente.
+        // Ignora somente o snapshot local ainda pendente.
+        // Assim que o Firestore confirmar a gravação, o snapshot remoto
+        // é aplicado normalmente em todos os dispositivos conectados.
         if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
-
         vanmathiCarregandoNuvem = true;
         try {
           aplicarPacoteDadosVanmathi(snapshot.data());
           atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
-        } catch (e) {
-          console.error('Erro ao aplicar atualização em tempo real:', e);
-          atualizarStatusNuvem('Erro ao atualizar a tela', 'var(--danger)');
-        } finally {
-          vanmathiCarregandoNuvem = false;
-        }
+        } finally { vanmathiCarregandoNuvem = false; }
       }, (error) => {
         console.error('Listener Firestore:', error);
         atualizarStatusNuvem('Erro de sincronização', 'var(--danger)');
