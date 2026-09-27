@@ -14,9 +14,11 @@
 
   <!-- BIBLIOTECA SHEETJS PARA EXPORTAR/IMPORTAR EXCEL -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- FIREBASE WEB SDK -->
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
   <!-- GOOGLE DRIVE / GOOGLE IDENTITY SERVICES -->
-  <script src="https://apis.google.com/js/api.js"></script>
-  <script src="https://accounts.google.com/gsi/client"></script>
 
   <style>
     :root {
@@ -236,9 +238,10 @@
     </div>
     <div class="user-info">
       <strong>Vanmathi Cloud</strong><br>
-      <span id="statusNuvem" style="font-size: 12px; color: var(--warning);">● Nuvem não conectada</span>
-      <button id="btnConectarNuvem" class="btn-secondary" style="width:100%;margin-top:10px;" onclick="conectarGoogleDrive()">☁️ Conectar Google Drive</button>
+      <span id="statusNuvem" style="font-size: 12px; color: var(--warning);">● Não conectado</span><span id="usuarioFirebase" style="font-size:11px;color:var(--text-muted);display:block;margin-top:4px;"></span>
+      <button id="btnConectarNuvem" class="btn-secondary" style="width:100%;margin-top:10px;" onclick="entrarVanmathi()">☁️ Entrar no Vanmathi</button>
       <button id="btnSincronizarNuvem" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="sincronizarAgora()">🔄 Sincronizar agora</button>
+      <button id="btnSairNuvem" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="desconectarFirebaseVanmathi()">↪️ Sair da conta</button>
       <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.35;">Todos os dispositivos conectados à mesma conta Google usam a mesma base Vanmathi.</div>
     </div>
   </aside>
@@ -815,31 +818,44 @@
     });
   }
 
-  // ==================== NUVEM VANMATHI / GOOGLE DRIVE ====================
-  const VANMATHI_GOOGLE_CLIENT_ID = '466703829891-v1iur4npvf7vn6ortifde4reulvuvd17.apps.googleusercontent.com';
-  const VANMATHI_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-  const VANMATHI_DRIVE_FILE_NAME = 'Vanmathi_Dados.json';
-  const VANMATHI_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-  let vanmathiTokenClient = null;
-  let vanmathiGapiPronto = false;
-  let vanmathiGooglePronto = false;
+  // ==================== NUVEM VANMATHI / FIREBASE ====================
+  // Cole aqui a configuração Web fornecida pelo Firebase Console.
+  const VANMATHI_FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyBona_hpgGGyidFp9m4q1VFmrD21gDg-sA',
+    authDomain: 'vanmathi.firebaseapp.com',
+    projectId: 'vanmathi',
+    storageBucket: 'vanmathi.firebasestorage.app',
+    messagingSenderId: '466703829891',
+    appId: '1:466703829891:web:e190086b69a1840dcec4b6',
+    measurementId: 'G-6Z802G6SVT'
+  };
+
+  let vanmathiFirebase = null;
+  let vanmathiAuth = null;
+  let vanmathiDb = null;
+  let vanmathiUsuario = null;
   let vanmathiCloudConectada = false;
-  let vanmathiDriveFileId = null;
-  let vanmathiDriveModifiedTime = null;
+  let vanmathiListener = null;
   let vanmathiSaveTimer = null;
-  let vanmathiPollTimer = null;
   let vanmathiCarregandoNuvem = false;
   let vanmathiUltimaAlteracaoLocal = 0;
-  let vanmathiTentativaReconexao = false;
+  let vanmathiFirebaseInicializado = false;
 
   function atualizarStatusNuvem(texto, cor = 'var(--warning)') {
     const el = document.getElementById('statusNuvem');
     if (el) { el.innerText = '● ' + texto; el.style.color = cor; }
   }
 
+  function firebaseConfigValida() {
+    return VANMATHI_FIREBASE_CONFIG.apiKey &&
+      !VANMATHI_FIREBASE_CONFIG.apiKey.startsWith('COLE_') &&
+      VANMATHI_FIREBASE_CONFIG.projectId &&
+      !VANMATHI_FIREBASE_CONFIG.projectId.startsWith('SEU_');
+  }
+
   function obterPacoteDadosVanmathi() {
     return {
-      versao: 1,
+      versao: 2,
       atualizadoEm: new Date().toISOString(),
       materiais: listaMateriais,
       produtos: listaProdutosSalvos,
@@ -850,7 +866,7 @@
   }
 
   function aplicarPacoteDadosVanmathi(pacote) {
-    if (!pacote || typeof pacote !== 'object') throw new Error('Arquivo de dados do Vanmathi inválido.');
+    if (!pacote || typeof pacote !== 'object') throw new Error('Dados do Vanmathi inválidos.');
     if (Array.isArray(pacote.materiais)) listaMateriais = pacote.materiais;
     if (Array.isArray(pacote.produtos)) listaProdutosSalvos = pacote.produtos;
     if (Array.isArray(pacote.vendas)) listaVendas = pacote.vendas;
@@ -880,218 +896,155 @@
   }
 
   function agendarSalvamentoNuvem() {
-    if (!vanmathiCloudConectada) return;
+    if (!vanmathiCloudConectada || !vanmathiUsuario) return;
     clearTimeout(vanmathiSaveTimer);
-    vanmathiSaveTimer = setTimeout(() => salvarNuvemVanmathi(), 1200);
+    vanmathiSaveTimer = setTimeout(() => salvarNuvemVanmathi(), 800);
   }
 
-  function inicializarGoogleVanmathi() {
-    if (window.gapi) {
-      gapi.load('client', async () => {
-        try {
-          await gapi.client.init({ discoveryDocs: [VANMATHI_DISCOVERY_DOC] });
-          vanmathiGapiPronto = true;
-          prepararClienteGoogleVanmathi();
-        } catch (e) { console.error('Erro ao inicializar Google API:', e); }
-      });
+  function inicializarFirebaseVanmathi() {
+    if (!firebaseConfigValida()) {
+      atualizarStatusNuvem('Configuração Firebase pendente', 'var(--warning)');
+      return;
     }
-    if (window.google?.accounts?.oauth2) prepararClienteGoogleVanmathi();
-    else {
-      let tentativas = 0;
-      const timer = setInterval(() => {
-        if (window.google?.accounts?.oauth2) { clearInterval(timer); prepararClienteGoogleVanmathi(); }
-        if (++tentativas > 40) clearInterval(timer);
-      }, 250);
-    }
-  }
-
-  function prepararClienteGoogleVanmathi() {
-    if (!window.google?.accounts?.oauth2 || vanmathiGooglePronto) return;
-    vanmathiTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: VANMATHI_GOOGLE_CLIENT_ID,
-      scope: VANMATHI_DRIVE_SCOPE,
-      callback: ''
-    });
-    vanmathiGooglePronto = true;
-  }
-
-  async function aguardarGoogleApiPronta(timeoutMs = 10000) {
-    const inicio = Date.now();
-    while (!vanmathiGapiPronto && Date.now() - inicio < timeoutMs) {
-      await new Promise(r => setTimeout(r, 100));
-    }
-    if (!vanmathiGapiPronto) throw new Error('Google Drive API ainda não está pronta.');
-  }
-
-  async function conectarGoogleDrive(silencioso = false) {
-    if (!vanmathiGooglePronto) {
-      prepararClienteGoogleVanmathi();
-      if (!vanmathiGooglePronto) {
-        if (!silencioso) alert('O Google ainda está carregando. Aguarde alguns segundos e tente novamente.');
-        return;
-      }
-    }
-    if (!silencioso) atualizarStatusNuvem('Conectando...', 'var(--warning)');
-    vanmathiTokenClient.callback = async (resp) => {
-      if (resp.error) {
-        console.error(resp);
-        atualizarStatusNuvem(silencioso ? 'Conecte o Google Drive' : 'Erro na autorização', 'var(--danger)');
-        if (!silencioso) alert('Não foi possível autorizar o Google Drive. Confira o endereço do GitHub Pages e as configurações OAuth.');
-        return;
-      }
-      try {
-        await aguardarGoogleApiPronta();
-        gapi.client.setToken(resp);
-        vanmathiCloudConectada = true;
-        localStorage.setItem('Vanmathi_Google_Conectado', '1');
-        document.getElementById('btnConectarNuvem').style.display = 'none';
-        document.getElementById('btnSincronizarNuvem').style.display = 'block';
-        atualizarStatusNuvem('Google Drive conectado', 'var(--success)');
-        await carregarOuCriarArquivoNuvem();
-        iniciarMonitoramentoNuvem();
-      } catch (e) {
-        console.error(e);
-        atualizarStatusNuvem('Erro ao carregar nuvem', 'var(--danger)');
-        alert('O login foi autorizado, mas não foi possível acessar o arquivo do Vanmathi. Veja o console para detalhes.');
-      }
-    };
-    vanmathiTokenClient.requestAccessToken({ prompt: silencioso ? '' : 'consent' });
-  }
-
-  async function encontrarArquivoVanmathi() {
-    const resp = await gapi.client.drive.files.list({
-      q: `name = '${VANMATHI_DRIVE_FILE_NAME}' and trashed = false`,
-      spaces: 'drive',
-      pageSize: 10,
-      fields: 'files(id,name,modifiedTime,mimeType)'
-    });
-    return resp.result.files?.[0] || null;
-  }
-
-  async function carregarOuCriarArquivoNuvem() {
-    const arquivo = await encontrarArquivoVanmathi();
-    if (arquivo) {
-      vanmathiDriveFileId = arquivo.id;
-      vanmathiDriveModifiedTime = arquivo.modifiedTime;
-      await carregarDadosDoArquivoVanmathi();
-      atualizarStatusNuvem('Dados centrais carregados ☁️', 'var(--success)');
-    } else {
-      await salvarNuvemVanmathi(true);
-      atualizarStatusNuvem('Sincronizado ☁️', 'var(--success)');
-    }
-  }
-
-  async function carregarDadosDoArquivoVanmathi() {
-    if (!vanmathiDriveFileId) return;
-    const resp = await gapi.client.drive.files.get({
-      fileId: vanmathiDriveFileId,
-      alt: 'media'
-    });
-    let texto = resp.body;
-    if (typeof texto !== 'string') texto = JSON.stringify(texto);
-    const pacote = JSON.parse(texto);
-    vanmathiCarregandoNuvem = true;
     try {
-      aplicarPacoteDadosVanmathi(pacote);
-      vanmathiUltimaAlteracaoLocal = 0;
-    } finally {
-      vanmathiCarregandoNuvem = false;
-    }
-  }
+      if (!firebase.apps.length) firebase.initializeApp(VANMATHI_FIREBASE_CONFIG);
+      vanmathiFirebase = firebase.app();
+      vanmathiAuth = firebase.auth();
+      vanmathiDb = firebase.firestore();
+      vanmathiFirebaseInicializado = true;
 
-  async function salvarNuvemVanmathi(forcarCriacao = false) {
-    if (!vanmathiCloudConectada || !vanmathiGapiPronto) return;
-    try {
-      const pacote = obterPacoteDadosVanmathi();
-      const conteudo = JSON.stringify(pacote, null, 2);
-      let resp;
-      if (!vanmathiDriveFileId || forcarCriacao) {
-        const metadata = { name: VANMATHI_DRIVE_FILE_NAME, mimeType: 'application/json' };
-        resp = await gapi.client.request({
-          path: 'https://www.googleapis.com/upload/drive/v3/files',
-          method: 'POST',
-          params: { uploadType: 'multipart', fields: 'id,name,modifiedTime' },
-          headers: { 'Content-Type': 'multipart/related; boundary=vanmathi_boundary' },
-          body: criarMultipartDrive(metadata, conteudo)
-        });
-      } else {
-        // Antes de sobrescrever, confere se outro dispositivo alterou o arquivo.
-        // Se mudou, carregamos a versão central em vez de apagar a alteração remota.
-        const metaAtual = await gapi.client.drive.files.get({
-          fileId: vanmathiDriveFileId,
-          fields: 'id,name,modifiedTime'
-        });
-        const remotoAtual = metaAtual.result.modifiedTime;
-        if (vanmathiDriveModifiedTime && remotoAtual && remotoAtual !== vanmathiDriveModifiedTime) {
-          vanmathiDriveModifiedTime = remotoAtual;
-          await carregarDadosDoArquivoVanmathi();
-          atualizarStatusNuvem('Outra alteração foi recebida ☁️', 'var(--success)');
+      vanmathiAuth.onAuthStateChanged(async (user) => {
+        vanmathiUsuario = user || null;
+        const usuarioEl = document.getElementById('usuarioFirebase');
+        if (usuarioEl) usuarioEl.innerText = user ? (user.displayName || user.email || '') : '';
+        if (!user) {
+          vanmathiCloudConectada = false;
+          if (vanmathiListener) { vanmathiListener(); vanmathiListener = null; }
+          document.getElementById('btnConectarNuvem').style.display = 'block';
+          document.getElementById('btnSincronizarNuvem').style.display = 'none';
+          document.getElementById('btnSairNuvem').style.display = 'none';
+          atualizarStatusNuvem('Não conectado', 'var(--warning)');
           return;
         }
-        resp = await gapi.client.request({
-          path: `https://www.googleapis.com/upload/drive/v3/files/${vanmathiDriveFileId}`,
-          method: 'PATCH',
-          params: { uploadType: 'media', fields: 'id,name,modifiedTime' },
-          headers: { 'Content-Type': 'application/json' },
-          body: conteudo
-        });
+        await conectarFirebaseVanmathi(user);
+      });
+    } catch (e) {
+      console.error('Erro ao inicializar Firebase:', e);
+      atualizarStatusNuvem('Erro no Firebase', 'var(--danger)');
+    }
+  }
+
+  async function entrarVanmathi() {
+    if (!vanmathiFirebaseInicializado) {
+      alert('O Firebase ainda não está configurado. Primeiro cole a configuração Web do Firebase no bloco indicado no código.');
+      return;
+    }
+    try {
+      atualizarStatusNuvem('Abrindo login...', 'var(--warning)');
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await vanmathiAuth.signInWithPopup(provider);
+    } catch (e) {
+      console.error('Erro no login Firebase:', e);
+      atualizarStatusNuvem('Erro no login', 'var(--danger)');
+      alert('Não foi possível entrar no Vanmathi. Confira se o login Google está ativado no Firebase Authentication.');
+    }
+  }
+
+  async function desconectarFirebaseVanmathi() {
+    if (vanmathiAuth) await vanmathiAuth.signOut();
+  }
+
+  async function conectarFirebaseVanmathi(user) {
+    try {
+      atualizarStatusNuvem('Conectando à base central...', 'var(--warning)');
+      const usuarioRef = vanmathiDb.collection('usuarios').doc(user.uid);
+      const usuarioSnap = await usuarioRef.get();
+      if (!usuarioSnap.exists) {
+        vanmathiCloudConectada = false;
+        atualizarStatusNuvem('Usuário aguardando autorização', 'var(--warning)');
+        alert('Sua conta Google foi identificada, mas ainda não foi cadastrada como usuário do Vanmathi. O administrador precisa criar seu perfil no Firebase.');
+        return;
       }
-      vanmathiDriveFileId = resp.result.id || vanmathiDriveFileId;
-      vanmathiDriveModifiedTime = resp.result.modifiedTime || new Date().toISOString();
+      const perfil = usuarioSnap.data() || {};
+      if (!['admin', 'funcionario'].includes(perfil.role)) {
+        vanmathiCloudConectada = false;
+        atualizarStatusNuvem('Perfil sem permissão', 'var(--danger)');
+        alert('Seu usuário não possui uma função válida no Vanmathi.');
+        return;
+      }
+      if (perfil.role !== 'admin') {
+        vanmathiCloudConectada = false;
+        atualizarStatusNuvem('Acesso de funcionário em implantação', 'var(--warning)');
+        alert('Seu perfil de funcionário foi reconhecido. A área operacional com permissões restritas será liberada na próxima etapa da implantação.');
+        return;
+      }
+
+      vanmathiCloudConectada = true;
+      document.getElementById('btnConectarNuvem').style.display = 'none';
+      document.getElementById('btnSincronizarNuvem').style.display = 'block';
+      document.getElementById('btnSairNuvem').style.display = 'block';
+      const dadosRef = vanmathiDb.collection('vanmathi').doc('dados');
+      const snap = await dadosRef.get();
+      if (!snap.exists) {
+        await dadosRef.set({
+          ...obterPacoteDadosVanmathi(),
+          criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
+          criadoPor: user.uid
+        });
+        atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
+      } else {
+        vanmathiCarregandoNuvem = true;
+        try { aplicarPacoteDadosVanmathi(snap.data()); }
+        finally { vanmathiCarregandoNuvem = false; }
+        atualizarStatusNuvem('Dados centrais carregados ☁️', 'var(--success)');
+      }
+
+      if (vanmathiListener) vanmathiListener();
+      vanmathiListener = dadosRef.onSnapshot((snapshot) => {
+        if (!snapshot.exists()) return;
+        if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+        if (vanmathiUltimaAlteracaoLocal) return;
+        vanmathiCarregandoNuvem = true;
+        try {
+          aplicarPacoteDadosVanmathi(snapshot.data());
+          atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
+        } finally { vanmathiCarregandoNuvem = false; }
+      }, (error) => {
+        console.error('Listener Firestore:', error);
+        atualizarStatusNuvem('Erro de sincronização', 'var(--danger)');
+      });
+    } catch (e) {
+      console.error('Erro ao conectar ao Firestore:', e);
+      vanmathiCloudConectada = false;
+      atualizarStatusNuvem('Erro ao acessar a base', 'var(--danger)');
+    }
+  }
+
+  async function salvarNuvemVanmathi() {
+    if (!vanmathiCloudConectada || !vanmathiUsuario || !vanmathiDb || vanmathiCarregandoNuvem) return;
+    try {
+      const dadosRef = vanmathiDb.collection('vanmathi').doc('dados');
+      await dadosRef.set({
+        ...obterPacoteDadosVanmathi(),
+        atualizadoPor: vanmathiUsuario.uid,
+        atualizadoEmServidor: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
       vanmathiUltimaAlteracaoLocal = 0;
       atualizarStatusNuvem('Sincronizado ☁️', 'var(--success)');
     } catch (e) {
-      console.error('Erro ao salvar no Google Drive:', e);
+      console.error('Erro ao salvar no Firestore:', e);
       atualizarStatusNuvem('Falha na sincronização', 'var(--danger)');
     }
   }
 
-  function criarMultipartDrive(metadata, conteudo) {
-    const boundary = 'vanmathi_boundary';
-    return `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${conteudo}\r\n--${boundary}--`;
-  }
-
   async function sincronizarAgora() {
-    if (!vanmathiCloudConectada) return conectarGoogleDrive();
+    if (!vanmathiUsuario) return entrarVanmathi();
     atualizarStatusNuvem('Sincronizando...', 'var(--warning)');
-    if (vanmathiUltimaAlteracaoLocal) await salvarNuvemVanmathi();
-    else await carregarDadosDoArquivoVanmathi();
-    atualizarStatusNuvem('Sincronizado ☁️', 'var(--success)');
+    await salvarNuvemVanmathi();
   }
 
-  function iniciarMonitoramentoNuvem() {
-    clearInterval(vanmathiPollTimer);
-    vanmathiPollTimer = setInterval(verificarMudancaNuvem, 15000);
-  }
-
-  async function verificarMudancaNuvem() {
-    if (!vanmathiCloudConectada || !vanmathiDriveFileId || vanmathiUltimaAlteracaoLocal) return;
-    try {
-      const resp = await gapi.client.drive.files.get({ fileId: vanmathiDriveFileId, fields: 'id,modifiedTime' });
-      const remoto = resp.result.modifiedTime;
-      if (remoto && remoto !== vanmathiDriveModifiedTime) {
-        vanmathiDriveModifiedTime = remoto;
-        await carregarDadosDoArquivoVanmathi();
-        atualizarStatusNuvem('Atualizado pela nuvem ☁️', 'var(--success)');
-      }
-    } catch (e) {
-      console.warn('Não foi possível verificar a nuvem:', e);
-    }
-  }
-
-  window.addEventListener('load', () => {
-    inicializarGoogleVanmathi();
-    // Depois da primeira autorização, tenta reconectar silenciosamente ao abrir
-    // o Vanmathi novamente. Se o Google exigir interação, o botão continua disponível.
-    setTimeout(() => {
-      if (localStorage.getItem('Vanmathi_Google_Conectado') === '1' && !vanmathiCloudConectada && !vanmathiTentativaReconexao) {
-        vanmathiTentativaReconexao = true;
-        conectarGoogleDrive(true);
-      }
-    }, 1800);
-  });
-
-
+  window.addEventListener('load', () => inicializarFirebaseVanmathi());
 
   function toggleMenuMobile() {
     const aside = document.getElementById('asideMenu');
