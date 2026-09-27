@@ -1017,7 +1017,11 @@
     } catch (e) {
       console.error('Erro ao conectar ao Firestore:', e);
       vanmathiCloudConectada = false;
-      atualizarStatusNuvem('Erro ao acessar a base', 'var(--danger)');
+      const codigo = e && e.code ? ` [${e.code}]` : '';
+      const mensagem = e && e.message ? e.message : String(e || 'Erro desconhecido');
+      atualizarStatusNuvem(`Erro ao acessar a base${codigo}`, 'var(--danger)');
+      console.error('Detalhes Firebase:', codigo, mensagem);
+      alert(`Erro real do Firebase${codigo}:\n\n${mensagem}`);
     }
   }
 
