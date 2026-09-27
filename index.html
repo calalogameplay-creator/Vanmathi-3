@@ -1,42 +1,1565 @@
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script>
-  const VANMATHI_FIREBASE_CONFIG = {
-    apiKey: 'AIzaSyBona_hpgGGyidFp9m4q1VFmrD21GdGg-sA',
-    authDomain: 'vanmathi.firebaseapp.com',
-    projectId: 'vanmathi',
-    storageBucket: 'vanmathi.firebasestorage.app',
-    messagingSenderId: '466703829891',
-    appId: '1:466703829891:web:e190086b69a1840dcec4b6',
-    measurementId: 'G-6Z802G6SVT'
-  };
+  <title>Vanmathi 3 - Painel de Gestão e Impressão 3D</title>
 
-  let vanmathiFirebase = null;
-  let vanmathiAuth = null;
-  let vanmathiDb = null;
-  let vanmathiUsuario = null;
-  let vanmathiCloudConectada = false;
-  let vanmathiListener = null;
-  let vanmathiSaveTimer = null;
-  let vanmathiCarregandoNuvem = false;
-  let vanmathiUltimaAlteracaoLocal = 0;
-  let vanmathiFirebaseInicializado = false;
+  <!-- =========================================================
+       PWA
+       ========================================================= -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vanmathi 3">
 
-  function atualizarStatusNuvem(texto, cor = 'var(--warning)') {
-    const el = document.getElementById('statusNuvem');
-    if (el) {
-      el.innerText = '● ' + texto;
-      el.style.color = cor;
+  <!-- =========================================================
+       SHEETJS
+       ========================================================= -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- =========================================================
+       FIREBASE
+       ========================================================= -->
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+
+  <style>
+
+    :root {
+      --bg-main: #0b0f19;
+      --bg-sidebar: #131b2e;
+      --card-bg: #131b2e;
+      --text-color: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --border: #1e293b;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
     }
-  }
 
-  function firebaseConfigValida() {
-    return VANMATHI_FIREBASE_CONFIG.apiKey &&
-      !VANMATHI_FIREBASE_CONFIG.apiKey.startsWith('COLE_') &&
-      VANMATHI_FIREBASE_CONFIG.projectId &&
-      !VANMATHI_FIREBASE_CONFIG.projectId.startsWith('SEU_');
-  }
-</script>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-color);
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    aside {
+      width: 260px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      transition: transform 0.3s ease;
+      z-index: 200;
+    }
+
+    .logo-area {
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 25px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .menu-section {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .nav-links {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .nav-links li {
+      margin-bottom: 4px;
+    }
+
+    .nav-links a {
+      display: block;
+      padding: 10px 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .user-info {
+      font-size: 14px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      padding-top: 15px;
+    }
+
+    .mobile-header {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 150;
+    }
+
+    .hamburger-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      z-index: 180;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    /* BANNER DE INSTALAÇÃO */
+
+    #bannerInstalacao {
+      display: none;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      animation: fadeIn 0.4s ease-in-out;
+    }
+
+    #bannerInstalacao button {
+      background: #fff;
+      color: #1d4ed8;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    #bannerInstalacao button:hover {
+      background: #f1f5f9;
+    }
+
+    main {
+      flex-grow: 1;
+      padding: 30px;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .content-section {
+      display: none;
+    }
+
+    .content-section.active {
+      display: block;
+    }
+
+    .header-painel {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .header-title small {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .header-title h1 {
+      margin: 0;
+      font-size: 24px;
+      color: var(--text-color);
+    }
+
+    .header-title p {
+      margin: 4px 0 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filters select {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-color);
+      padding: 8px 14px;
+      border-radius: 6px;
+      outline: none;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-color);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tab-menu {
+      display: flex;
+      gap: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 25px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 10px 4px;
+      font-weight: 500;
+      position: relative;
+      transition: color 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover,
+    .tab-btn.active {
+      color: var(--primary);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 18px;
+      border-radius: 10px;
+      position: relative;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+    }
+
+    .metric-card span {
+      color: var(--text-muted);
+      font-size: 12px;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .metric-card h3 {
+      margin: 0;
+      font-size: 20px;
+      color: var(--text-color);
+    }
+
+    .dashboard-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4,minmax(0,1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .dashboard-kpi {
+      background: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.025),
+        rgba(255,255,255,0.01)
+      );
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+    .dashboard-kpi::after {
+      content: '';
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      right: -35px;
+      top: -35px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.025);
+    }
+
+    .dashboard-kpi .kpi-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .dashboard-kpi .kpi-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      font-weight: 700;
+    }
+
+    .dashboard-kpi .kpi-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .dashboard-kpi .kpi-value {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.1;
+      font-weight: 800;
+      color: var(--text-color);
+    }
+
+    .dashboard-kpi .kpi-note {
+      margin-top: 7px;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .dashboard-section-title {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 15px;
+      margin: 4px 0 12px;
+    }
+
+    .dashboard-section-title h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .dashboard-section-title p {
+      margin: 3px 0 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .dashboard-status-grid {
+      display: grid;
+      grid-template-columns: repeat(4,minmax(0,1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .dashboard-status {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .dashboard-status .status-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .dashboard-status strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 21px;
+    }
+
+    @media (max-width:1000px) {
+      .dashboard-kpi-grid,
+      .dashboard-status-grid {
+        grid-template-columns: repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width:600px) {
+      .dashboard-kpi-grid,
+      .dashboard-status-grid {
+        grid-template-columns:1fr;
+      }
+    }
+
+    .metric-icon {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .card-box h3 {
+      margin-top: 0;
+      margin-bottom: 6px;
+      font-size: 15px;
+      color: var(--text-color);
+    }
+
+    .card-box p.subtitle {
+      margin: 0 0 15px 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .table-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .search-box {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-color);
+      padding: 10px 14px 10px 36px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .search-box span {
+      position: absolute;
+      left: 12px;
+      top: 10px;
+      color: var(--text-muted);
+    }
+
+    .badge-count {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-color);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow-x: auto;
+      margin-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+      min-width: 550px;
+    }
+
+    th,
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 500;
+      background: rgba(255,255,255,0.01);
+    }
+
+    td {
+      color: var(--text-color);
+    }
+
+    .stock-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stock-bar {
+      width: 80px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .stock-fill {
+      height: 100%;
+      transition: width 0.3s;
+    }
+
+    .calc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .calc-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border);
+      color: var(--text-color);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .resultado-box {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid var(--primary);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 15px;
+      text-align: center;
+    }
+
+    .resultado-box h3 {
+      margin: 0 0 5px 0;
+      color: var(--primary);
+      font-size: 20px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 15px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border);
+      width: 100%;
+      max-width: 480px;
+      border-radius: 12px;
+      padding: 24px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #0f172a;
+      border: 1px solid var(--success);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transform: translateX(120%);
+      transition: transform 0.35s;
+      pointer-events: auto;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast-icon {
+      background: var(--success);
+      color: #fff;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 900px) {
+
+      body {
+        flex-direction: column;
+        height: auto;
+        overflow: auto;
+      }
+
+      aside {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        transform: translateX(-100%);
+        width: 280px;
+      }
+
+      aside.mobile-open {
+        transform: translateX(0);
+      }
+
+      .mobile-header {
+        display: flex;
+      }
+
+      main {
+        padding: 15px;
+        overflow-y: visible;
+        height: auto;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .calc-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- =========================================================
+       CABEÇALHO MOBILE
+       ========================================================= -->
+
+  <div class="mobile-header">
+    <div
+      class="logo-area"
+      style="margin: 0; font-size: 18px;"
+    >
+      🖨️ Vanmathi 3
+    </div>
+
+    <button
+      class="hamburger-btn"
+      onclick="toggleMenuMobile()"
+    >
+      ☰
+    </button>
+  </div>
+
+  <div
+    class="sidebar-overlay"
+    id="sidebarOverlay"
+    onclick="toggleMenuMobile()"
+  ></div>
+
+  <!-- =========================================================
+       MENU LATERAL
+       ========================================================= -->
+
+  <aside id="asideMenu">
+
+    <div>
+
+      <div class="logo-area">
+        🖨️ Vanmathi 3
+      </div>
+
+      <div class="menu-section">
+        Organização
+      </div>
+
+      <ul class="nav-links">
+
+        <li>
+          <a
+            class="active"
+            onclick="mudarAbaMenu(event, 'relatorios')"
+          >
+            📊 Relatórios & Visão
+          </a>
+        </li>
+
+        <li>
+          <a onclick="mudarAbaMenu(event, 'vendas')">
+            🛒 Gestão de Vendas
+          </a>
+        </li>
+
+        <li>
+          <a onclick="mudarAbaMenu(event, 'estoque')">
+            📦 Estoque de Filamentos
+          </a>
+        </li>
+
+        <li>
+          <a onclick="mudarAbaMenu(event, 'precificacao')">
+            💰 Calculadora & Lojas
+          </a>
+        </li>
+
+        <li>
+          <a onclick="mudarAbaMenu(event, 'produtos')">
+            🏷️ Meus Produtos Salvos
+          </a>
+        </li>
+
+      </ul>
+
+    </div>
+
+    <div class="user-info">
+
+      <strong>Vanmathi Cloud</strong>
+      <br>
+
+      <span
+        id="statusNuvem"
+        style="font-size:12px;color:var(--warning);"
+      >
+        ● Não conectado
+      </span>
+
+      <span
+        id="usuarioFirebase"
+        style="
+          font-size:11px;
+          color:var(--text-muted);
+          display:block;
+          margin-top:4px;
+        "
+      ></span>
+
+      <button
+        id="btnConectarNuvem"
+        class="btn-secondary"
+        style="width:100%;margin-top:10px;"
+        onclick="entrarVanmathi()"
+      >
+        ☁️ Entrar no Vanmathi
+      </button>
+
+      <button
+        id="btnSincronizarNuvem"
+        class="btn-secondary"
+        style="width:100%;margin-top:7px;display:none;"
+        onclick="sincronizarAgora()"
+      >
+        🔄 Sincronizar agora
+      </button>
+
+      <button
+        id="btnSairNuvem"
+        class="btn-secondary"
+        style="width:100%;margin-top:7px;display:none;"
+        onclick="desconectarFirebaseVanmathi()"
+      >
+        ↪️ Sair da conta
+      </button>
+
+      <div
+        style="
+          font-size:10px;
+          color:var(--text-muted);
+          margin-top:8px;
+          line-height:1.35;
+        "
+      >
+        Todos os dispositivos conectados à mesma conta Google usam a mesma base Vanmathi.
+      </div>
+
+    </div>
+
+  </aside>
+
+  <!-- =========================================================
+       CONTEÚDO PRINCIPAL
+       ========================================================= -->
+
+  <main>
+
+    <!-- BANNER DE INSTALAÇÃO -->
+
+    <div id="bannerInstalacao">
+
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          gap:10px;
+        "
+      >
+
+        <span style="font-size:22px;">
+          📱
+        </span>
+
+        <div>
+
+          <strong>
+            Instalar Vanmathi 3
+          </strong>
+
+          <br>
+
+          <span
+            style="
+              font-size:12px;
+              opacity:0.9;
+            "
+          >
+            Tenha o painel direto na sua tela inicial como um aplicativo!
+          </span>
+
+        </div>
+
+      </div>
+
+      <button onclick="instalarAplicativo()">
+        Baixar Aplicativo
+      </button>
+
+    </div>
+
+    <!-- CABEÇALHO -->
+
+    <div class="header-painel">
+
+      <div class="header-title">
+
+        <small>
+          Painel de Controle
+        </small>
+
+        <h1 id="tituloPagina">
+          Relatórios
+        </h1>
+
+        <p id="subtituloPagina">
+          Visão completa da sua operação: financeiro, produção, custos e estoque em tempo real.
+        </p>
+
+      </div>
+
+      <div
+        class="filters"
+        id="painelFiltrosTopo"
+      >
+
+        <select
+          id="filtroLoja"
+          onchange="aplicarFiltrosGlobais()"
+        >
+          <option value="todos">
+            Todas as Lojas
+          </option>
+        </select>
+
+        <select
+          id="filtroMes"
+          onchange="aplicarFiltrosGlobais()"
+        >
+
+          <option value="todos">
+            Todos os Meses
+          </option>
+
+          <option value="01">
+            JAN - Janeiro
+          </option>
+
+          <option value="02">
+            FEV - Fevereiro
+          </option>
+
+          <option value="03">
+            MAR - Março
+          </option>
+
+          <option value="04">
+            ABR - Abril
+          </option>
+
+          <option value="05">
+            MAI - Maio
+          </option>
+
+          <option value="06">
+            JUN - Junho
+          </option>
+
+          <option value="07">
+            JUL - Julho
+          </option>
+
+          <option value="08">
+            AGO - Agosto
+          </option>
+
+          <option value="09">
+            SET - Setembro
+          </option>
+
+          <option value="10">
+            OUT - Outubro
+          </option>
+
+          <option value="11">
+            NOV - Novembro
+          </option>
+
+          <option value="12">
+            DEZ - Dezembro
+          </option>
+
+        </select>
+
+        <select
+          id="filtroAno"
+          onchange="aplicarFiltrosGlobais()"
+        >
+          <option value="todos">
+            Todos os Anos
+          </option>
+        </select>
+
+      </div>
+
+    </div>
+
+    <!-- =======================================================
+         RELATÓRIOS
+         ======================================================= -->
+
+    <div
+      id="secao-relatorios"
+      class="content-section active"
+    >
+
+      <div class="tab-menu">
+
+        <button
+          class="tab-btn active"
+          onclick="mudarTabRelatorio(event, 'visao-geral')"
+        >
+          Visão Geral
+        </button>
+
+        <button
+          class="tab-btn"
+          onclick="mudarTabRelatorio(event, 'producao-rel')"
+        >
+          Produção
+        </button>
+
+        <button
+          class="tab-btn"
+          onclick="mudarTabRelatorio(event, 'custos-perdas')"
+        >
+          Custos & Perdas
+        </button>
+
+        <button
+          class="tab-btn"
+          onclick="mudarTabRelatorio(event, 'estoque-catalogo')"
+        >
+          Estoque & Catálogo
+        </button>
+
+      </div>
+
+      <!-- VISÃO GERAL -->
+
+      <div
+        id="visao-geral"
+        class="tab-content active"
+      >
+
+        <div class="dashboard-kpi-grid">
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                Faturamento realizado
+              </span>
+
+              <span class="kpi-icon">
+                📈
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelFatTotal"
+            >
+              R$ 0,00
+            </h3>
+
+            <div class="kpi-note">
+              Vendas concluídas no período
+            </div>
+
+          </div>
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                Recebido
+              </span>
+
+              <span class="kpi-icon">
+                💵
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelRecebido"
+            >
+              R$ 0,00
+            </h3>
+
+            <div class="kpi-note">
+              Valores já recebidos
+            </div>
+
+          </div>
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                A receber
+              </span>
+
+              <span class="kpi-icon">
+                🕐
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelAReceber"
+            >
+              R$ 0,00
+            </h3>
+
+            <div class="kpi-note">
+              Vendas concluídas ainda não recebidas
+            </div>
+
+          </div>
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                Em produção
+              </span>
+
+              <span class="kpi-icon">
+                🛠️
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelEmProducao"
+            >
+              R$ 0,00
+            </h3>
+
+            <div class="kpi-note">
+              Pedidos ainda em produção
+            </div>
+
+          </div>
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                Lucro líquido realizado
+              </span>
+
+              <span class="kpi-icon">
+                💰
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelLucroLiq"
+            >
+              R$ 0,00
+            </h3>
+
+            <div class="kpi-note">
+              Lucro das vendas concluídas
+            </div>
+
+          </div>
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                Margem média
+              </span>
+
+              <span class="kpi-icon">
+                📊
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelMargem"
+            >
+              0,0%
+            </h3>
+
+            <div class="kpi-note">
+              Margem média das vendas concluídas
+            </div>
+
+          </div>
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                Peças vendidas
+              </span>
+
+              <span class="kpi-icon">
+                📦
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelTotalPedidos"
+            >
+              0
+            </h3>
+
+            <div class="kpi-note">
+              Unidades em pedidos concluídos
+            </div>
+
+          </div>
+
+          <div class="dashboard-kpi">
+
+            <div class="kpi-top">
+
+              <span class="kpi-label">
+                Ticket médio
+              </span>
+
+              <span class="kpi-icon">
+                🧾
+              </span>
+
+            </div>
+
+            <h3
+              class="kpi-value"
+              id="lblRelTicketMedio"
+            >
+              R$ 0,00
+            </h3>
+
+            <div class="kpi-note">
+              Faturamento dividido por peças
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="grid-2">
+
+          <div class="card-box">
+
+            <h3>
+              Faturamento
+            </h3>
+
+            <p class="subtitle">
+              Evolução baseada nas vendas registradas
+            </p>
+
+            <div
+              style="
+                height:160px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                color:var(--text-muted);
+                font-size:13px;
+              "
+              id="graficoFaturamentoMsg"
+            >
+              Nenhum dado financeiro para o período.
+            </div>
+
+          </div>
+
+          <div class="card-box">
+
+            <h3>
+              Status dos Pedidos
+            </h3>
+
+            <p class="subtitle">
+              Distribuição mensal
+            </p>
+
+            <div
+              style="
+                height:160px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                color:var(--text-muted);
+                font-size:13px;
+              "
+            >
+              100% Concluídos / Entregues
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="dashboard-section-title">
+
+          <div>
+
+            <h2>
+              Operação
+            </h2>
+
+            <p>
+              Indicadores de produção e catálogo do período selecionado.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div class="dashboard-status-grid">
+
+          <div class="dashboard-status">
+            <span class="status-label">
+              Pedidos em produção
+            </span>
+            <strong
+              id="lblRelPedidosProducao"
+              style="color:var(--warning);"
+            >
+              0
+            </strong>
+          </div>
+
+          <div class="dashboard-status">
+            <span class="status-label">
+              Pedidos concluídos
+            </span>
+            <strong
+              id="lblRelPedidosConcluidos"
+              style="color:var(--success);"
+            >
+              0
+            </strong>
+          </div>
+
+          <div class="dashboard-status">
+            <span class="status-label">
+              Horas de impressão
+            </span>
+            <strong id="lblRelHorasTotais">
+              0h
+            </strong>
+          </div>
+
+          <div class="dashboard-status">
+            <span class="status-label">
+              Produtos no catálogo
+            </span>
+            <strong id="lblRelCatTotal">
+              0
+            </strong>
+          </div>
+
+          <div class="dashboard-status">
+            <span class="status-label">
+              Lojas ativas
+            </span>
+            <strong id="lblLojasAtivas">
+              0
+            </strong>
+          </div>
+
+        </div>
+
+        <div class="card-box">
+
+          <h3>
+            Vendas Recentes
+          </h3>
+
+          <p class="subtitle">
+            Últimas transações registradas no controle de vendas
+          </p>
+
+          <div class="table-container">
+
+            <table>
+
+              <thead>
+
+                <tr>
+                  <th>Data</th>
+                  <th>Produto</th>
+                  <th>Loja</th>
+                  <th>Qtd</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                </tr>
+
+              </thead>
+
+              <tbody id="tabelaRelVisaoGeral">
+
+                <tr>
+
+                  <td
+                    colspan="6"
+                    style="
+                      text-align:center;
+                      color:var(--text-muted);
+                      padding:25px;
+                    "
+                  >
+                    Nenhuma venda registrada no período.
+                  </td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </div>
