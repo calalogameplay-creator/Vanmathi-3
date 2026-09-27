@@ -985,41 +985,130 @@
       document.getElementById('btnSincronizarNuvem').style.display = 'block';
       document.getElementById('btnSairNuvem').style.display = 'block';
       const dadosRef = vanmathiDb.collection('vanmathi').doc('dados');
-      const snap = await dadosRef.get();
-      if (!snap.exists) {
-        await dadosRef.set({
-          ...obterPacoteDadosVanmathi(),
-          criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
-          criadoPor: user.uid
+
+      // DIAGNÓSTICO: separa erro de leitura do Firestore de erro ao renderizar os dados.
+      let snap;
+      try {
+        console.log('[VANMATHI][1] Testando leitura do documento vanmathi/dados...');
+        snap = await dadosRef.get({ source: 'server' });
+        console.log('[VANMATHI][2] Leitura concluída:', {
+          exists: snap.exists,
+          metadata: snap.metadata || null,
+          data: snap.exists ? snap.data() : null
         });
-        atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
+      } catch (eLeitura) {
+        console.error('[VANMATHI][ERRO LEITURA FIRESTORE]', eLeitura);
+        const codigo = eLeitura && eLeitura.code ? ` [${eLeitura.code}]` : '';
+        const mensagem = eLeitura && eLeitura.message ? eLeitura.message : String(eLeitura || 'Erro desconhecido');
+        vanmathiCloudConectada = false;
+        atualizarStatusNuvem(`Erro ao ler a base${codigo}`, 'var(--danger)');
+        alert(`ERRO REAL AO LER O FIRESTORE${codigo}:\n\n${mensagem}\n\nA falha aconteceu ANTES de carregar os dados.`);
+        return;
+      }
+
+      if (!snap.exists) {
+        console.warn('[VANMATHI][3] Documento vanmathi/dados NÃO EXISTE. Será criado com os dados locais atuais.');
+        try {
+          const pacoteInicial = obterPacoteDadosVanmathi();
+          console.log('[VANMATHI][4] Criando documento com pacote inicial:', pacoteInicial);
+          await dadosRef.set({
+            ...pacoteInicial,
+            criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
+            criadoPor: user.uid
+          });
+          atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
+        } catch (eCriacao) {
+          console.error('[VANMATHI][ERRO CRIAR DOCUMENTO]', eCriacao);
+          const codigo = eCriacao && eCriacao.code ? ` [${eCriacao.code}]` : '';
+          const mensagem = eCriacao && eCriacao.message ? eCriacao.message : String(eCriacao || 'Erro desconhecido');
+          vanmathiCloudConectada = false;
+          atualizarStatusNuvem(`Erro ao criar a base${codigo}`, 'var(--danger)');
+          alert(`ERRO REAL AO CRIAR O DOCUMENTO${codigo}:\n\n${mensagem}`);
+          return;
+        }
       } else {
+        const dadosNuvem = snap.data() || {};
+        console.log('[VANMATHI][5] Documento existe. Campos encontrados:', Object.keys(dadosNuvem));
+        console.log('[VANMATHI][6] Quantidades:', {
+          materiais: Array.isArray(dadosNuvem.materiais) ? dadosNuvem.materiais.length : 'ausente/não é array',
+          produtos: Array.isArray(dadosNuvem.produtos) ? dadosNuvem.produtos.length : 'ausente/não é array',
+          vendas: Array.isArray(dadosNuvem.vendas) ? dadosNuvem.vendas.length : 'ausente/não é array',
+          lojas: Array.isArray(dadosNuvem.lojas) ? dadosNuvem.lojas.length : 'ausente/não é array',
+          marcas: Array.isArray(dadosNuvem.marcas) ? dadosNuvem.marcas.length : 'ausente/não é array'
+        });
+
+        // Mesmo que o documento exista vazio ou parcialmente preenchido,
+        // carregamos o que existir e mantemos arrays vazios nos campos ausentes.
+        const pacoteSeguro = {
+          versao: dadosNuvem.versao || 2,
+          atualizadoEm: dadosNuvem.atualizadoEm || new Date().toISOString(),
+          materiais: Array.isArray(dadosNuvem.materiais) ? dadosNuvem.materiais : [],
+          produtos: Array.isArray(dadosNuvem.produtos) ? dadosNuvem.produtos : [],
+          vendas: Array.isArray(dadosNuvem.vendas) ? dadosNuvem.vendas : [],
+          lojas: Array.isArray(dadosNuvem.lojas) ? dadosNuvem.lojas : [],
+          marcas: Array.isArray(dadosNuvem.marcas) ? dadosNuvem.marcas : []
+        };
+
         vanmathiCarregandoNuvem = true;
-        try { aplicarPacoteDadosVanmathi(snap.data()); }
-        finally { vanmathiCarregandoNuvem = false; }
+        try {
+          console.log('[VANMATHI][7] Aplicando pacote seguro...');
+          aplicarPacoteDadosVanmathi(pacoteSeguro);
+          console.log('[VANMATHI][8] Dados aplicados e telas renderizadas com sucesso.');
+        } catch (eAplicacao) {
+          console.error('[VANMATHI][ERRO APLICAR/RENDERIZAR]', eAplicacao);
+          const codigo = eAplicacao && eAplicacao.code ? ` [${eAplicacao.code}]` : '';
+          const mensagem = eAplicacao && eAplicacao.message ? eAplicacao.message : String(eAplicacao || 'Erro desconhecido');
+          atualizarStatusNuvem('Base lida, mas erro ao carregar os dados', 'var(--danger)');
+          alert(`A BASE FOI LIDA COM SUCESSO, MAS DEU ERRO AO JOGAR OS DADOS NA TELA${codigo}:\n\n${mensagem}\n\nVeja o Console (F12) para saber qual função/elemento causou o erro.`);
+          return;
+        } finally {
+          vanmathiCarregandoNuvem = false;
+        }
         atualizarStatusNuvem('Dados centrais carregados ☁️', 'var(--success)');
       }
 
       if (vanmathiListener) vanmathiListener();
       vanmathiListener = dadosRef.onSnapshot((snapshot) => {
+        console.log('[VANMATHI][TEMPO REAL] Snapshot recebido:', { exists: snapshot.exists, pending: snapshot.metadata && snapshot.metadata.hasPendingWrites });
         if (!snapshot.exists()) return;
         // Ignora somente o snapshot local ainda pendente.
         // Assim que o Firestore confirmar a gravação, o snapshot remoto
         // é aplicado normalmente em todos os dispositivos conectados.
         if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+        const dadosSnapshot = snapshot.data() || {};
+        const pacoteSeguro = {
+          versao: dadosSnapshot.versao || 2,
+          atualizadoEm: dadosSnapshot.atualizadoEm || new Date().toISOString(),
+          materiais: Array.isArray(dadosSnapshot.materiais) ? dadosSnapshot.materiais : [],
+          produtos: Array.isArray(dadosSnapshot.produtos) ? dadosSnapshot.produtos : [],
+          vendas: Array.isArray(dadosSnapshot.vendas) ? dadosSnapshot.vendas : [],
+          lojas: Array.isArray(dadosSnapshot.lojas) ? dadosSnapshot.lojas : [],
+          marcas: Array.isArray(dadosSnapshot.marcas) ? dadosSnapshot.marcas : []
+        };
         vanmathiCarregandoNuvem = true;
         try {
-          aplicarPacoteDadosVanmathi(snapshot.data());
+          aplicarPacoteDadosVanmathi(pacoteSeguro);
           atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
+        } catch (eTempoReal) {
+          console.error('[VANMATHI][ERRO TEMPO REAL AO APLICAR]', eTempoReal);
+          const mensagem = eTempoReal && eTempoReal.message ? eTempoReal.message : String(eTempoReal || 'Erro desconhecido');
+          atualizarStatusNuvem('Erro ao aplicar atualização', 'var(--danger)');
+          alert(`O FIRESTORE ENVIOU A ATUALIZAÇÃO, MAS A TELA NÃO CONSEGUIU APLICAR:\n\n${mensagem}`);
         } finally { vanmathiCarregandoNuvem = false; }
       }, (error) => {
-        console.error('Listener Firestore:', error);
-        atualizarStatusNuvem('Erro de sincronização', 'var(--danger)');
+        console.error('[VANMATHI][ERRO LISTENER FIRESTORE]', error);
+        const codigo = error && error.code ? ` [${error.code}]` : '';
+        const mensagem = error && error.message ? error.message : String(error || 'Erro desconhecido');
+        atualizarStatusNuvem(`Erro de sincronização${codigo}`, 'var(--danger)');
+        alert(`ERRO REAL DO LISTENER FIRESTORE${codigo}:\n\n${mensagem}`);
       });
     } catch (e) {
-      console.error('Erro ao conectar ao Firestore:', e);
+      console.error('[VANMATHI][ERRO GERAL CONECTAR FIREBASE]', e);
       vanmathiCloudConectada = false;
-      atualizarStatusNuvem('Erro ao acessar a base', 'var(--danger)');
+      const codigo = e && e.code ? ` [${e.code}]` : '';
+      const mensagem = e && e.message ? e.message : String(e || 'Erro desconhecido');
+      atualizarStatusNuvem(`Erro ao acessar a base${codigo}`, 'var(--danger)');
+      alert(`ERRO REAL DO VANMATHI${codigo}:\n\n${mensagem}`);
     }
   }
 
