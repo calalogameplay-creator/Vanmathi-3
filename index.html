@@ -1003,13 +1003,21 @@
       if (vanmathiListener) vanmathiListener();
       vanmathiListener = dadosRef.onSnapshot((snapshot) => {
         if (!snapshot.exists()) return;
+
+        // Ignora somente o evento local ainda pendente. Assim que o Firestore
+        // confirmar a gravação no servidor, o snapshot é aplicado normalmente.
         if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
-        if (vanmathiUltimaAlteracaoLocal) return;
+
         vanmathiCarregandoNuvem = true;
         try {
           aplicarPacoteDadosVanmathi(snapshot.data());
           atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
-        } finally { vanmathiCarregandoNuvem = false; }
+        } catch (e) {
+          console.error('Erro ao aplicar atualização em tempo real:', e);
+          atualizarStatusNuvem('Erro ao atualizar a tela', 'var(--danger)');
+        } finally {
+          vanmathiCarregandoNuvem = false;
+        }
       }, (error) => {
         console.error('Listener Firestore:', error);
         atualizarStatusNuvem('Erro de sincronização', 'var(--danger)');
@@ -1017,11 +1025,7 @@
     } catch (e) {
       console.error('Erro ao conectar ao Firestore:', e);
       vanmathiCloudConectada = false;
-      const codigo = e && e.code ? ` [${e.code}]` : '';
-      const mensagem = e && e.message ? e.message : String(e || 'Erro desconhecido');
-      atualizarStatusNuvem(`Erro ao acessar a base${codigo}`, 'var(--danger)');
-      console.error('Detalhes Firebase:', codigo, mensagem);
-      alert(`Erro real do Firebase${codigo}:\n\n${mensagem}`);
+      atualizarStatusNuvem('Erro ao acessar a base', 'var(--danger)');
     }
   }
 
@@ -1906,14 +1910,11 @@
         htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color:${st.cor};font-weight:600;">${estoqueAtual}g</span></td><td><span style="color:${st.cor};background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;font-size:11px;">${st.texto}</span></td></tr>`;
       }
     });
-    const elTotalFilamentos = document.getElementById('lblTotalFilamentos'); if (elTotalFilamentos) elTotalFilamentos.innerText = totalFil;
-    const elTotalResinas = document.getElementById('lblTotalResinas'); if (elTotalResinas) elTotalResinas.innerText = totalRes;
-    const elEstoqueAlertas = document.getElementById('lblEstoqueAlertas'); if (elEstoqueAlertas) elEstoqueAlertas.innerText = estoqueAlertaCount;
-    const elValorEstoque = document.getElementById('lblValorEstoque'); if (elValorEstoque) elValorEstoque.innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    const tabelaAlertasEstoque = document.getElementById('tabelaAlertasEstoque');
-    if (tabelaAlertasEstoque) {
-      tabelaAlertasEstoque.innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
-    }
+    document.getElementById('lblTotalFilamentos').innerText = totalFil;
+    document.getElementById('lblTotalResinas').innerText = totalRes;
+    document.getElementById('lblEstoqueAlertas').innerText = estoqueAlertaCount;
+    document.getElementById('lblValorEstoque').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
+    document.getElementById('tabelaAlertasEstoque').innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
   }
 
   filtrarTabela();
