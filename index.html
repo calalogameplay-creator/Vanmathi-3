@@ -911,9 +911,18 @@
       vanmathiFirebase = firebase.app();
       vanmathiAuth = firebase.auth();
       vanmathiDb = firebase.firestore();
-      // Permite que campos opcionais/antigos sem valor não interrompam o salvamento.
-      try { vanmathiDb.settings({ ignoreUndefinedProperties: true }); } catch (e) { console.warn('Firestore settings:', e); }
       vanmathiFirebaseInicializado = true;
+
+      vanmathiAuth.getRedirectResult()
+        .then((result) => {
+          if (result && result.user) {
+            console.log('Login Google concluído:', result.user.email);
+          }
+        })
+        .catch((error) => {
+          console.error('Erro no retorno do login Google:', error);
+          atualizarStatusNuvem('Erro no login', 'var(--danger)');
+        });
 
       vanmathiAuth.onAuthStateChanged(async (user) => {
         vanmathiUsuario = user || null;
@@ -945,11 +954,11 @@
       atualizarStatusNuvem('Abrindo login...', 'var(--warning)');
       const provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await vanmathiAuth.signInWithPopup(provider);
+      await vanmathiAuth.signInWithRedirect(provider);
     } catch (e) {
       console.error('Erro no login Firebase:', e);
       atualizarStatusNuvem('Erro no login', 'var(--danger)');
-      alert('Não foi possível entrar no Vanmathi. Confira se o login Google está ativado no Firebase Authentication.');
+      alert('Não foi possível entrar no Vanmathi. Confira se o login Google está ativado no Firebase Authentication.\n\nErro: ' + (e.message || e));
     }
   }
 
@@ -958,46 +967,23 @@
   }
 
   async function conectarFirebaseVanmathi(user) {
-    if (!user || !vanmathiDb) return;
-
-    const erroFirebase = (e) => {
-      console.error('Erro ao conectar ao Firestore:', e);
-      const codigo = e && e.code ? ` [${e.code}]` : '';
-      const mensagem = e && e.message ? e.message : String(e || 'Erro desconhecido');
-      atualizarStatusNuvem(`Erro ao acessar a base${codigo}`, 'var(--danger)');
-      console.error('Detalhes Firebase:', codigo, mensagem);
-    };
-
     try {
       atualizarStatusNuvem('Conectando à base central...', 'var(--warning)');
-
-      // 1) Confirma primeiro o perfil do usuário autenticado.
       const usuarioRef = vanmathiDb.collection('usuarios').doc(user.uid);
       const usuarioSnap = await usuarioRef.get();
-
       if (!usuarioSnap.exists) {
         vanmathiCloudConectada = false;
         atualizarStatusNuvem('Usuário aguardando autorização', 'var(--warning)');
         alert('Sua conta Google foi identificada, mas ainda não foi cadastrada como usuário do Vanmathi. O administrador precisa criar seu perfil no Firebase.');
         return;
       }
-
       const perfil = usuarioSnap.data() || {};
-
       if (!['admin', 'funcionario'].includes(perfil.role)) {
         vanmathiCloudConectada = false;
         atualizarStatusNuvem('Perfil sem permissão', 'var(--danger)');
-        alert('Seu usuário não possui uma função válida no Vanmathi. No documento usuarios/' + user.uid + ', o campo role deve ser "admin" ou "funcionario".');
+        alert('Seu usuário não possui uma função válida no Vanmathi.');
         return;
       }
-
-      if (perfil.ativo === false) {
-        vanmathiCloudConectada = false;
-        atualizarStatusNuvem('Usuário desativado', 'var(--danger)');
-        alert('Seu usuário está marcado como inativo no Firebase.');
-        return;
-      }
-
       if (perfil.role !== 'admin') {
         vanmathiCloudConectada = false;
         atualizarStatusNuvem('Acesso de funcionário em implantação', 'var(--warning)');
@@ -1005,60 +991,44 @@
         return;
       }
 
-      // 2) Só considera a nuvem conectada depois de conseguir abrir a base principal.
+      vanmathiCloudConectada = true;
+      document.getElementById('btnConectarNuvem').style.display = 'none';
+      document.getElementById('btnSincronizarNuvem').style.display = 'block';
+      document.getElementById('btnSairNuvem').style.display = 'block';
       const dadosRef = vanmathiDb.collection('vanmathi').doc('dados');
       const snap = await dadosRef.get();
-
       if (!snap.exists) {
         await dadosRef.set({
           ...obterPacoteDadosVanmathi(),
           criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
           criadoPor: user.uid
         });
-        vanmathiUltimaAlteracaoLocal = 0;
         atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
       } else {
         vanmathiCarregandoNuvem = true;
-        try {
-          aplicarPacoteDadosVanmathi(snap.data());
-        } finally {
-          vanmathiCarregandoNuvem = false;
-        }
-        vanmathiUltimaAlteracaoLocal = 0;
+        try { aplicarPacoteDadosVanmathi(snap.data()); }
+        finally { vanmathiCarregandoNuvem = false; }
         atualizarStatusNuvem('Dados centrais carregados ☁️', 'var(--success)');
       }
 
-      vanmathiCloudConectada = true;
-      document.getElementById('btnConectarNuvem').style.display = 'none';
-      document.getElementById('btnSincronizarNuvem').style.display = 'block';
-      document.getElementById('btnSairNuvem').style.display = 'block';
-
-      // 3) Atualização em tempo real entre computadores/celulares.
       if (vanmathiListener) vanmathiListener();
       vanmathiListener = dadosRef.onSnapshot((snapshot) => {
         if (!snapshot.exists()) return;
         if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
         if (vanmathiUltimaAlteracaoLocal) return;
-
         vanmathiCarregandoNuvem = true;
         try {
           aplicarPacoteDadosVanmathi(snapshot.data());
           atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
-        } catch (e) {
-          console.error('Erro ao aplicar dados recebidos do Firestore:', e);
-          atualizarStatusNuvem('Erro ao carregar dados da nuvem', 'var(--danger)');
-        } finally {
-          vanmathiCarregandoNuvem = false;
-        }
+        } finally { vanmathiCarregandoNuvem = false; }
       }, (error) => {
         console.error('Listener Firestore:', error);
-        const codigo = error && error.code ? ` [${error.code}]` : '';
-        atualizarStatusNuvem(`Erro de sincronização${codigo}`, 'var(--danger)');
+        atualizarStatusNuvem('Erro de sincronização', 'var(--danger)');
       });
-
     } catch (e) {
+      console.error('Erro ao conectar ao Firestore:', e);
       vanmathiCloudConectada = false;
-      erroFirebase(e);
+      atualizarStatusNuvem('Erro ao acessar a base', 'var(--danger)');
     }
   }
 
