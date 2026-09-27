@@ -913,17 +913,6 @@
       vanmathiDb = firebase.firestore();
       vanmathiFirebaseInicializado = true;
 
-      vanmathiAuth.getRedirectResult()
-        .then((result) => {
-          if (result && result.user) {
-            console.log('Login Google concluído:', result.user.email);
-          }
-        })
-        .catch((error) => {
-          console.error('Erro no retorno do login Google:', error);
-          atualizarStatusNuvem('Erro no login', 'var(--danger)');
-        });
-
       vanmathiAuth.onAuthStateChanged(async (user) => {
         vanmathiUsuario = user || null;
         const usuarioEl = document.getElementById('usuarioFirebase');
@@ -954,11 +943,11 @@
       atualizarStatusNuvem('Abrindo login...', 'var(--warning)');
       const provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await vanmathiAuth.signInWithRedirect(provider);
+      await vanmathiAuth.signInWithPopup(provider);
     } catch (e) {
       console.error('Erro no login Firebase:', e);
       atualizarStatusNuvem('Erro no login', 'var(--danger)');
-      alert('Não foi possível entrar no Vanmathi. Confira se o login Google está ativado no Firebase Authentication.\n\nErro: ' + (e.message || e));
+      alert('Não foi possível entrar no Vanmathi. Confira se o login Google está ativado no Firebase Authentication.');
     }
   }
 
