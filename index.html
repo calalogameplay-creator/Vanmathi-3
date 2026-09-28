@@ -234,6 +234,7 @@
         <li><a onclick="mudarAbaMenu(event, 'estoque')">📦 Estoque de Filamentos</a></li>
         <li><a onclick="mudarAbaMenu(event, 'precificacao')">💰 Calculadora & Lojas</a></li>
         <li><a onclick="mudarAbaMenu(event, 'produtos')">🏷️ Meus Produtos Salvos</a></li>
+        <li id="menuUsuarios" style="display:none;"><a onclick="mudarAbaMenu(event, 'usuarios')">👥 Usuários</a></li>
       </ul>
     </div>
     <div class="user-info">
@@ -772,6 +773,30 @@
 
   <div class="toast-container" id="toastContainer"></div>
 
+
+    <div id="secao-usuarios" class="content-section">
+      <div class="card-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div><h3>Usuários e Permissões</h3><p class="subtitle">Cadastre e altere os perfis diretamente pelo Vanmathi. As alterações são salvas no Firebase.</p></div>
+          <button class="btn-primary" onclick="abrirFormularioUsuario()">＋ Novo usuário</button>
+        </div>
+        <div id="formUsuarioVanmathi" style="display:none;margin-top:18px;padding:16px;border:1px solid var(--border);border-radius:10px;">
+          <input type="hidden" id="usuarioEditandoUid">
+          <div class="form-row">
+            <div class="form-group"><label>Nome</label><input id="usuarioNomeAdmin" type="text" placeholder="Nome do usuário"></div>
+            <div class="form-group"><label>E-mail Google</label><input id="usuarioEmailAdmin" type="email" placeholder="email@gmail.com"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Perfil</label><select id="usuarioRoleAdmin"><option value="admin">Administrador</option><option value="funcionario">Funcionário</option><option value="pintura">Pintura</option></select></div>
+            <div class="form-group"><label>Status</label><select id="usuarioAtivoAdmin"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn-secondary" onclick="fecharFormularioUsuario()">Cancelar</button><button class="btn-primary" onclick="salvarUsuarioAdmin()">💾 Salvar usuário</button></div>
+          <small style="display:block;margin-top:10px;color:var(--text-muted);">O usuário precisa entrar com o Google dele para o Firebase criar/identificar a conta. Depois disso, o perfil cadastrado aqui será aplicado.</small>
+        </div>
+        <div class="table-container" style="margin-top:18px;"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tabelaUsuariosVanmathi"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px;">Carregando usuários...</td></tr></tbody></table></div>
+      </div>
+    </div>
+
 <script>
   let listaMateriais = JSON.parse(localStorage.getItem('Vanmathi_Dados_Estoque')) || [
     { id: 1, nome: "PETG Preto", tipo: "Filamento", cor: "Preto", marca: "3D Print", modelo: "PETG", pesoMax: 1000, precoPago: 85.00, custo: "R$ 0,0850" }
@@ -840,6 +865,8 @@
   let vanmathiCarregandoNuvem = false;
   let vanmathiUltimaAlteracaoLocal = 0;
   let vanmathiFirebaseInicializado = false;
+  let vanmathiPerfilAtual = null;
+  let vanmathiUsuariosCache = [];
 
   function atualizarStatusNuvem(texto, cor = 'var(--warning)') {
     const el = document.getElementById('statusNuvem');
@@ -852,6 +879,49 @@
       VANMATHI_FIREBASE_CONFIG.projectId &&
       !VANMATHI_FIREBASE_CONFIG.projectId.startsWith('SEU_');
   }
+
+  function aplicarPermissoesInterface(role) {
+    const menuUsuarios = document.getElementById('menuUsuarios');
+    if (menuUsuarios) menuUsuarios.style.display = role === 'admin' ? '' : 'none';
+    if (role !== 'admin' && document.getElementById('secao-usuarios')?.classList.contains('active')) {
+      const link = document.querySelector('.nav-links a'); if (link) mudarAbaMenu({target:link}, 'relatorios');
+    }
+  }
+
+  function abrirFormularioUsuario(uid = '', dados = {}) {
+    if (vanmathiPerfilAtual?.role !== 'admin') return;
+    document.getElementById('usuarioEditandoUid').value = uid;
+    document.getElementById('usuarioNomeAdmin').value = dados.nome || '';
+    document.getElementById('usuarioEmailAdmin').value = dados.email || '';
+    document.getElementById('usuarioRoleAdmin').value = dados.role || 'funcionario';
+    document.getElementById('usuarioAtivoAdmin').value = String(dados.ativo !== false);
+    document.getElementById('formUsuarioVanmathi').style.display = 'block';
+  }
+  function fecharFormularioUsuario(){ document.getElementById('formUsuarioVanmathi').style.display='none'; }
+  async function salvarUsuarioAdmin(){
+    if (vanmathiPerfilAtual?.role !== 'admin' || !vanmathiDb) return;
+    const uid = document.getElementById('usuarioEditandoUid').value.trim();
+    const nome = document.getElementById('usuarioNomeAdmin').value.trim();
+    const email = document.getElementById('usuarioEmailAdmin').value.trim().toLowerCase();
+    const role = document.getElementById('usuarioRoleAdmin').value;
+    const ativo = document.getElementById('usuarioAtivoAdmin').value === 'true';
+    if (!nome || !email) { alert('Informe nome e e-mail.'); return; }
+    const ref = uid ? vanmathiDb.collection('usuarios').doc(uid) : vanmathiDb.collection('usuarios').doc();
+    await ref.set({ nome, email, role, ativo, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(), criadoPor: vanmathiUsuario.uid }, {merge:true});
+    fecharFormularioUsuario(); await carregarUsuariosAdmin();
+    mostrarToast('Usuário salvo no Firebase!');
+  }
+  async function carregarUsuariosAdmin(){
+    if (vanmathiPerfilAtual?.role !== 'admin' || !vanmathiDb) return;
+    const corpo=document.getElementById('tabelaUsuariosVanmathi'); if(!corpo)return;
+    try {
+      const snap=await vanmathiDb.collection('usuarios').orderBy('nome').get();
+      vanmathiUsuariosCache=[]; snap.forEach(doc=>vanmathiUsuariosCache.push({uid:doc.id,...doc.data()}));
+      corpo.innerHTML=vanmathiUsuariosCache.map(u=>`<tr><td><strong>${u.nome||'-'}</strong></td><td>${u.email||'-'}</td><td>${u.role==='admin'?'Administrador':u.role==='pintura'?'Pintura':'Funcionário'}</td><td><span style="color:${u.ativo===false?'var(--danger)':'var(--success)'};font-weight:600;">${u.ativo===false?'Inativo':'Ativo'}</span></td><td style="display:flex;gap:6px;"><button class="btn-secondary" style="padding:6px 8px;" onclick="editarUsuarioAdmin('${u.uid}')">✏️</button><button class="btn-secondary" style="padding:6px 8px;" onclick="alternarUsuarioAdmin('${u.uid}')">${u.ativo===false?'✅':'⏸️'}</button></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:25px;">Nenhum usuário cadastrado.</td></tr>';
+    } catch(e){ console.error(e); corpo.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:25px;">Não foi possível carregar os usuários.</td></tr>'; }
+  }
+  function editarUsuarioAdmin(uid){ const u=vanmathiUsuariosCache.find(x=>x.uid===uid); if(u) abrirFormularioUsuario(uid,u); }
+  async function alternarUsuarioAdmin(uid){ const u=vanmathiUsuariosCache.find(x=>x.uid===uid); if(!u)return; await vanmathiDb.collection('usuarios').doc(uid).set({ativo:u.ativo===false,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}); await carregarUsuariosAdmin(); mostrarToast(u.ativo===false?'Usuário ativado!':'Usuário desativado!'); }
 
   function obterPacoteDadosVanmathi() {
     return {
@@ -959,156 +1029,83 @@
     try {
       atualizarStatusNuvem('Conectando à base central...', 'var(--warning)');
       const usuarioRef = vanmathiDb.collection('usuarios').doc(user.uid);
-      const usuarioSnap = await usuarioRef.get();
+      let usuarioSnap = await usuarioRef.get();
+      // O administrador pode cadastrar apenas o e-mail. No primeiro login,
+      // encontramos esse cadastro pelo e-mail e o vinculamos ao UID do Google.
+      if (!usuarioSnap.exists && user.email) {
+        const porEmail = await vanmathiDb.collection('usuarios').where('email', '==', user.email.toLowerCase()).limit(1).get();
+        if (!porEmail.empty) {
+          const cadastro = porEmail.docs[0];
+          const dadosCadastro = cadastro.data() || {};
+          await usuarioRef.set({ ...dadosCadastro, email: user.email.toLowerCase(), uid: user.uid, vinculadoEm: firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
+          if (cadastro.id !== user.uid) await cadastro.ref.delete();
+          usuarioSnap = await usuarioRef.get();
+        }
+      }
       if (!usuarioSnap.exists) {
         vanmathiCloudConectada = false;
         atualizarStatusNuvem('Usuário aguardando autorização', 'var(--warning)');
-        alert('Sua conta Google foi identificada, mas ainda não foi cadastrada como usuário do Vanmathi. O administrador precisa criar seu perfil no Firebase.');
+        alert('Sua conta Google foi identificada, mas ainda não existe um cadastro autorizado para este e-mail no Vanmathi. Peça ao administrador para cadastrá-lo na aba Usuários.');
         return;
       }
       const perfil = usuarioSnap.data() || {};
-      if (!['admin', 'funcionario'].includes(perfil.role)) {
+      vanmathiPerfilAtual = perfil;
+      if (!['admin', 'funcionario', 'pintura'].includes(perfil.role)) {
         vanmathiCloudConectada = false;
         atualizarStatusNuvem('Perfil sem permissão', 'var(--danger)');
         alert('Seu usuário não possui uma função válida no Vanmathi.');
         return;
       }
-      if (perfil.role !== 'admin') {
+      if (perfil.ativo === false) {
         vanmathiCloudConectada = false;
-        atualizarStatusNuvem('Acesso de funcionário em implantação', 'var(--warning)');
-        alert('Seu perfil de funcionário foi reconhecido. A área operacional com permissões restritas será liberada na próxima etapa da implantação.');
+        atualizarStatusNuvem('Usuário inativo', 'var(--danger)');
+        alert('Este usuário está marcado como inativo pelo administrador.');
+        await vanmathiAuth.signOut();
         return;
       }
+      aplicarPermissoesInterface(perfil.role);
+      if (perfil.role === 'admin') await carregarUsuariosAdmin();
 
       vanmathiCloudConectada = true;
       document.getElementById('btnConectarNuvem').style.display = 'none';
       document.getElementById('btnSincronizarNuvem').style.display = 'block';
       document.getElementById('btnSairNuvem').style.display = 'block';
       const dadosRef = vanmathiDb.collection('vanmathi').doc('dados');
-
-      // DIAGNÓSTICO: separa erro de leitura do Firestore de erro ao renderizar os dados.
-      let snap;
-      try {
-        console.log('[VANMATHI][1] Testando leitura do documento vanmathi/dados...');
-        snap = await dadosRef.get({ source: 'server' });
-        console.log('[VANMATHI][2] Leitura concluída:', {
-          exists: snap.exists,
-          metadata: snap.metadata || null,
-          data: snap.exists ? snap.data() : null
-        });
-      } catch (eLeitura) {
-        console.error('[VANMATHI][ERRO LEITURA FIRESTORE]', eLeitura);
-        const codigo = eLeitura && eLeitura.code ? ` [${eLeitura.code}]` : '';
-        const mensagem = eLeitura && eLeitura.message ? eLeitura.message : String(eLeitura || 'Erro desconhecido');
-        vanmathiCloudConectada = false;
-        atualizarStatusNuvem(`Erro ao ler a base${codigo}`, 'var(--danger)');
-        alert(`ERRO REAL AO LER O FIRESTORE${codigo}:\n\n${mensagem}\n\nA falha aconteceu ANTES de carregar os dados.`);
-        return;
-      }
-
+      const snap = await dadosRef.get();
       if (!snap.exists) {
-        console.warn('[VANMATHI][3] Documento vanmathi/dados NÃO EXISTE. Será criado com os dados locais atuais.');
-        try {
-          const pacoteInicial = obterPacoteDadosVanmathi();
-          console.log('[VANMATHI][4] Criando documento com pacote inicial:', pacoteInicial);
-          await dadosRef.set({
-            ...pacoteInicial,
-            criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
-            criadoPor: user.uid
-          });
-          atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
-        } catch (eCriacao) {
-          console.error('[VANMATHI][ERRO CRIAR DOCUMENTO]', eCriacao);
-          const codigo = eCriacao && eCriacao.code ? ` [${eCriacao.code}]` : '';
-          const mensagem = eCriacao && eCriacao.message ? eCriacao.message : String(eCriacao || 'Erro desconhecido');
-          vanmathiCloudConectada = false;
-          atualizarStatusNuvem(`Erro ao criar a base${codigo}`, 'var(--danger)');
-          alert(`ERRO REAL AO CRIAR O DOCUMENTO${codigo}:\n\n${mensagem}`);
-          return;
-        }
-      } else {
-        const dadosNuvem = snap.data() || {};
-        console.log('[VANMATHI][5] Documento existe. Campos encontrados:', Object.keys(dadosNuvem));
-        console.log('[VANMATHI][6] Quantidades:', {
-          materiais: Array.isArray(dadosNuvem.materiais) ? dadosNuvem.materiais.length : 'ausente/não é array',
-          produtos: Array.isArray(dadosNuvem.produtos) ? dadosNuvem.produtos.length : 'ausente/não é array',
-          vendas: Array.isArray(dadosNuvem.vendas) ? dadosNuvem.vendas.length : 'ausente/não é array',
-          lojas: Array.isArray(dadosNuvem.lojas) ? dadosNuvem.lojas.length : 'ausente/não é array',
-          marcas: Array.isArray(dadosNuvem.marcas) ? dadosNuvem.marcas.length : 'ausente/não é array'
+        await dadosRef.set({
+          ...obterPacoteDadosVanmathi(),
+          criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
+          criadoPor: user.uid
         });
-
-        // Mesmo que o documento exista vazio ou parcialmente preenchido,
-        // carregamos o que existir e mantemos arrays vazios nos campos ausentes.
-        const pacoteSeguro = {
-          versao: dadosNuvem.versao || 2,
-          atualizadoEm: dadosNuvem.atualizadoEm || new Date().toISOString(),
-          materiais: Array.isArray(dadosNuvem.materiais) ? dadosNuvem.materiais : [],
-          produtos: Array.isArray(dadosNuvem.produtos) ? dadosNuvem.produtos : [],
-          vendas: Array.isArray(dadosNuvem.vendas) ? dadosNuvem.vendas : [],
-          lojas: Array.isArray(dadosNuvem.lojas) ? dadosNuvem.lojas : [],
-          marcas: Array.isArray(dadosNuvem.marcas) ? dadosNuvem.marcas : []
-        };
-
+        atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
+      } else {
         vanmathiCarregandoNuvem = true;
-        try {
-          console.log('[VANMATHI][7] Aplicando pacote seguro...');
-          aplicarPacoteDadosVanmathi(pacoteSeguro);
-          console.log('[VANMATHI][8] Dados aplicados e telas renderizadas com sucesso.');
-        } catch (eAplicacao) {
-          console.error('[VANMATHI][ERRO APLICAR/RENDERIZAR]', eAplicacao);
-          const codigo = eAplicacao && eAplicacao.code ? ` [${eAplicacao.code}]` : '';
-          const mensagem = eAplicacao && eAplicacao.message ? eAplicacao.message : String(eAplicacao || 'Erro desconhecido');
-          atualizarStatusNuvem('Base lida, mas erro ao carregar os dados', 'var(--danger)');
-          alert(`A BASE FOI LIDA COM SUCESSO, MAS DEU ERRO AO JOGAR OS DADOS NA TELA${codigo}:\n\n${mensagem}\n\nVeja o Console (F12) para saber qual função/elemento causou o erro.`);
-          return;
-        } finally {
-          vanmathiCarregandoNuvem = false;
-        }
+        try { aplicarPacoteDadosVanmathi(snap.data()); }
+        finally { vanmathiCarregandoNuvem = false; }
         atualizarStatusNuvem('Dados centrais carregados ☁️', 'var(--success)');
       }
 
       if (vanmathiListener) vanmathiListener();
       vanmathiListener = dadosRef.onSnapshot((snapshot) => {
-        console.log('[VANMATHI][TEMPO REAL] Snapshot recebido:', { exists: snapshot.exists, pending: snapshot.metadata && snapshot.metadata.hasPendingWrites });
         if (!snapshot.exists()) return;
         // Ignora somente o snapshot local ainda pendente.
         // Assim que o Firestore confirmar a gravação, o snapshot remoto
         // é aplicado normalmente em todos os dispositivos conectados.
         if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
-        const dadosSnapshot = snapshot.data() || {};
-        const pacoteSeguro = {
-          versao: dadosSnapshot.versao || 2,
-          atualizadoEm: dadosSnapshot.atualizadoEm || new Date().toISOString(),
-          materiais: Array.isArray(dadosSnapshot.materiais) ? dadosSnapshot.materiais : [],
-          produtos: Array.isArray(dadosSnapshot.produtos) ? dadosSnapshot.produtos : [],
-          vendas: Array.isArray(dadosSnapshot.vendas) ? dadosSnapshot.vendas : [],
-          lojas: Array.isArray(dadosSnapshot.lojas) ? dadosSnapshot.lojas : [],
-          marcas: Array.isArray(dadosSnapshot.marcas) ? dadosSnapshot.marcas : []
-        };
         vanmathiCarregandoNuvem = true;
         try {
-          aplicarPacoteDadosVanmathi(pacoteSeguro);
+          aplicarPacoteDadosVanmathi(snapshot.data());
           atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
-        } catch (eTempoReal) {
-          console.error('[VANMATHI][ERRO TEMPO REAL AO APLICAR]', eTempoReal);
-          const mensagem = eTempoReal && eTempoReal.message ? eTempoReal.message : String(eTempoReal || 'Erro desconhecido');
-          atualizarStatusNuvem('Erro ao aplicar atualização', 'var(--danger)');
-          alert(`O FIRESTORE ENVIOU A ATUALIZAÇÃO, MAS A TELA NÃO CONSEGUIU APLICAR:\n\n${mensagem}`);
         } finally { vanmathiCarregandoNuvem = false; }
       }, (error) => {
-        console.error('[VANMATHI][ERRO LISTENER FIRESTORE]', error);
-        const codigo = error && error.code ? ` [${error.code}]` : '';
-        const mensagem = error && error.message ? error.message : String(error || 'Erro desconhecido');
-        atualizarStatusNuvem(`Erro de sincronização${codigo}`, 'var(--danger)');
-        alert(`ERRO REAL DO LISTENER FIRESTORE${codigo}:\n\n${mensagem}`);
+        console.error('Listener Firestore:', error);
+        atualizarStatusNuvem('Erro de sincronização', 'var(--danger)');
       });
     } catch (e) {
-      console.error('[VANMATHI][ERRO GERAL CONECTAR FIREBASE]', e);
+      console.error('Erro ao conectar ao Firestore:', e);
       vanmathiCloudConectada = false;
-      const codigo = e && e.code ? ` [${e.code}]` : '';
-      const mensagem = e && e.message ? e.message : String(e || 'Erro desconhecido');
-      atualizarStatusNuvem(`Erro ao acessar a base${codigo}`, 'var(--danger)');
-      alert(`ERRO REAL DO VANMATHI${codigo}:\n\n${mensagem}`);
+      atualizarStatusNuvem('Erro ao acessar a base', 'var(--danger)');
     }
   }
 
@@ -1152,6 +1149,7 @@
     document.getElementById('secao-' + secaoId).classList.add('active');
     
     document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
+    if (secaoId === 'usuarios') carregarUsuariosAdmin();
 
     const painelFiltros = document.getElementById('painelFiltrosTopo');
     
@@ -1854,9 +1852,6 @@
       document.getElementById('selectMarketplace').value = lojaOption.value;
       document.getElementById('calcTaxa').value = p.taxaMarketplace !== undefined ? p.taxaMarketplace : lojaOption.value;
     }
-    // Primeiro abrimos a calculadora. A troca de aba recria a linha padrão;
-    // depois restauramos a composição completa salva neste produto.
-    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
     renderizarComposicaoMateriaisCalculadora(obterComposicaoProduto(p));
     document.getElementById('calcGramas').value = p.gramas;
     document.getElementById('calcHoras').value = p.horas || 0;
@@ -1867,6 +1862,7 @@
     document.getElementById('calcAcessorios').value = p.acessorios || '0.00';
     if(p.margem !== undefined) document.getElementById('calcMargem').value = p.margem;
     document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
+    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
     calcularPreco(); mostrarToast(`Carregado "${p.nome}" para edição!`);
   }
 
@@ -1995,18 +1991,11 @@
         htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color:${st.cor};font-weight:600;">${estoqueAtual}g</span></td><td><span style="color:${st.cor};background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;font-size:11px;">${st.texto}</span></td></tr>`;
       }
     });
-    const elTotalFilamentos = document.getElementById('lblTotalFilamentos');
-    if (elTotalFilamentos) elTotalFilamentos.innerText = totalFil;
-    const elTotalResinas = document.getElementById('lblTotalResinas');
-    if (elTotalResinas) elTotalResinas.innerText = totalRes;
-    const elEstoqueAlertas = document.getElementById('lblEstoqueAlertas');
-    if (elEstoqueAlertas) elEstoqueAlertas.innerText = estoqueAlertaCount;
-    const elValorEstoque = document.getElementById('lblValorEstoque');
-    if (elValorEstoque) elValorEstoque.innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    const tabelaAlertasEstoque = document.getElementById('tabelaAlertasEstoque');
-    if (tabelaAlertasEstoque) {
-      tabelaAlertasEstoque.innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
-    }
+    document.getElementById('lblTotalFilamentos').innerText = totalFil;
+    document.getElementById('lblTotalResinas').innerText = totalRes;
+    document.getElementById('lblEstoqueAlertas').innerText = estoqueAlertaCount;
+    document.getElementById('lblValorEstoque').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
+    document.getElementById('tabelaAlertasEstoque').innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
   }
 
   filtrarTabela();
