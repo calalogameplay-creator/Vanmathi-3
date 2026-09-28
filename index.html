@@ -213,9 +213,42 @@
       .grid-2 { grid-template-columns: 1fr; }
       .calc-grid { grid-template-columns: 1fr; }
     }
+
+    /* Bloqueio visual e de interação até autenticação/autorização Firebase */
+    body.vanmathi-bloqueado > .mobile-header,
+    body.vanmathi-bloqueado > #sidebarOverlay,
+    body.vanmathi-bloqueado > #asideMenu,
+    body.vanmathi-bloqueado > main { display: none !important; }
+    #telaAcessoVanmathi {
+      display: none; min-height: 100vh; box-sizing: border-box;
+      align-items: center; justify-content: center; padding: 24px;
+      background: var(--bg-main, #0b0f19); color: var(--text-color, #fff);
+      font-family: inherit;
+    }
+    body.vanmathi-bloqueado #telaAcessoVanmathi { display: flex; }
+    .acesso-vanmathi-card {
+      width: min(440px, 100%); padding: 34px 30px; border: 1px solid var(--border, #263044);
+      border-radius: 18px; background: var(--bg-card, #111827); text-align: center;
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+    }
+    .acesso-vanmathi-logo { font-size: 42px; margin-bottom: 12px; }
+    .acesso-vanmathi-card h1 { margin: 0 0 10px; font-size: 24px; }
+    .acesso-vanmathi-card p { margin: 0 auto 22px; color: var(--text-muted, #9aa4b2); line-height: 1.55; font-size: 14px; max-width: 360px; }
+    #mensagemAcessoVanmathi { margin-top: 14px; min-height: 20px; color: var(--text-muted, #9aa4b2); font-size: 12px; line-height: 1.45; }
+    #btnEntrarAcessoVanmathi { width: 100%; }
   </style>
 </head>
-<body>
+<body class="vanmathi-bloqueado">
+
+  <section id="telaAcessoVanmathi" aria-live="polite">
+    <div class="acesso-vanmathi-card">
+      <div class="acesso-vanmathi-logo">🖨️</div>
+      <h1>Acesso ao Vanmathi</h1>
+      <p id="textoAcessoVanmathi">O Vanmathi é uma área restrita. Entre com sua conta Google para verificar seu cadastro.</p>
+      <button id="btnEntrarAcessoVanmathi" class="btn-primary" onclick="entrarVanmathi()">🔐 Entrar com Google</button>
+      <div id="mensagemAcessoVanmathi">Verificando o acesso...</div>
+    </div>
+  </section>
 
   <div class="mobile-header">
     <div class="logo-area" style="margin: 0; font-size: 18px;">🖨️ Vanmathi 3</div>
@@ -458,28 +491,14 @@
               <th>Custo Operacional</th>
               <th>Valor do Produto</th>
               <th>Lucro</th>
-              <th>Pintura</th>
               <th>Status</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaVendasCorpo">
-            <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
           </tbody>
         </table>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="modalVisualizarPinturaVenda">
-      <div class="modal-box" style="max-width:520px;">
-        <div class="modal-header">
-          <span>🎨 Visualização da Pintura</span>
-          <span style="cursor:pointer;color:var(--text-muted);" onclick="fecharVisualizacaoPintura()">✕</span>
-        </div>
-        <div id="conteudoVisualizarPintura" style="line-height:1.7;"></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:18px;">
-          <button class="btn-secondary" onclick="fecharVisualizacaoPintura()">Fechar</button>
-        </div>
       </div>
     </div>
 
@@ -708,16 +727,6 @@
           <option value="Recebido">Recebido</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>Status da Pintura</label>
-        <select id="vendaPintura">
-          <option value="Nao precisa">Não precisa de pintura</option>
-          <option value="Pendente">Pintura pendente</option>
-          <option value="Em pintura">Em pintura</option>
-          <option value="Concluida">Pintura concluída</option>
-        </select>
-        <small style="display:block;margin-top:6px;color:var(--text-muted);">Use este campo para identificar visualmente as vendas que precisam passar pela pintura.</small>
-      </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
         <button class="btn-primary" id="btnSalvarVenda" onclick="salvarNovaVenda()">Salvar Venda</button>
@@ -904,6 +913,40 @@
       !VANMATHI_FIREBASE_CONFIG.projectId.startsWith('SEU_');
   }
 
+  function atualizarTelaAcessoVanmathi(tipo, mensagem = '') {
+    const texto = document.getElementById('textoAcessoVanmathi');
+    const msg = document.getElementById('mensagemAcessoVanmathi');
+    const botao = document.getElementById('btnEntrarAcessoVanmathi');
+    if (tipo === 'autenticando') {
+      if (texto) texto.innerText = 'Estamos verificando sua conta Google e seu cadastro no Vanmathi.';
+      if (msg) msg.innerText = mensagem || 'Verificando o acesso...';
+      if (botao) { botao.disabled = true; botao.style.opacity = '0.65'; }
+      return;
+    }
+    if (tipo === 'negado') {
+      if (texto) texto.innerText = 'Sua conta Google foi identificada, mas não possui um cadastro autorizado no Vanmathi.';
+      if (msg) msg.innerText = mensagem || 'Peça ao administrador para cadastrar seu nome e e-mail na aba Usuários.';
+      if (botao) { botao.disabled = false; botao.style.opacity = '1'; botao.innerText = '🔄 Tentar outra conta'; }
+      return;
+    }
+    if (tipo === 'inativo') {
+      if (texto) texto.innerText = 'Seu acesso ao Vanmathi está desativado.';
+      if (msg) msg.innerText = mensagem || 'Entre em contato com o administrador para reativar seu cadastro.';
+      if (botao) { botao.disabled = false; botao.style.opacity = '1'; botao.innerText = '🔄 Tentar outra conta'; }
+      return;
+    }
+    if (tipo === 'erro') {
+      if (texto) texto.innerText = 'Não foi possível verificar seu acesso ao Vanmathi.';
+      if (msg) msg.innerText = mensagem || 'Tente novamente em alguns instantes.';
+      if (botao) { botao.disabled = false; botao.style.opacity = '1'; botao.innerText = '🔄 Tentar novamente'; }
+      return;
+    }
+    if (tipo === 'liberado') {
+      document.body.classList.remove('vanmathi-bloqueado');
+      return;
+    }
+  }
+
   function aplicarPermissoesInterface(role) {
     const menuUsuarios = document.getElementById('menuUsuarios');
     if (menuUsuarios) menuUsuarios.style.display = role === 'admin' ? '' : 'none';
@@ -1014,12 +1057,15 @@
         if (!user) {
           vanmathiCloudConectada = false;
           if (vanmathiListener) { vanmathiListener(); vanmathiListener = null; }
+          document.body.classList.add('vanmathi-bloqueado');
           document.getElementById('btnConectarNuvem').style.display = 'block';
           document.getElementById('btnSincronizarNuvem').style.display = 'none';
           document.getElementById('btnSairNuvem').style.display = 'none';
           atualizarStatusNuvem('Não conectado', 'var(--warning)');
+          atualizarTelaAcessoVanmathi('negado', 'Entre com uma conta Google cadastrada para acessar o sistema.');
           return;
         }
+        atualizarTelaAcessoVanmathi('autenticando');
         await conectarFirebaseVanmathi(user);
       });
     } catch (e) {
@@ -1035,8 +1081,10 @@
     }
     try {
       atualizarStatusNuvem('Abrindo login...', 'var(--warning)');
+      if (vanmathiAuth.currentUser) await vanmathiAuth.signOut();
       const provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
+      atualizarTelaAcessoVanmathi('autenticando', 'Abrindo a seleção da conta Google...');
       await vanmathiAuth.signInWithPopup(provider);
     } catch (e) {
       console.error('Erro no login Firebase:', e);
@@ -1068,22 +1116,25 @@
       }
       if (!usuarioSnap.exists) {
         vanmathiCloudConectada = false;
-        atualizarStatusNuvem('Usuário aguardando autorização', 'var(--warning)');
-        alert('Sua conta Google foi identificada, mas ainda não existe um cadastro autorizado para este e-mail no Vanmathi. Peça ao administrador para cadastrá-lo na aba Usuários.');
+        document.body.classList.add('vanmathi-bloqueado');
+        atualizarStatusNuvem('Usuário não cadastrado', 'var(--warning)');
+        atualizarTelaAcessoVanmathi('negado');
         return;
       }
       const perfil = usuarioSnap.data() || {};
       vanmathiPerfilAtual = perfil;
       if (!['admin', 'funcionario', 'pintura'].includes(perfil.role)) {
         vanmathiCloudConectada = false;
+        document.body.classList.add('vanmathi-bloqueado');
         atualizarStatusNuvem('Perfil sem permissão', 'var(--danger)');
-        alert('Seu usuário não possui uma função válida no Vanmathi.');
+        atualizarTelaAcessoVanmathi('negado', 'Seu cadastro não possui um perfil válido. Procure o administrador.');
         return;
       }
       if (perfil.ativo === false) {
         vanmathiCloudConectada = false;
+        document.body.classList.add('vanmathi-bloqueado');
         atualizarStatusNuvem('Usuário inativo', 'var(--danger)');
-        alert('Este usuário está marcado como inativo pelo administrador.');
+        atualizarTelaAcessoVanmathi('inativo');
         await vanmathiAuth.signOut();
         return;
       }
@@ -1091,6 +1142,7 @@
       if (perfil.role === 'admin') await carregarUsuariosAdmin();
 
       vanmathiCloudConectada = true;
+      atualizarTelaAcessoVanmathi('liberado');
       document.getElementById('btnConectarNuvem').style.display = 'none';
       document.getElementById('btnSincronizarNuvem').style.display = 'block';
       document.getElementById('btnSairNuvem').style.display = 'block';
@@ -1166,6 +1218,11 @@
   }
 
   function mudarAbaMenu(event, secaoId) {
+    if (!vanmathiCloudConectada || !vanmathiUsuario || !vanmathiPerfilAtual) {
+      document.body.classList.add('vanmathi-bloqueado');
+      atualizarTelaAcessoVanmathi('negado', 'Faça login com uma conta Google cadastrada para acessar o Vanmathi.');
+      return;
+    }
     document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
     event.target.classList.add('active');
 
@@ -1365,7 +1422,6 @@
     document.getElementById('vendaData').value = new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = 'Concluído';
     document.getElementById('vendaPagamento').value = 'Recebido';
-    document.getElementById('vendaPintura').value = 'Nao precisa';
     document.getElementById('tituloModalVenda').innerText = 'Registrar Nova Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Venda';
     document.getElementById('modalRegistrarVenda').classList.add('active');
@@ -1382,7 +1438,6 @@
     document.getElementById('vendaData').value = venda.data || new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = venda.status || 'Concluído';
     document.getElementById('vendaPagamento').value = venda.pagamentoStatus || (venda.status === 'Concluído' ? 'Recebido' : 'Pendente');
-    document.getElementById('vendaPintura').value = venda.pinturaStatus || 'Nao precisa';
     document.getElementById('tituloModalVenda').innerText = 'Editar Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Alterações';
     document.getElementById('modalRegistrarVenda').classList.add('active');
@@ -1401,7 +1456,6 @@
     const data = document.getElementById('vendaData').value;
     const status = document.getElementById('vendaStatus').value;
     const pagamentoStatus = document.getElementById('vendaPagamento').value;
-    const pinturaStatus = document.getElementById('vendaPintura').value;
 
     const produto = listaProdutosSalvos.find(p => p.id === prodId);
     if(!produto) return;
@@ -1427,8 +1481,7 @@
       valorProdutoUnidade: numPreco,
       data: data,
       status: status,
-      pagamentoStatus: pagamentoStatus,
-      pinturaStatus: pinturaStatus
+      pagamentoStatus: pagamentoStatus
     };
 
     if(editandoVendaId) {
@@ -1479,7 +1532,7 @@
     });
 
     if(vendasFiltradas.length === 0) {
-      corpo.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
       return;
     }
 
@@ -1517,11 +1570,6 @@
           <td style="color: var(--warning); font-weight: 600;">R$ ${custoOperacionalTotal.toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--primary); font-weight: 600;">R$ ${(valorProduto * (parseInt(v.qtd) || 1)).toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--success); font-weight: 600;">R$ ${lucroTotal.toFixed(2).replace('.', ',')}</td>
-          <td>${(() => {
-            const ps = v.pinturaStatus || 'Nao precisa';
-            const cfg = ps === 'Pendente' ? ['🎨', 'Pendente', 'var(--warning)'] : ps === 'Em pintura' ? ['🖌️', 'Em pintura', 'var(--primary)'] : ps === 'Concluida' ? ['✅', 'Concluída', 'var(--success)'] : ['—', 'Não precisa', 'var(--text-muted)'];
-            return `<button class="btn-secondary" style="padding:4px 8px;font-size:11px;border-color:${cfg[2]};color:${cfg[2]};" onclick="visualizarPinturaVenda(${v.id})" title="Visualizar status da pintura">${cfg[0]} ${cfg[1]}</button>`;
-          })()}</td>
           <td><span style="color: ${cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${v.status}</span></td>
           <td style="display: flex; gap: 6px;">
             <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="abrirModalEditarVenda(${v.id})" title="Editar venda">✏️</button>
@@ -1530,39 +1578,6 @@
         </tr>`;
     });
     corpo.innerHTML = html;
-  }
-
-  function visualizarPinturaVenda(id) {
-    const venda = listaVendas.find(v => v.id === id);
-    if (!venda) return;
-    const ps = venda.pinturaStatus || 'Nao precisa';
-    const mapa = {
-      'Nao precisa': ['—', 'Não precisa de pintura', 'var(--text-muted)'],
-      'Pendente': ['🎨', 'Pintura pendente', 'var(--warning)'],
-      'Em pintura': ['🖌️', 'Em pintura', 'var(--primary)'],
-      'Concluida': ['✅', 'Pintura concluída', 'var(--success)']
-    };
-    const cfg = mapa[ps] || mapa['Nao precisa'];
-    const el = document.getElementById('conteudoVisualizarPintura');
-    if (!el) return;
-    el.innerHTML = `
-      <div style="text-align:center;padding:8px 0 18px;">
-        <div style="font-size:42px;margin-bottom:8px;">${cfg[0]}</div>
-        <div style="font-size:20px;font-weight:700;color:${cfg[2]};">${cfg[1]}</div>
-      </div>
-      <div class="card-box" style="margin:0;">
-        <p><strong>Produto:</strong> ${venda.produtoNome || '-'}</p>
-        <p><strong>Quantidade:</strong> ${venda.qtd || 1} unidade(s)</p>
-        <p><strong>Data da venda:</strong> ${venda.data ? venda.data.split('-').reverse().join('/') : '-'}</p>
-        <p><strong>Status do pedido:</strong> ${venda.status || '-'}</p>
-        <p><strong>Pagamento:</strong> ${venda.pagamentoStatus || '-'}</p>
-      </div>`;
-    document.getElementById('modalVisualizarPinturaVenda').classList.add('active');
-  }
-
-  function fecharVisualizacaoPintura() {
-    const modal = document.getElementById('modalVisualizarPinturaVenda');
-    if (modal) modal.classList.remove('active');
   }
 
   function renderizarSelectMarcas(marcaSelecionada = "") {
