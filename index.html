@@ -1854,6 +1854,9 @@
       document.getElementById('selectMarketplace').value = lojaOption.value;
       document.getElementById('calcTaxa').value = p.taxaMarketplace !== undefined ? p.taxaMarketplace : lojaOption.value;
     }
+    // Primeiro abrimos a calculadora. A troca de aba recria a linha padrão;
+    // depois restauramos a composição completa salva neste produto.
+    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
     renderizarComposicaoMateriaisCalculadora(obterComposicaoProduto(p));
     document.getElementById('calcGramas').value = p.gramas;
     document.getElementById('calcHoras').value = p.horas || 0;
@@ -1864,7 +1867,6 @@
     document.getElementById('calcAcessorios').value = p.acessorios || '0.00';
     if(p.margem !== undefined) document.getElementById('calcMargem').value = p.margem;
     document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
-    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
     calcularPreco(); mostrarToast(`Carregado "${p.nome}" para edição!`);
   }
 
