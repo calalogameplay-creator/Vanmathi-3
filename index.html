@@ -7,7 +7,6 @@
   
   <!-- CONFIGURAÇÕES DE PWA (APLICATIVO NO CELULAR) -->
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="theme-color" content="#0b0f19">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -108,7 +107,6 @@
     #bannerInstalacao button:hover {
       background: #f1f5f9;
     }
-    #instrucoesIos { display:none; }
 
     main { flex-grow: 1; padding: 30px; overflow-y: auto; position: relative; }
     .content-section { display: none; }
@@ -258,7 +256,7 @@
           <span style="font-size: 12px; opacity: 0.9;">Tenha o painel direto na sua tela inicial como um aplicativo!</span>
         </div>
       </div>
-      <button id="btnInstalarPwa" onclick="instalarAplicativo()">Baixar Aplicativo</button>
+      <button onclick="instalarAplicativo()">Baixar Aplicativo</button>
     </div>
 
     <div class="header-painel">
@@ -794,26 +792,11 @@
 
   // --- LÓGICA DE INSTALAÇÃO DO APLICATIVO (PWA) ---
   let eventoInstalacaoApp = null;
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     eventoInstalacaoApp = e;
-    const banner = document.getElementById('bannerInstalacao');
-    const botao = document.getElementById('btnInstalarPwa');
-    if (banner) banner.style.display = 'flex';
-    if (botao) botao.innerText = 'Instalar aplicativo';
+    document.getElementById('bannerInstalacao').style.display = 'flex';
   });
-
-  function mostrarBannerIOS() {
-    const banner = document.getElementById('bannerInstalacao');
-    const botao = document.getElementById('btnInstalarPwa');
-    if (!banner || !isIOS || isStandalone) return;
-    banner.style.display = 'flex';
-    if (botao) botao.innerText = 'Como instalar';
-  }
 
   function instalarAplicativo() {
     if (eventoInstalacaoApp) {
@@ -824,16 +807,10 @@
         }
         eventoInstalacaoApp = null;
       });
-      return;
+    } else {
+      alert("Para instalar o aplicativo:\n\n• No Android: Toque nos três pontinhos do navegador e escolha 'Instalar aplicativo' ou 'Adicionar à tela inicial'.\n• No iPhone: Toque no botão de Compartilhar e escolha 'Adicionar à Tela de Início'.");
     }
-    if (isIOS) {
-      alert("No iPhone/iPad:\n\n1. Abra este site pelo Safari.\n2. Toque em Compartilhar.\n3. Toque em 'Adicionar à Tela de Início'.\n4. Ative 'Abrir como App' e toque em 'Adicionar'.");
-      return;
-    }
-    alert("No Android: abra o menu do navegador e escolha 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
   }
-
-  window.addEventListener('load', () => setTimeout(mostrarBannerIOS, 500));
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -1008,61 +985,130 @@
       document.getElementById('btnSincronizarNuvem').style.display = 'block';
       document.getElementById('btnSairNuvem').style.display = 'block';
       const dadosRef = vanmathiDb.collection('vanmathi').doc('dados');
-      const snap = await dadosRef.get();
-      if (!snap.exists) {
-        await dadosRef.set({
-          ...obterPacoteDadosVanmathi(),
-          criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
-          criadoPor: user.uid
+
+      // DIAGNÓSTICO: separa erro de leitura do Firestore de erro ao renderizar os dados.
+      let snap;
+      try {
+        console.log('[VANMATHI][1] Testando leitura do documento vanmathi/dados...');
+        snap = await dadosRef.get({ source: 'server' });
+        console.log('[VANMATHI][2] Leitura concluída:', {
+          exists: snap.exists,
+          metadata: snap.metadata || null,
+          data: snap.exists ? snap.data() : null
         });
-        atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
+      } catch (eLeitura) {
+        console.error('[VANMATHI][ERRO LEITURA FIRESTORE]', eLeitura);
+        const codigo = eLeitura && eLeitura.code ? ` [${eLeitura.code}]` : '';
+        const mensagem = eLeitura && eLeitura.message ? eLeitura.message : String(eLeitura || 'Erro desconhecido');
+        vanmathiCloudConectada = false;
+        atualizarStatusNuvem(`Erro ao ler a base${codigo}`, 'var(--danger)');
+        alert(`ERRO REAL AO LER O FIRESTORE${codigo}:\n\n${mensagem}\n\nA falha aconteceu ANTES de carregar os dados.`);
+        return;
+      }
+
+      if (!snap.exists) {
+        console.warn('[VANMATHI][3] Documento vanmathi/dados NÃO EXISTE. Será criado com os dados locais atuais.');
+        try {
+          const pacoteInicial = obterPacoteDadosVanmathi();
+          console.log('[VANMATHI][4] Criando documento com pacote inicial:', pacoteInicial);
+          await dadosRef.set({
+            ...pacoteInicial,
+            criadoEmServidor: firebase.firestore.FieldValue.serverTimestamp(),
+            criadoPor: user.uid
+          });
+          atualizarStatusNuvem('Base central criada ☁️', 'var(--success)');
+        } catch (eCriacao) {
+          console.error('[VANMATHI][ERRO CRIAR DOCUMENTO]', eCriacao);
+          const codigo = eCriacao && eCriacao.code ? ` [${eCriacao.code}]` : '';
+          const mensagem = eCriacao && eCriacao.message ? eCriacao.message : String(eCriacao || 'Erro desconhecido');
+          vanmathiCloudConectada = false;
+          atualizarStatusNuvem(`Erro ao criar a base${codigo}`, 'var(--danger)');
+          alert(`ERRO REAL AO CRIAR O DOCUMENTO${codigo}:\n\n${mensagem}`);
+          return;
+        }
       } else {
+        const dadosNuvem = snap.data() || {};
+        console.log('[VANMATHI][5] Documento existe. Campos encontrados:', Object.keys(dadosNuvem));
+        console.log('[VANMATHI][6] Quantidades:', {
+          materiais: Array.isArray(dadosNuvem.materiais) ? dadosNuvem.materiais.length : 'ausente/não é array',
+          produtos: Array.isArray(dadosNuvem.produtos) ? dadosNuvem.produtos.length : 'ausente/não é array',
+          vendas: Array.isArray(dadosNuvem.vendas) ? dadosNuvem.vendas.length : 'ausente/não é array',
+          lojas: Array.isArray(dadosNuvem.lojas) ? dadosNuvem.lojas.length : 'ausente/não é array',
+          marcas: Array.isArray(dadosNuvem.marcas) ? dadosNuvem.marcas.length : 'ausente/não é array'
+        });
+
+        // Mesmo que o documento exista vazio ou parcialmente preenchido,
+        // carregamos o que existir e mantemos arrays vazios nos campos ausentes.
+        const pacoteSeguro = {
+          versao: dadosNuvem.versao || 2,
+          atualizadoEm: dadosNuvem.atualizadoEm || new Date().toISOString(),
+          materiais: Array.isArray(dadosNuvem.materiais) ? dadosNuvem.materiais : [],
+          produtos: Array.isArray(dadosNuvem.produtos) ? dadosNuvem.produtos : [],
+          vendas: Array.isArray(dadosNuvem.vendas) ? dadosNuvem.vendas : [],
+          lojas: Array.isArray(dadosNuvem.lojas) ? dadosNuvem.lojas : [],
+          marcas: Array.isArray(dadosNuvem.marcas) ? dadosNuvem.marcas : []
+        };
+
         vanmathiCarregandoNuvem = true;
-        try { aplicarPacoteDadosVanmathi(snap.data()); }
-        finally { vanmathiCarregandoNuvem = false; }
+        try {
+          console.log('[VANMATHI][7] Aplicando pacote seguro...');
+          aplicarPacoteDadosVanmathi(pacoteSeguro);
+          console.log('[VANMATHI][8] Dados aplicados e telas renderizadas com sucesso.');
+        } catch (eAplicacao) {
+          console.error('[VANMATHI][ERRO APLICAR/RENDERIZAR]', eAplicacao);
+          const codigo = eAplicacao && eAplicacao.code ? ` [${eAplicacao.code}]` : '';
+          const mensagem = eAplicacao && eAplicacao.message ? eAplicacao.message : String(eAplicacao || 'Erro desconhecido');
+          atualizarStatusNuvem('Base lida, mas erro ao carregar os dados', 'var(--danger)');
+          alert(`A BASE FOI LIDA COM SUCESSO, MAS DEU ERRO AO JOGAR OS DADOS NA TELA${codigo}:\n\n${mensagem}\n\nVeja o Console (F12) para saber qual função/elemento causou o erro.`);
+          return;
+        } finally {
+          vanmathiCarregandoNuvem = false;
+        }
         atualizarStatusNuvem('Dados centrais carregados ☁️', 'var(--success)');
       }
 
-      function iniciarListenerVanmathi() {
-        if (!vanmathiCloudConectada || !vanmathiDb || !vanmathiUsuario) return;
-        if (vanmathiListener) { vanmathiListener(); vanmathiListener = null; }
-        const ref = vanmathiDb.collection('vanmathi').doc('dados');
-        vanmathiListener = ref.onSnapshot({ includeMetadataChanges: true }, (snapshot) => {
-          if (!snapshot.exists) return;
-          const meta = snapshot.metadata || {};
-          // Enquanto a alteração deste aparelho ainda não chegou ao servidor,
-          // não sobrescrevemos a interface com uma versão local pendente.
-          if (meta.hasPendingWrites) return;
-          vanmathiCarregandoNuvem = true;
-          try {
-            aplicarPacoteDadosVanmathi(snapshot.data());
-            const origem = meta.fromCache ? 'cache local' : 'servidor';
-            atualizarStatusNuvem(meta.fromCache ? 'Conectado • aguardando servidor ☁️' : 'Atualizado em tempo real ☁️', meta.fromCache ? 'var(--warning)' : 'var(--success)');
-            console.log('Vanmathi Firestore atualizado:', origem, snapshot.readTime || '');
-          } finally { vanmathiCarregandoNuvem = false; }
-        }, (error) => {
-          console.error('Listener Firestore:', error);
-          atualizarStatusNuvem('Erro de sincronização', 'var(--danger)');
-        });
-      }
-
-      iniciarListenerVanmathi();
-      // O iOS pode suspender uma PWA quando ela fica em segundo plano.
-      // Ao voltar para a tela, recriamos o listener para garantir a atualização.
-      if (!window._vanmathiRealtimeHandlers) {
-        const retomarRealtime = () => {
-          if (document.visibilityState === 'visible' && vanmathiCloudConectada) {
-            iniciarListenerVanmathi();
-          }
+      if (vanmathiListener) vanmathiListener();
+      vanmathiListener = dadosRef.onSnapshot((snapshot) => {
+        console.log('[VANMATHI][TEMPO REAL] Snapshot recebido:', { exists: snapshot.exists, pending: snapshot.metadata && snapshot.metadata.hasPendingWrites });
+        if (!snapshot.exists()) return;
+        // Ignora somente o snapshot local ainda pendente.
+        // Assim que o Firestore confirmar a gravação, o snapshot remoto
+        // é aplicado normalmente em todos os dispositivos conectados.
+        if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+        const dadosSnapshot = snapshot.data() || {};
+        const pacoteSeguro = {
+          versao: dadosSnapshot.versao || 2,
+          atualizadoEm: dadosSnapshot.atualizadoEm || new Date().toISOString(),
+          materiais: Array.isArray(dadosSnapshot.materiais) ? dadosSnapshot.materiais : [],
+          produtos: Array.isArray(dadosSnapshot.produtos) ? dadosSnapshot.produtos : [],
+          vendas: Array.isArray(dadosSnapshot.vendas) ? dadosSnapshot.vendas : [],
+          lojas: Array.isArray(dadosSnapshot.lojas) ? dadosSnapshot.lojas : [],
+          marcas: Array.isArray(dadosSnapshot.marcas) ? dadosSnapshot.marcas : []
         };
-        document.addEventListener('visibilitychange', retomarRealtime);
-        window.addEventListener('pageshow', retomarRealtime);
-        window._vanmathiRealtimeHandlers = true;
-      }
+        vanmathiCarregandoNuvem = true;
+        try {
+          aplicarPacoteDadosVanmathi(pacoteSeguro);
+          atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
+        } catch (eTempoReal) {
+          console.error('[VANMATHI][ERRO TEMPO REAL AO APLICAR]', eTempoReal);
+          const mensagem = eTempoReal && eTempoReal.message ? eTempoReal.message : String(eTempoReal || 'Erro desconhecido');
+          atualizarStatusNuvem('Erro ao aplicar atualização', 'var(--danger)');
+          alert(`O FIRESTORE ENVIOU A ATUALIZAÇÃO, MAS A TELA NÃO CONSEGUIU APLICAR:\n\n${mensagem}`);
+        } finally { vanmathiCarregandoNuvem = false; }
+      }, (error) => {
+        console.error('[VANMATHI][ERRO LISTENER FIRESTORE]', error);
+        const codigo = error && error.code ? ` [${error.code}]` : '';
+        const mensagem = error && error.message ? error.message : String(error || 'Erro desconhecido');
+        atualizarStatusNuvem(`Erro de sincronização${codigo}`, 'var(--danger)');
+        alert(`ERRO REAL DO LISTENER FIRESTORE${codigo}:\n\n${mensagem}`);
+      });
     } catch (e) {
-      console.error('Erro ao conectar ao Firestore:', e);
+      console.error('[VANMATHI][ERRO GERAL CONECTAR FIREBASE]', e);
       vanmathiCloudConectada = false;
-      atualizarStatusNuvem('Erro ao acessar a base', 'var(--danger)');
+      const codigo = e && e.code ? ` [${e.code}]` : '';
+      const mensagem = e && e.message ? e.message : String(e || 'Erro desconhecido');
+      atualizarStatusNuvem(`Erro ao acessar a base${codigo}`, 'var(--danger)');
+      alert(`ERRO REAL DO VANMATHI${codigo}:\n\n${mensagem}`);
     }
   }
 
@@ -1919,20 +1965,34 @@
     const margemMedia = totalFat > 0 ? (lucroRealizado / totalFat) * 100 : 0;
     const ticketMedio = totalPecasVendidas > 0 ? totalFat / totalPecasVendidas : 0;
 
-    document.getElementById('lblRelFatTotal').innerText = `R$ ${totalFat.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelRecebido').innerText = `R$ ${totalRecebido.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelAReceber').innerText = `R$ ${totalAReceber.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelEmProducao').innerText = `R$ ${totalEmProducao.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelLucroLiq').innerText = `R$ ${lucroRealizado.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelMargem').innerText = `${margemMedia.toFixed(1).replace('.', ',')}%`;
-    document.getElementById('lblRelTotalPedidos').innerText = totalPecasVendidas;
-    document.getElementById('lblRelTicketMedio').innerText = `R$ ${ticketMedio.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelPedidosProducao').innerText = pedidosProducao;
-    document.getElementById('lblRelPedidosConcluidos').innerText = pedidosConcluidos;
-    document.getElementById('lblRelHorasTotais').innerText = `${totalHoras.toFixed(1)}h`;
-    document.getElementById('lblRelCatTotal').innerText = listaProdutosSalvos.length;
-    document.getElementById('lblPerdasTotal').innerText = `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblLojasAtivas').innerText = obterLojasComProdutosSalvos().length;
+    const el_lblRelFatTotal = document.getElementById('lblRelFatTotal');
+    if (el_lblRelFatTotal) el_lblRelFatTotal.innerText = `R$ ${totalFat.toFixed(2).replace('.', ',')}`;
+    const el_lblRelRecebido = document.getElementById('lblRelRecebido');
+    if (el_lblRelRecebido) el_lblRelRecebido.innerText = `R$ ${totalRecebido.toFixed(2).replace('.', ',')}`;
+    const el_lblRelAReceber = document.getElementById('lblRelAReceber');
+    if (el_lblRelAReceber) el_lblRelAReceber.innerText = `R$ ${totalAReceber.toFixed(2).replace('.', ',')}`;
+    const el_lblRelEmProducao = document.getElementById('lblRelEmProducao');
+    if (el_lblRelEmProducao) el_lblRelEmProducao.innerText = `R$ ${totalEmProducao.toFixed(2).replace('.', ',')}`;
+    const el_lblRelLucroLiq = document.getElementById('lblRelLucroLiq');
+    if (el_lblRelLucroLiq) el_lblRelLucroLiq.innerText = `R$ ${lucroRealizado.toFixed(2).replace('.', ',')}`;
+    const el_lblRelMargem = document.getElementById('lblRelMargem');
+    if (el_lblRelMargem) el_lblRelMargem.innerText = `${margemMedia.toFixed(1).replace('.', ',')}%`;
+    const el_lblRelTotalPedidos = document.getElementById('lblRelTotalPedidos');
+    if (el_lblRelTotalPedidos) el_lblRelTotalPedidos.innerText = totalPecasVendidas;
+    const el_lblRelTicketMedio = document.getElementById('lblRelTicketMedio');
+    if (el_lblRelTicketMedio) el_lblRelTicketMedio.innerText = `R$ ${ticketMedio.toFixed(2).replace('.', ',')}`;
+    const el_lblRelPedidosProducao = document.getElementById('lblRelPedidosProducao');
+    if (el_lblRelPedidosProducao) el_lblRelPedidosProducao.innerText = pedidosProducao;
+    const el_lblRelPedidosConcluidos = document.getElementById('lblRelPedidosConcluidos');
+    if (el_lblRelPedidosConcluidos) el_lblRelPedidosConcluidos.innerText = pedidosConcluidos;
+    const el_lblRelHorasTotais = document.getElementById('lblRelHorasTotais');
+    if (el_lblRelHorasTotais) el_lblRelHorasTotais.innerText = `${totalHoras.toFixed(1)}h`;
+    const el_lblRelCatTotal = document.getElementById('lblRelCatTotal');
+    if (el_lblRelCatTotal) el_lblRelCatTotal.innerText = listaProdutosSalvos.length;
+    const el_lblPerdasTotal = document.getElementById('lblPerdasTotal');
+    if (el_lblPerdasTotal) el_lblPerdasTotal.innerText = `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`;
+    const el_lblLojasAtivas = document.getElementById('lblLojasAtivas');
+    if (el_lblLojasAtivas) el_lblLojasAtivas.innerText = obterLojasComProdutosSalvos().length;
 
     let totalFil = 0, totalRes = 0, estoqueAlertaCount = 0, valorEstoque = 0, htmlAlerta = '';
     listaMateriais.forEach(m => {
@@ -1947,11 +2007,18 @@
         htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color:${st.cor};font-weight:600;">${estoqueAtual}g</span></td><td><span style="color:${st.cor};background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;font-size:11px;">${st.texto}</span></td></tr>`;
       }
     });
-    document.getElementById('lblTotalFilamentos').innerText = totalFil;
-    document.getElementById('lblTotalResinas').innerText = totalRes;
-    document.getElementById('lblEstoqueAlertas').innerText = estoqueAlertaCount;
-    document.getElementById('lblValorEstoque').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    document.getElementById('tabelaAlertasEstoque').innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
+    const elTotalFilamentos = document.getElementById('lblTotalFilamentos');
+    if (elTotalFilamentos) elTotalFilamentos.innerText = totalFil;
+    const elTotalResinas = document.getElementById('lblTotalResinas');
+    if (elTotalResinas) elTotalResinas.innerText = totalRes;
+    const elEstoqueAlertas = document.getElementById('lblEstoqueAlertas');
+    if (elEstoqueAlertas) elEstoqueAlertas.innerText = estoqueAlertaCount;
+    const elValorEstoque = document.getElementById('lblValorEstoque');
+    if (elValorEstoque) elValorEstoque.innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
+    const tabelaAlertasEstoque = document.getElementById('tabelaAlertasEstoque');
+    if (tabelaAlertasEstoque) {
+      tabelaAlertasEstoque.innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
+    }
   }
 
   filtrarTabela();
