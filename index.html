@@ -1911,6 +1911,16 @@
     corpo.innerHTML = html;
   }
 
+  function atualizarElementoSeguro(id, propriedade, valor) {
+    const elemento = document.getElementById(id);
+    if (!elemento) {
+      console.warn(`[VANMATHI] Elemento não encontrado: #${id}`);
+      return false;
+    }
+    elemento[propriedade] = valor;
+    return true;
+  }
+
   function atualizarRelatorios() {
     let totalFat = 0, totalRecebido = 0, totalAReceber = 0, totalEmProducao = 0;
     let totalHoras = 0, totalPerdas = 0, totalPecasVendidas = 0, lucroRealizado = 0;
@@ -1963,20 +1973,20 @@
     const margemMedia = totalFat > 0 ? (lucroRealizado / totalFat) * 100 : 0;
     const ticketMedio = totalPecasVendidas > 0 ? totalFat / totalPecasVendidas : 0;
 
-    document.getElementById('lblRelFatTotal').innerText = `R$ ${totalFat.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelRecebido').innerText = `R$ ${totalRecebido.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelAReceber').innerText = `R$ ${totalAReceber.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelEmProducao').innerText = `R$ ${totalEmProducao.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelLucroLiq').innerText = `R$ ${lucroRealizado.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelMargem').innerText = `${margemMedia.toFixed(1).replace('.', ',')}%`;
-    document.getElementById('lblRelTotalPedidos').innerText = totalPecasVendidas;
-    document.getElementById('lblRelTicketMedio').innerText = `R$ ${ticketMedio.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblRelPedidosProducao').innerText = pedidosProducao;
-    document.getElementById('lblRelPedidosConcluidos').innerText = pedidosConcluidos;
-    document.getElementById('lblRelHorasTotais').innerText = `${totalHoras.toFixed(1)}h`;
-    document.getElementById('lblRelCatTotal').innerText = listaProdutosSalvos.length;
-    document.getElementById('lblPerdasTotal').innerText = `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`;
-    document.getElementById('lblLojasAtivas').innerText = obterLojasComProdutosSalvos().length;
+    atualizarElementoSeguro('lblRelFatTotal', 'innerText', `R$ ${totalFat.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('lblRelRecebido', 'innerText', `R$ ${totalRecebido.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('lblRelAReceber', 'innerText', `R$ ${totalAReceber.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('lblRelEmProducao', 'innerText', `R$ ${totalEmProducao.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('lblRelLucroLiq', 'innerText', `R$ ${lucroRealizado.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('lblRelMargem', 'innerText', `${margemMedia.toFixed(1).replace('.', ',')}%`);
+    atualizarElementoSeguro('lblRelTotalPedidos', 'innerText', totalPecasVendidas);
+    atualizarElementoSeguro('lblRelTicketMedio', 'innerText', `R$ ${ticketMedio.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('lblRelPedidosProducao', 'innerText', pedidosProducao);
+    atualizarElementoSeguro('lblRelPedidosConcluidos', 'innerText', pedidosConcluidos);
+    atualizarElementoSeguro('lblRelHorasTotais', 'innerText', `${totalHoras.toFixed(1)}h`);
+    atualizarElementoSeguro('lblRelCatTotal', 'innerText', listaProdutosSalvos.length);
+    atualizarElementoSeguro('lblPerdasTotal', 'innerText', `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('lblLojasAtivas', 'innerText', obterLojasComProdutosSalvos().length);
 
     let totalFil = 0, totalRes = 0, estoqueAlertaCount = 0, valorEstoque = 0, htmlAlerta = '';
     listaMateriais.forEach(m => {
@@ -1991,11 +2001,11 @@
         htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color:${st.cor};font-weight:600;">${estoqueAtual}g</span></td><td><span style="color:${st.cor};background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;font-size:11px;">${st.texto}</span></td></tr>`;
       }
     });
-    document.getElementById('lblTotalFilamentos').innerText = totalFil;
-    document.getElementById('lblTotalResinas').innerText = totalRes;
-    document.getElementById('lblEstoqueAlertas').innerText = estoqueAlertaCount;
-    document.getElementById('lblValorEstoque').innerText = `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`;
-    document.getElementById('tabelaAlertasEstoque').innerHTML = htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`;
+    atualizarElementoSeguro('lblTotalFilamentos', 'innerText', totalFil);
+    atualizarElementoSeguro('lblTotalResinas', 'innerText', totalRes);
+    atualizarElementoSeguro('lblEstoqueAlertas', 'innerText', estoqueAlertaCount);
+    atualizarElementoSeguro('lblValorEstoque', 'innerText', `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('tabelaAlertasEstoque', 'innerHTML', htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`);
   }
 
   filtrarTabela();
