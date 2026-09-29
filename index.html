@@ -18,6 +18,8 @@
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+  <!-- Firebase Storage não é usado: os arquivos 3MF/GLB ficam no Google Drive. -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- GOOGLE DRIVE / GOOGLE IDENTITY SERVICES -->
 
   <style>
@@ -204,6 +206,16 @@
     .toast.show { transform: translateX(0); }
     .toast-icon { background: var(--success); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0; }
 
+
+    .pintura-status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:20px;}
+    .pintura-status-card{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:left;color:var(--text-color);cursor:pointer;display:flex;flex-direction:column;gap:5px;}
+    .pintura-status-card:hover{border-color:var(--primary);transform:translateY(-1px);}
+    .pintura-status-card span{font-size:20px}.pintura-status-card strong{font-size:26px}.pintura-status-card small{color:var(--text-muted)}
+    .arquivo-pintura{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-top:8px;background:rgba(255,255,255,.02);}
+    .arquivo-pintura strong{font-size:12px;word-break:break-word}.arquivo-pintura small{color:var(--text-muted)}
+    textarea.form-group-input{width:100%;}
+    @media (max-width:700px){.pintura-status-grid{grid-template-columns:1fr;}}
+
     @media (max-width: 900px) {
       body { flex-direction: column; height: auto; overflow: auto; }
       aside { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-100%); width: 280px; }
@@ -267,6 +279,7 @@
         <li><a onclick="mudarAbaMenu(event, 'estoque')">📦 Estoque de Filamentos</a></li>
         <li><a onclick="mudarAbaMenu(event, 'precificacao')">💰 Calculadora & Lojas</a></li>
         <li><a onclick="mudarAbaMenu(event, 'produtos')">🏷️ Meus Produtos Salvos</a></li>
+        <li id="menuPintura" style="display:none;"><a onclick="mudarAbaMenu(event, 'pintura')">🎨 Pintura</a></li>
         <li id="menuUsuarios" style="display:none;"><a onclick="mudarAbaMenu(event, 'usuarios')">👥 Usuários</a></li>
       </ul>
     </div>
@@ -276,6 +289,7 @@
       <button id="btnConectarNuvem" class="btn-secondary" style="width:100%;margin-top:10px;" onclick="entrarVanmathi()">☁️ Entrar no Vanmathi</button>
       <button id="btnSincronizarNuvem" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="sincronizarAgora()">🔄 Sincronizar agora</button>
       <button id="btnSairNuvem" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="desconectarFirebaseVanmathi()">↪️ Sair da conta</button>
+      <button id="btnNotificacoes" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="abrirNotificacoes()">🔔 Notificações <span id="badgeNotificacoes" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:2px 6px;font-size:10px;margin-left:5px;">0</span></button>
       <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.35;">Todos os dispositivos conectados à mesma conta Google usam a mesma base Vanmathi.</div>
     </div>
   </aside>
@@ -727,6 +741,12 @@
           <option value="Recebido">Recebido</option>
         </select>
       </div>
+      <div class="form-group"><label>Precisa de pintura?</label><select id="vendaPrecisaPintura" onchange="atualizarCamposPinturaVenda()"><option value="nao">Não</option><option value="sim">Sim</option></select></div>
+      <div id="blocoPinturaVenda" style="display:none;">
+        <div class="form-row"><div class="form-group"><label>Responsável pela pintura</label><select id="vendaResponsavelPintura"></select></div><div class="form-group"><label>Status da pintura</label><select id="vendaStatusPintura"><option value="Pendente">Pendente</option><option value="Em andamento">Em andamento</option><option value="Finalizada">Finalizada</option></select></div></div>
+        <div class="form-group"><label>Orientação para pintura</label><textarea id="vendaObservacaoPintura" rows="3" placeholder="Ex.: pintar focinho preto, olhos verdes..."></textarea></div>
+        <div class="form-group"><label>Arquivo de referência (opcional)</label><input id="vendaArquivoPintura" type="file" accept=".3mf,.glb,model/3mf,model/gltf-binary" multiple></div>
+      </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
         <button class="btn-primary" id="btnSalvarVenda" onclick="salvarNovaVenda()">Salvar Venda</button>
@@ -804,8 +824,37 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modalTarefaPintura">
+    <div class="modal-box" style="max-width:620px;">
+      <div class="modal-header"><span>🎨 Detalhes da pintura</span><span style="cursor:pointer;color:var(--text-muted);" onclick="fecharModalTarefaPintura()">✕</span></div>
+      <div id="detalhesTarefaPintura"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalNotificacoes">
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-header"><span>🔔 Notificações</span><span style="cursor:pointer;color:var(--text-muted);" onclick="fecharNotificacoes()">✕</span></div>
+      <div id="listaNotificacoes"><p style="color:var(--text-muted);">Carregando...</p></div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toastContainer"></div>
 
+
+    <div id="secao-pintura" class="content-section">
+      <div class="header-painel">
+        <div class="header-title"><small>Produção</small><h1>🎨 Pintura</h1><p>Veja somente as peças de pintura atribuídas a você.</p></div>
+      </div>
+      <div class="pintura-status-grid">
+        <button class="pintura-status-card" onclick="filtrarPintura('Pendente')"><span>🎨</span><strong id="pinturaCountPendente">0</strong><small>Pintura pendente</small></button>
+        <button class="pintura-status-card" onclick="filtrarPintura('Em andamento')"><span>🖌️</span><strong id="pinturaCountAndamento">0</strong><small>Em andamento</small></button>
+        <button class="pintura-status-card" onclick="filtrarPintura('Finalizada')"><span>✅</span><strong id="pinturaCountFinalizada">0</strong><small>Finalizada</small></button>
+      </div>
+      <div class="card-box">
+        <div class="table-toolbar"><div><h3 style="margin:0;">Minhas pinturas</h3><p class="subtitle" style="margin-top:4px;">Abra uma peça para visualizar e baixar o 3MF ou GLB enviado pelo administrador.</p></div><button class="btn-secondary" onclick="carregarTarefasPintura()">🔄 Atualizar</button></div>
+        <div class="table-container"><table><thead><tr><th>Data</th><th>Produto</th><th>Qtd</th><th>Status da pintura</th><th>Ação</th></tr></thead><tbody id="tabelaTarefasPintura"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma pintura atribuída.</td></tr></tbody></table></div>
+      </div>
+    </div>
 
     <div id="secao-usuarios" class="content-section">
       <div class="card-box">
@@ -888,9 +937,21 @@
     measurementId: 'G-6Z802G6SVT'
   };
 
+  const VANMATHI_GOOGLE_CLIENT_ID = '466703829891-a2q5375pqbbfe1bh6gj1pp54uqnapu3q.apps.googleusercontent.com';
+  const VANMATHI_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  const VANMATHI_DRIVE_FOLDER = 'Vanmathi';
+  const VANMATHI_DRIVE_PAINT_FOLDER = 'Pintura';
+  let vanmathiDriveTokenClient = null;
+  let vanmathiDriveAccessToken = '';
+  let vanmathiDriveTokenExpiresAt = 0;
+  let vanmathiDriveFolderId = null;
+
   let vanmathiFirebase = null;
   let vanmathiAuth = null;
   let vanmathiDb = null;
+  let tarefasPinturaCache = [];
+  let filtroPinturaAtual = "todos";
+  let notificacoesCache = [];
   let vanmathiUsuario = null;
   let vanmathiCloudConectada = false;
   let vanmathiListener = null;
@@ -949,9 +1010,20 @@
 
   function aplicarPermissoesInterface(role) {
     const menuUsuarios = document.getElementById('menuUsuarios');
+    const menuPintura = document.getElementById('menuPintura');
     if (menuUsuarios) menuUsuarios.style.display = role === 'admin' ? '' : 'none';
+    if (menuPintura) menuPintura.style.display = role === 'pintura' ? '' : 'none';
+    document.querySelectorAll('.nav-links > li').forEach(li => {
+      if (li.id !== 'menuUsuarios' && li.id !== 'menuPintura') li.style.display = role === 'pintura' ? 'none' : '';
+    });
+    if (role === 'pintura') {
+      document.getElementById('menuPintura').style.display = '';
+      setTimeout(() => { const a=document.querySelector('#menuPintura a'); if(a) mudarAbaMenu({target:a}, 'pintura'); }, 0);
+    } else if (document.getElementById('secao-pintura')?.classList.contains('active')) {
+      const link = document.querySelector('.nav-links a:not(#menuPintura a)'); if (link) mudarAbaMenu({target:link}, role==='admin'?'relatorios':'vendas');
+    }
     if (role !== 'admin' && document.getElementById('secao-usuarios')?.classList.contains('active')) {
-      const link = document.querySelector('.nav-links a'); if (link) mudarAbaMenu({target:link}, 'relatorios');
+      const link = document.querySelector('.nav-links a'); if (link) mudarAbaMenu({target:link}, role==='pintura'?'pintura':'vendas');
     }
   }
 
@@ -973,20 +1045,26 @@
     const role = document.getElementById('usuarioRoleAdmin').value;
     const ativo = document.getElementById('usuarioAtivoAdmin').value === 'true';
     if (!nome || !email) { alert('Informe nome e e-mail.'); return; }
-    const ref = uid ? vanmathiDb.collection('usuarios').doc(uid) : vanmathiDb.collection('usuarios').doc();
-    await ref.set({ nome, email, role, ativo, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(), criadoPor: vanmathiUsuario.uid }, {merge:true});
+    if (!uid) {
+      await vanmathiDb.collection('convites').doc(email).set({nome,email,role,ativo,criadoPor:vanmathiUsuario.uid,criadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    } else {
+      await vanmathiDb.collection('usuarios').doc(uid).set({ nome, email, role, ativo, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(), criadoPor: vanmathiUsuario.uid }, {merge:true});
+    }
     fecharFormularioUsuario(); await carregarUsuariosAdmin();
-    mostrarToast('Usuário salvo no Firebase!');
+    mostrarToast(uid ? 'Usuário atualizado no Firebase!' : 'Acesso preparado. No primeiro login, o Google será vinculado ao usuário.');
   }
   async function carregarUsuariosAdmin(){
     if (vanmathiPerfilAtual?.role !== 'admin' || !vanmathiDb) return;
     const corpo=document.getElementById('tabelaUsuariosVanmathi'); if(!corpo)return;
     try {
-      const snap=await vanmathiDb.collection('usuarios').orderBy('nome').get();
+      const [snap, conv] = await Promise.all([vanmathiDb.collection('usuarios').orderBy('nome').get(), vanmathiDb.collection('convites').get()]);
       vanmathiUsuariosCache=[]; snap.forEach(doc=>vanmathiUsuariosCache.push({uid:doc.id,...doc.data()}));
-      corpo.innerHTML=vanmathiUsuariosCache.map(u=>`<tr><td><strong>${u.nome||'-'}</strong></td><td>${u.email||'-'}</td><td>${u.role==='admin'?'Administrador':u.role==='pintura'?'Pintura':'Funcionário'}</td><td><span style="color:${u.ativo===false?'var(--danger)':'var(--success)'};font-weight:600;">${u.ativo===false?'Inativo':'Ativo'}</span></td><td style="display:flex;gap:6px;"><button class="btn-secondary" style="padding:6px 8px;" onclick="editarUsuarioAdmin('${u.uid}')">✏️</button><button class="btn-secondary" style="padding:6px 8px;" onclick="alternarUsuarioAdmin('${u.uid}')">${u.ativo===false?'✅':'⏸️'}</button></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:25px;">Nenhum usuário cadastrado.</td></tr>';
+      const convidados=conv.docs.map(d=>({uid:'convite:'+d.id,...d.data(),_convite:true}));
+      const todos=[...vanmathiUsuariosCache,...convidados];
+      corpo.innerHTML=todos.map(u=>`<tr><td><strong>${u.nome||'-'}</strong></td><td>${u.email||'-'}</td><td>${u.role==='admin'?'Administrador':u.role==='pintura'?'Pintura':'Funcionário'}</td><td><span style="color:${u.ativo===false?'var(--danger)':'var(--success)'};font-weight:600;">${u._convite?'🕓 Aguardando login':u.ativo===false?'Inativo':'Ativo'}</span></td><td style="display:flex;gap:6px;">${u._convite?`<button class="btn-danger" style="padding:6px 8px;" onclick="cancelarConviteAdmin('${u.email}')">Cancelar</button>`:`<button class="btn-secondary" style="padding:6px 8px;" onclick="editarUsuarioAdmin('${u.uid}')">✏️</button><button class="btn-secondary" style="padding:6px 8px;" onclick="alternarUsuarioAdmin('${u.uid}')">${u.ativo===false?'✅':'⏸️'}</button>`}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:25px;">Nenhum usuário cadastrado.</td></tr>';
     } catch(e){ console.error(e); corpo.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:25px;">Não foi possível carregar os usuários.</td></tr>'; }
   }
+  async function cancelarConviteAdmin(email){if(vanmathiPerfilAtual?.role!=='admin')return;await vanmathiDb.collection('convites').doc(String(email).toLowerCase()).delete();await carregarUsuariosAdmin();mostrarToast('Convite cancelado.');}
   function editarUsuarioAdmin(uid){ const u=vanmathiUsuariosCache.find(x=>x.uid===uid); if(u) abrirFormularioUsuario(uid,u); }
   async function alternarUsuarioAdmin(uid){ const u=vanmathiUsuariosCache.find(x=>x.uid===uid); if(!u)return; await vanmathiDb.collection('usuarios').doc(uid).set({ativo:u.ativo===false,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}); await carregarUsuariosAdmin(); mostrarToast(u.ativo===false?'Usuário ativado!':'Usuário desativado!'); }
 
@@ -1094,6 +1172,10 @@
   }
 
   async function desconectarFirebaseVanmathi() {
+    notificacoesCache=[];
+    document.getElementById('btnNotificacoes').style.display='none';
+    document.getElementById('badgeNotificacoes').style.display='none';
+    localStorage.removeItem('Vanmathi_Dados_Estoque');localStorage.removeItem('Vanmathi_Dados_Produtos');localStorage.removeItem('Vanmathi_Dados_Vendas');localStorage.removeItem('Vanmathi_Dados_Lojas');localStorage.removeItem('Vanmathi_Dados_Marcas');
     if (vanmathiAuth) await vanmathiAuth.signOut();
   }
 
@@ -1102,16 +1184,25 @@
       atualizarStatusNuvem('Conectando à base central...', 'var(--warning)');
       const usuarioRef = vanmathiDb.collection('usuarios').doc(user.uid);
       let usuarioSnap = await usuarioRef.get();
-      // O administrador pode cadastrar apenas o e-mail. No primeiro login,
-      // encontramos esse cadastro pelo e-mail e o vinculamos ao UID do Google.
+      // Novo fluxo: o administrador prepara o acesso em convites/{email}.
+      if (!usuarioSnap.exists && user.email) {
+        const emailLogin = user.email.toLowerCase();
+        const conviteRef = vanmathiDb.collection('convites').doc(emailLogin);
+        const conviteSnap = await conviteRef.get();
+        if (conviteSnap.exists) {
+          const convite = conviteSnap.data() || {};
+          await usuarioRef.set({nome:convite.nome||user.displayName||user.email,email:emailLogin,role:convite.role||'funcionario',ativo:convite.ativo!==false,criadoEm:firebase.firestore.FieldValue.serverTimestamp(),criadoPor:convite.criadoPor||''});
+          await conviteRef.delete();
+          usuarioSnap = await usuarioRef.get();
+        }
+      }
+      // Compatibilidade com cadastros antigos feitos antes da migração para UID.
       if (!usuarioSnap.exists && user.email) {
         const porEmail = await vanmathiDb.collection('usuarios').where('email', '==', user.email.toLowerCase()).limit(1).get();
         if (!porEmail.empty) {
           const cadastro = porEmail.docs[0];
-          const dadosCadastro = cadastro.data() || {};
-          await usuarioRef.set({ ...dadosCadastro, email: user.email.toLowerCase(), uid: user.uid, vinculadoEm: firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
-          if (cadastro.id !== user.uid) await cadastro.ref.delete();
-          usuarioSnap = await usuarioRef.get();
+          usuarioSnap = cadastro;
+          vanmathiPerfilAtual = cadastro.data() || {};
         }
       }
       if (!usuarioSnap.exists) {
@@ -1138,10 +1229,27 @@
         await vanmathiAuth.signOut();
         return;
       }
-      aplicarPermissoesInterface(perfil.role);
-      if (perfil.role === 'admin') await carregarUsuariosAdmin();
-
       vanmathiCloudConectada = true;
+      aplicarPermissoesInterface(perfil.role);
+      document.getElementById('btnConectarNuvem').style.display = 'none';
+      document.getElementById('btnSincronizarNuvem').style.display = 'block';
+      document.getElementById('btnSairNuvem').style.display = 'block';
+      document.getElementById('btnNotificacoes').style.display = 'block';
+      carregarNotificacoes();
+      if (perfil.role === 'pintura') {
+        // Pintura não recebe o documento central, portanto não recebe dados financeiros.
+        listaMateriais = []; listaProdutosSalvos = []; listaVendas = []; listaLojas = []; listaMarcas = [];
+        localStorage.removeItem('Vanmathi_Dados_Estoque'); localStorage.removeItem('Vanmathi_Dados_Produtos'); localStorage.removeItem('Vanmathi_Dados_Vendas'); localStorage.removeItem('Vanmathi_Dados_Lojas'); localStorage.removeItem('Vanmathi_Dados_Marcas');
+        atualizarTelaAcessoVanmathi('liberado');
+        await carregarTarefasPintura();
+        return;
+      }
+      if (perfil.role === 'admin') await carregarUsuariosAdmin();
+      else if (perfil.role === 'funcionario') {
+        try { const ps = await vanmathiDb.collection('usuarios').where('role','==','pintura').where('ativo','==',true).get(); vanmathiUsuariosCache = ps.docs.map(d=>({uid:d.id,...d.data()})); } catch(e) { console.warn('Não foi possível carregar pintores:',e); }
+      }
+
+      atualizarTelaAcessoVanmathi('liberado');
       atualizarTelaAcessoVanmathi('liberado');
       document.getElementById('btnConectarNuvem').style.display = 'none';
       document.getElementById('btnSincronizarNuvem').style.display = 'block';
@@ -1231,6 +1339,7 @@
     
     document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
     if (secaoId === 'usuarios') carregarUsuariosAdmin();
+    if (secaoId === 'pintura') carregarTarefasPintura();
 
     const painelFiltros = document.getElementById('painelFiltrosTopo');
     
@@ -1242,6 +1351,9 @@
       atualizarFiltroAnosDinamico();
       if(secaoId === 'relatorios') atualizarRelatorios();
       if(secaoId === 'vendas') renderizarVendas();
+    } else if (secaoId === 'pintura') {
+      painelFiltros.style.display = 'none';
+      carregarTarefasPintura();
     } else if (secaoId === 'produtos') {
       painelFiltros.style.display = 'flex';
       document.getElementById('filtroMes').style.display = 'none';
@@ -1418,10 +1530,16 @@
     if(listaProdutosSalvos.length === 0) { alert("Cadastre e salve pelo menos um produto na Calculadora primeiro!"); return; }
     editandoVendaId = null;
     preencherSelectProdutosVenda();
+    if(vanmathiPerfilAtual?.role==='admin') carregarUsuariosAdmin();
+    else if(vanmathiPerfilAtual?.role==='funcionario') renderizarResponsaveisPinturaVenda();
     document.getElementById('vendaQtd').value = 1;
     document.getElementById('vendaData').value = new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = 'Concluído';
     document.getElementById('vendaPagamento').value = 'Recebido';
+    document.getElementById('vendaPrecisaPintura').value = 'nao';
+    document.getElementById('vendaObservacaoPintura').value = '';
+    document.getElementById('vendaArquivoPintura').value = '';
+    atualizarCamposPinturaVenda();
     document.getElementById('tituloModalVenda').innerText = 'Registrar Nova Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Venda';
     document.getElementById('modalRegistrarVenda').classList.add('active');
@@ -1438,6 +1556,11 @@
     document.getElementById('vendaData').value = venda.data || new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = venda.status || 'Concluído';
     document.getElementById('vendaPagamento').value = venda.pagamentoStatus || (venda.status === 'Concluído' ? 'Recebido' : 'Pendente');
+    document.getElementById('vendaPrecisaPintura').value = venda.precisaPintura ? 'sim' : 'nao';
+    document.getElementById('vendaStatusPintura').value = venda.statusPintura || 'Pendente';
+    document.getElementById('vendaObservacaoPintura').value = venda.observacaoPintura || '';
+    atualizarCamposPinturaVenda();
+    if (venda.responsavelPinturaEmail) document.getElementById('vendaResponsavelPintura').value = venda.responsavelPinturaId || '';
     document.getElementById('tituloModalVenda').innerText = 'Editar Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Alterações';
     document.getElementById('modalRegistrarVenda').classList.add('active');
@@ -1450,12 +1573,18 @@
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Venda';
   }
 
-  function salvarNovaVenda() {
+  async function salvarNovaVenda() {
     const prodId = parseInt(document.getElementById('vendaSelectProduto').value);
     const qtd = parseInt(document.getElementById('vendaQtd').value) || 1;
     const data = document.getElementById('vendaData').value;
     const status = document.getElementById('vendaStatus').value;
     const pagamentoStatus = document.getElementById('vendaPagamento').value;
+    const precisaPintura = document.getElementById('vendaPrecisaPintura').value === 'sim';
+    const responsavelPinturaId = precisaPintura ? (document.getElementById('vendaResponsavelPintura').value || '') : '';
+    const responsavel = vanmathiUsuariosCache.find(u => String(u.uid) === String(responsavelPinturaId));
+    const statusPintura = precisaPintura ? (document.getElementById('vendaStatusPintura').value || 'Pendente') : '';
+    const observacaoPintura = precisaPintura ? (document.getElementById('vendaObservacaoPintura').value || '').trim() : '';
+    const arquivosPintura = precisaPintura ? document.getElementById('vendaArquivoPintura').files : [];
 
     const produto = listaProdutosSalvos.find(p => p.id === prodId);
     if(!produto) return;
@@ -1481,7 +1610,14 @@
       valorProdutoUnidade: numPreco,
       data: data,
       status: status,
-      pagamentoStatus: pagamentoStatus
+      pagamentoStatus: pagamentoStatus,
+      precisaPintura: precisaPintura,
+      responsavelPinturaId: responsavelPinturaId,
+      responsavelPinturaUid: responsavel?.uid || '',
+      responsavelPinturaNome: responsavel?.nome || '',
+      responsavelPinturaEmail: responsavel?.email || '',
+      statusPintura: statusPintura,
+      observacaoPintura: observacaoPintura
     };
 
     if(editandoVendaId) {
@@ -1501,6 +1637,11 @@
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
+    if (precisaPintura) {
+      await sincronizarTarefaPintura(dadosVenda, arquivosPintura, editandoVendaId || listaVendas[listaVendas.length-1].id);
+    } else if (editandoVendaId) {
+      await excluirTarefaPintura(editandoVendaId);
+    }
   }
 
   function excluirVenda(id) {
@@ -1512,6 +1653,270 @@
     atualizarRelatorios();
     mostrarToast("Venda removida e estoque recalculado!");
   }
+
+  async function carregarNotificacoes(){
+    if(!vanmathiDb||!vanmathiUsuario)return;try{const email=String(vanmathiUsuario.email||'').toLowerCase();const snap=await vanmathiDb.collection('notificacoes').where('destinatarioEmail','==',email).limit(30).get();notificacoesCache=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.criadoEm?.toDate?.()||b.criadoEm||'').localeCompare(String(a.criadoEm?.toDate?.()||a.criadoEm||'')));atualizarBadgeNotificacoes();}catch(e){console.warn('Notificações:',e);}}
+  function atualizarBadgeNotificacoes(){const n=notificacoesCache.filter(x=>x.lida!==true).length;const b=document.getElementById('badgeNotificacoes');if(!b)return;b.innerText=n;b.style.display=n?'inline-block':'none';}
+  function abrirNotificacoes(){const c=document.getElementById('listaNotificacoes');if(!c)return;const lista=notificacoesCache;if(!lista.length)c.innerHTML='<p style="color:var(--text-muted);">Nenhuma notificação.</p>';else c.innerHTML=lista.map(n=>`<button style="display:block;width:100%;text-align:left;background:${n.lida?'transparent':'rgba(59,130,246,.08)'};border:1px solid var(--border);color:var(--text-color);padding:12px;border-radius:9px;margin-bottom:8px;cursor:pointer;" onclick="marcarNotificacaoLida('${n.id}')"><strong>${n.titulo||'Notificação'}</strong><span style="display:block;color:var(--text-muted);font-size:12px;margin-top:4px;">${n.mensagem||''}</span></button>`).join('');document.getElementById('modalNotificacoes').classList.add('active');}
+  function fecharNotificacoes(){document.getElementById('modalNotificacoes').classList.remove('active');}
+  async function marcarNotificacaoLida(id){const n=notificacoesCache.find(x=>x.id===id);if(!n)return;try{await vanmathiDb.collection('notificacoes').doc(id).update({lida:true});n.lida=true;atualizarBadgeNotificacoes();abrirNotificacoes();}catch(e){console.warn(e);}}
+
+  function atualizarCamposPinturaVenda(){
+    const sim=document.getElementById('vendaPrecisaPintura')?.value==='sim';
+    const bloco=document.getElementById('blocoPinturaVenda'); if(bloco) bloco.style.display=sim?'block':'none';
+    if(sim) renderizarResponsaveisPinturaVenda();
+  }
+  function renderizarResponsaveisPinturaVenda(){
+    const sel=document.getElementById('vendaResponsavelPintura'); if(!sel) return;
+    const atual=sel.value;
+    const pintores=vanmathiUsuariosCache.filter(u=>u.role==='pintura' && u.ativo!==false);
+    sel.innerHTML='<option value="">Selecione o responsável</option>'+pintores.map(u=>`<option value="${u.uid}">${u.nome||u.email}</option>`).join('');
+    if(atual) sel.value=atual;
+  }
+  function abrirModalTarefaPintura(id){
+    const t=tarefasPinturaCache.find(x=>x.id===id); if(!t) return;
+    const podeAnexar=vanmathiPerfilAtual?.role==='admin' || vanmathiPerfilAtual?.role==='funcionario';
+    const podeAlterar=vanmathiPerfilAtual?.role==='pintura';
+    const arquivos=Array.isArray(t.arquivos)?t.arquivos:[];
+    document.getElementById('detalhesTarefaPintura').innerHTML=`
+      <div class="card-box" style="margin-bottom:12px;"><h3>${t.produtoNome||'Produto'}</h3><p class="subtitle">Quantidade: ${t.qtd||1} • Data: ${t.data?t.data.split('-').reverse().join('/'):'-'}</p>
+      <p style="font-size:13px;line-height:1.5;">${t.observacaoPintura||'Sem orientação adicional.'}</p>
+      <div class="form-group"><label>Status da pintura</label><select id="statusTarefaModal" ${podeAlterar?'':'disabled'}><option value="Pendente">Pendente</option><option value="Em andamento">Em andamento</option><option value="Finalizada">Finalizada</option></select></div>
+      ${podeAnexar?'<div class="form-group"><label>Anexar 3MF / GLB</label><input id="arquivosTarefaModal" type="file" accept=".3mf,.glb,model/3mf,model/gltf-binary" multiple></div>':''}
+      <div><strong style="font-size:13px;">Arquivos de referência</strong><div id="listaArquivosTarefa">${arquivos.length?arquivos.map(a=>`<div class="arquivo-pintura"><div><strong>${a.nome}</strong><small style="display:block;">${a.tipo||'Arquivo'} • Google Drive${a.compartilhadoComPintor===false?' • compartilhamento pendente':''}</small></div><a class="btn-secondary" href="${a.url||a.downloadUrl}" target="_blank" rel="noopener">📂 Abrir no Drive</a></div>`).join(''):'<p style="color:var(--text-muted);font-size:12px;">Nenhum arquivo anexado ainda.</p>'}</div></div></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;"><button class="btn-secondary" onclick="fecharModalTarefaPintura()">Fechar</button>${podeAlterar?'<button class="btn-primary" onclick="salvarStatusTarefaPintura(\''+t.id+'\')">💾 Salvar status</button>':''}${podeAnexar?'<button class="btn-primary" onclick="anexarArquivosTarefaPintura(\''+t.id+'\')">📎 Anexar arquivos</button>':''}</div>`;
+    document.getElementById('statusTarefaModal').value=t.statusPintura||'Pendente';
+    document.getElementById('modalTarefaPintura').classList.add('active');
+  }
+  function fecharModalTarefaPintura(){document.getElementById('modalTarefaPintura').classList.remove('active');}
+  function filtrarPintura(status){filtroPinturaAtual=status;renderizarTarefasPintura();}
+  async function carregarTarefasPintura(){
+    if(!vanmathiDb||!vanmathiUsuario||vanmathiPerfilAtual?.role!=='pintura') return;
+    try{
+      const email=String(vanmathiUsuario.email||'').toLowerCase();
+      const snap=await vanmathiDb.collection('tarefasPintura').where('responsavelPinturaEmail','==',email).orderBy('atualizadoEm','desc').get();
+      tarefasPinturaCache=snap.docs.map(d=>({id:d.id,...d.data()})); renderizarTarefasPintura();
+    }catch(e){console.error('Erro tarefas pintura:',e);const corpo=document.getElementById('tabelaTarefasPintura');if(corpo)corpo.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:30px;">Não foi possível carregar suas pinturas. Se o Firebase pedir, crie o índice indicado no erro.</td></tr>';}
+  }
+  function renderizarTarefasPintura(){
+    const lista=filtroPinturaAtual==='todos'?tarefasPinturaCache:tarefasPinturaCache.filter(t=>(t.statusPintura||'Pendente')===filtroPinturaAtual);
+    const c=document.getElementById('tabelaTarefasPintura'); if(!c)return;
+    document.getElementById('pinturaCountPendente').innerText=tarefasPinturaCache.filter(t=>(t.statusPintura||'Pendente')==='Pendente').length;
+    document.getElementById('pinturaCountAndamento').innerText=tarefasPinturaCache.filter(t=>t.statusPintura==='Em andamento').length;
+    document.getElementById('pinturaCountFinalizada').innerText=tarefasPinturaCache.filter(t=>t.statusPintura==='Finalizada').length;
+    c.innerHTML=lista.length?lista.map(t=>`<tr><td>${t.data?t.data.split('-').reverse().join('/'):'-'}</td><td><strong>${t.produtoNome||'-'}</strong></td><td>${t.qtd||1} un</td><td><span style="color:${t.statusPintura==='Finalizada'?'var(--success)':t.statusPintura==='Em andamento'?'var(--primary)':'var(--warning)'};font-weight:600;">${t.statusPintura||'Pendente'}</span></td><td><button class="btn-primary" style="padding:6px 10px;font-size:11px;" onclick="abrirModalTarefaPintura('${t.id}')">👁️ Abrir</button></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma pintura encontrada.</td></tr>';
+  }
+  async function salvarStatusTarefaPintura(id){
+    if(vanmathiPerfilAtual?.role!=='pintura')return;const status=document.getElementById('statusTarefaModal').value;
+    await vanmathiDb.collection('tarefasPintura').doc(id).update({statusPintura:status,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()});
+    const t=tarefasPinturaCache.find(x=>x.id===id);if(t)t.statusPintura=status;renderizarTarefasPintura();fecharModalTarefaPintura();mostrarToast('Status da pintura atualizado!');
+  }
+  async function sincronizarTarefaPintura(venda, arquivos, vendaId){
+    if(!vanmathiDb||!venda.precisaPintura||!venda.responsavelPinturaEmail)return;
+    const id=String(vendaId); const ref=vanmathiDb.collection('tarefasPintura').doc(id);
+    const dados={vendaId:id,produtoId:String(venda.produtoId),produtoNome:venda.produtoNome,qtd:venda.qtd,data:venda.data,statusPedido:venda.status,precisaPintura:true,responsavelPinturaEmail:String(venda.responsavelPinturaEmail).toLowerCase(),responsavelPinturaNome:venda.responsavelPinturaNome||'',statusPintura:venda.statusPintura||'Pendente',observacaoPintura:venda.observacaoPintura||'',atualizadoEm:firebase.firestore.FieldValue.serverTimestamp(),criadoPor:vanmathiUsuario?.uid||''};
+    const old=await ref.get(); if(old.exists&&Array.isArray(old.data().arquivos)) dados.arquivos=old.data().arquivos;
+    await ref.set(dados,{merge:true});
+    if(arquivos&&arquivos.length){await uploadArquivosTarefa(id,arquivos,dados.responsavelPinturaEmail);}
+    await criarNotificacaoPintura(venda);
+    await criarNotificacoesVenda(venda);
+  }
+  function carregarGoogleIdentityServices(){
+    if(window.google?.accounts?.oauth2) return Promise.resolve();
+    return new Promise((resolve,reject)=>{
+      const inicio=Date.now();
+      const timer=setInterval(()=>{
+        if(window.google?.accounts?.oauth2){clearInterval(timer);resolve();}
+        else if(Date.now()-inicio>15000){clearInterval(timer);reject(new Error('O Google Identity Services não carregou.'));}
+      },100);
+    });
+  }
+
+  async function obterTokenDrive(forceConsent=false){
+    if(vanmathiDriveAccessToken && Date.now() < vanmathiDriveTokenExpiresAt-60000) return vanmathiDriveAccessToken;
+    await carregarGoogleIdentityServices();
+    return new Promise((resolve,reject)=>{
+      let resolvido=false;
+      const concluir=(fn,arg)=>{if(resolvido)return;resolvido=true;fn(arg);};
+      vanmathiDriveTokenClient=google.accounts.oauth2.initTokenClient({
+        client_id:VANMATHI_GOOGLE_CLIENT_ID,
+        scope:VANMATHI_DRIVE_SCOPE,
+        callback:(resp)=>{
+          if(resp?.error){
+            if(!forceConsent && ['interaction_required','consent_required','login_required'].includes(resp.error)){
+              obterTokenDrive(true).then(resolve).catch(reject);
+              return;
+            }
+            concluir(reject,new Error(resp.error_description||resp.error||'Não foi possível autorizar o Google Drive.'));
+            return;
+          }
+          vanmathiDriveAccessToken=resp.access_token||'';
+          vanmathiDriveTokenExpiresAt=Date.now()+((Number(resp.expires_in)||3600)*1000);
+          concluir(resolve,vanmathiDriveAccessToken);
+        }
+      });
+      vanmathiDriveTokenClient.requestAccessToken({prompt:forceConsent?'consent':''});
+    });
+  }
+
+  async function driveFetch(url,options={},retry=true){
+    const token=await obterTokenDrive(false);
+    const headers=new Headers(options.headers||{});
+    headers.set('Authorization','Bearer '+token);
+    const resposta=await fetch(url,{...options,headers});
+    if(resposta.status===401 && retry){
+      vanmathiDriveAccessToken='';
+      vanmathiDriveTokenExpiresAt=0;
+      return driveFetch(url,options,false);
+    }
+    // HTTP 308 é a resposta normal do Google Drive durante upload resumível.
+    if(!resposta.ok && resposta.status!==308){
+      let detalhe=''; try{detalhe=await resposta.text();}catch(_){ }
+      throw new Error('Google Drive HTTP '+resposta.status+(detalhe?' - '+detalhe.slice(0,300):''));
+    }
+    return resposta;
+  }
+
+  async function driveApiJson(path,options={}){
+    const resposta=await driveFetch('https://www.googleapis.com/drive/v3/'+path,options);
+    return resposta.status===204?null:resposta.json();
+  }
+
+  async function obterOuCriarPastaDrive(nome,parentId='root'){
+    const q=encodeURIComponent(`name='${String(nome).replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false and '${parentId}' in parents`);
+    const encontrados=await driveApiJson(`files?q=${q}&pageSize=1&fields=files(id,name)`);
+    if(encontrados.files?.length) return encontrados.files[0].id;
+    const criada=await driveApiJson('files?fields=id,name',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:nome,mimeType:'application/vnd.google-apps.folder',parents:[parentId]})
+    });
+    return criada.id;
+  }
+
+  async function obterPastaPinturaDrive(){
+    if(vanmathiDriveFolderId) return vanmathiDriveFolderId;
+    const raiz=await obterOuCriarPastaDrive(VANMATHI_DRIVE_FOLDER,'root');
+    vanmathiDriveFolderId=await obterOuCriarPastaDrive(VANMATHI_DRIVE_PAINT_FOLDER,raiz);
+    return vanmathiDriveFolderId;
+  }
+
+  async function compartilharArquivoDrive(fileId,email){
+    const alvo=String(email||'').trim().toLowerCase();
+    if(!fileId || !alvo) return false;
+    try{
+      await driveApiJson(`files/${encodeURIComponent(fileId)}/permissions?sendNotificationEmail=false&fields=id`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({type:'user',role:'reader',emailAddress:alvo})
+      });
+      return true;
+    }catch(e){
+      // Se a permissão já existir, o arquivo continua utilizável pelo pintor.
+      if(String(e.message||'').includes('403') || String(e.message||'').includes('permission')) console.warn('Compartilhamento Drive:',e);
+      else console.warn('Compartilhamento Drive:',e);
+      return false;
+    }
+  }
+
+  async function uploadDriveResumable(file,parentId){
+    const mime=file.type||((file.name.toLowerCase().endsWith('.3mf'))?'model/3mf':'model/gltf-binary');
+    const metadata={name:file.name,parents:[parentId],mimeType:mime,description:'Arquivo de referência de pintura do Vanmathi'};
+    const inicio=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,webViewLink,webContentLink,size',{
+      method:'POST',
+      headers:{'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mime,'X-Upload-Content-Length':String(file.size)},
+      body:JSON.stringify(metadata)
+    });
+    const sessao=inicio.headers.get('Location');
+    if(!sessao) throw new Error('O Google Drive não retornou a sessão de upload.');
+    const chunkSize=8*1024*1024;
+    let inicioByte=0;
+    let resultado=null;
+    while(inicioByte<file.size){
+      const fim=Math.min(inicioByte+chunkSize,file.size);
+      const pedaço=file.slice(inicioByte,fim);
+      const resposta=await driveFetch(sessao,{method:'PUT',headers:{'Content-Length':String(pedaço.size),'Content-Range':`bytes ${inicioByte}-${fim-1}/${file.size}`},body:pedaço});
+      if(resposta.status===200 || resposta.status===201){
+        resultado=await resposta.json();
+        inicioByte=file.size;
+        break;
+      }
+      if(resposta.status===308){
+        const range=resposta.headers.get('Range');
+        if(range){
+          const match=range.match(/bytes=0-(\d+)/);
+          inicioByte=match ? Number(match[1])+1 : fim;
+        }else{
+          inicioByte=fim;
+        }
+        continue;
+      }
+      throw new Error('Upload do Google Drive retornou HTTP '+resposta.status+'.');
+    }
+    return resultado;
+  }
+
+  async function salvarMetadadosArquivoDrive(taskId,arquivo){
+    await vanmathiDb.collection('tarefasPintura').doc(taskId).set({
+      arquivos:firebase.firestore.FieldValue.arrayUnion(arquivo),
+      atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true});
+  }
+
+  async function uploadArquivosTarefa(taskId,files,email){
+    if(!files?.length)return;
+    if(!vanmathiDb) throw new Error('Firebase não está conectado.');
+    const permitidos=['3mf','glb'];
+    const arquivosValidos=Array.from(files).filter(file=>{
+      const ext=(file.name.split('.').pop()||'').toLowerCase();
+      if(!permitidos.includes(ext)){alert('Só são permitidos arquivos 3MF ou GLB.');return false;}
+      if(file.size>200*1024*1024){alert('O arquivo '+file.name+' ultrapassa 200 MB.');return false;}
+      return true;
+    });
+    if(!arquivosValidos.length)return;
+    const responsavel=String(email||'').toLowerCase();
+    try{
+      mostrarToast('Conectando ao Google Drive...');
+      const pastaId=await obterPastaPinturaDrive();
+      for(const file of arquivosValidos){
+        mostrarToast('Enviando '+file.name+' para o Google Drive...');
+        const criado=await uploadDriveResumable(file,pastaId);
+        if(!criado?.id) throw new Error('O Drive não retornou o ID do arquivo '+file.name+'.');
+        const compartilhado=await compartilharArquivoDrive(criado.id,responsavel);
+        const ext=(file.name.split('.').pop()||'').toUpperCase();
+        const arquivo={
+          nome:file.name,
+          tipo:ext,
+          driveFileId:criado.id,
+          url:criado.webViewLink||`https://drive.google.com/file/d/${criado.id}/view`,
+          downloadUrl:criado.webContentLink||`https://drive.google.com/uc?export=download&id=${criado.id}`,
+          driveOwnerEmail:String(vanmathiUsuario?.email||'').toLowerCase(),
+          compartilhadoComPintor:compartilhado,
+          adicionadoPor:vanmathiUsuario?.uid||'',
+          adicionadoEm:new Date().toISOString()
+        };
+        await salvarMetadadosArquivoDrive(taskId,arquivo);
+        if(!compartilhado){
+          alert('O arquivo '+file.name+' foi enviado ao Drive, mas o compartilhamento com '+responsavel+' não foi confirmado. Verifique se esse é o e-mail Google do pintor.');
+        }
+      }
+      const t=await vanmathiDb.collection('tarefasPintura').doc(taskId).get();
+      if(t.exists){const idx=tarefasPinturaCache.findIndex(x=>x.id===taskId);const val={id:taskId,...t.data()};if(idx>=0)tarefasPinturaCache[idx]=val;else tarefasPinturaCache.push(val);}
+      abrirModalTarefaPintura(taskId);
+      mostrarToast('Arquivo(s) enviado(s) para o Google Drive!');
+    }catch(e){
+      console.error('Erro no Google Drive:',e);
+      alert('Não foi possível enviar o arquivo para o Google Drive.\n\n'+(e.message||e));
+    }
+  }
+  async function anexarArquivosTarefaPintura(id){
+    if(!['admin','funcionario'].includes(vanmathiPerfilAtual?.role))return;const input=document.getElementById('arquivosTarefaModal');if(input?.files?.length)await uploadArquivosTarefa(id,input.files,tarefasPinturaCache.find(t=>t.id===id)?.responsavelPinturaEmail||'');
+  }
+  async function excluirTarefaPintura(vendaId){try{if(vanmathiDb)await vanmathiDb.collection('tarefasPintura').doc(String(vendaId)).delete();}catch(e){console.warn('Não foi possível excluir tarefa de pintura:',e);}}
+  async function criarNotificacaoPintura(venda){
+    if(!vanmathiDb||!venda.responsavelPinturaEmail)return;try{await vanmathiDb.collection('notificacoes').add({destinatarioEmail:String(venda.responsavelPinturaEmail).toLowerCase(),tipo:'pintura',titulo:'Nova pintura atribuída',mensagem:'A peça '+venda.produtoNome+' foi atribuída para pintura.',vendaId:String(venda.id||''),lida:false,criadoEm:firebase.firestore.FieldValue.serverTimestamp(),criadoPorUid:vanmathiUsuario?.uid||''});}catch(e){console.warn('Notificação pintura:',e);}}
+  async function criarNotificacoesVenda(venda){
+    if(!vanmathiDb||!vanmathiUsuario)return;try{const admins=await vanmathiDb.collection('usuarios').where('role','==','admin').where('ativo','==',true).get();const batch=vanmathiDb.batch();admins.docs.filter(d=>d.id!==vanmathiUsuario.uid).forEach(d=>{const u=d.data()||{};if(u.email){const ref=vanmathiDb.collection('notificacoes').doc();batch.set(ref,{destinatarioEmail:String(u.email).toLowerCase(),tipo:'venda',titulo:'Nova venda registrada',mensagem:'Uma nova venda de '+venda.produtoNome+' foi registrada.',vendaId:String(venda.id||''),lida:false,criadoEm:firebase.firestore.FieldValue.serverTimestamp(),criadoPorUid:vanmathiUsuario.uid});}});await batch.commit();}catch(e){console.warn('Notificação venda:',e);}}
 
   function renderizarVendas() {
     const corpo = document.getElementById('tabelaVendasCorpo');
