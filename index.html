@@ -1090,15 +1090,44 @@
     const corpo=document.getElementById('tabelaUsuariosVanmathi'); if(!corpo)return;
     try {
       const [snap, conv] = await Promise.all([vanmathiDb.collection('usuarios').orderBy('nome').get(), vanmathiDb.collection('convites').get()]);
-      vanmathiUsuariosCache=[]; snap.forEach(doc=>vanmathiUsuariosCache.push({uid:doc.id,...doc.data()}));
+      vanmathiUsuariosCache=[];
+      for (const doc of snap.docs) {
+        const dados=doc.data()||{};
+        const uidCampo=String(dados.uid||'').trim();
+        // Corrige automaticamente cadastros antigos cujo documento não era o UID real do Firebase Auth.
+        if(uidCampo && uidCampo!==doc.id && /^[A-Za-z0-9_-]{20,}$/.test(uidCampo)) {
+          const alvo=vanmathiDb.collection('usuarios').doc(uidCampo);
+          const alvoSnap=await alvo.get();
+          if(!alvoSnap.exists) {
+            await alvo.set({...dados,uid:uidCampo,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+            await doc.ref.delete();
+            continue;
+          }
+        }
+        vanmathiUsuariosCache.push({uid:doc.id,...dados});
+      }
       const convidados=conv.docs.map(d=>({uid:'convite:'+d.id,...d.data(),_convite:true}));
       const todos=[...vanmathiUsuariosCache,...convidados];
-      corpo.innerHTML=todos.map(u=>`<tr><td><strong>${u.nome||'-'}</strong></td><td>${u.email||'-'}</td><td>${u.role==='admin'?'Administrador':u.role==='pintura'?'Pintura':'Funcionário'}</td><td><span style="color:${u.ativo===false?'var(--danger)':'var(--success)'};font-weight:600;">${u._convite?'🕓 Aguardando login':u.ativo===false?'Inativo':'Ativo'}</span></td><td style="display:flex;gap:6px;">${u._convite?`<button class="btn-danger" style="padding:6px 8px;" onclick="cancelarConviteAdmin('${u.email}')">Cancelar</button>`:`<button class="btn-secondary" style="padding:6px 8px;" onclick="editarUsuarioAdmin('${u.uid}')">✏️</button><button class="btn-secondary" style="padding:6px 8px;" onclick="alternarUsuarioAdmin('${u.uid}')">${u.ativo===false?'✅':'⏸️'}</button>`}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:25px;">Nenhum usuário cadastrado.</td></tr>';
+      corpo.innerHTML=todos.map(u=>`<tr><td><strong>${u.nome||'-'}</strong></td><td>${u.email||'-'}</td><td>${u.role==='admin'?'Administrador':u.role==='pintura'?'Pintura':'Funcionário'}</td><td><span style="color:${u.ativo===false?'var(--danger)':'var(--success)'};font-weight:600;">${u._convite?'🕓 Aguardando login':u.ativo===false?'Inativo':'Ativo'}</span></td><td style="display:flex;gap:6px;">${u._convite?`<button class="btn-danger" style="padding:6px 8px;" onclick="cancelarConviteAdmin('${u.email}')">Cancelar</button>`:`<button class="btn-secondary" style="padding:6px 8px;" onclick="editarUsuarioAdmin('${u.uid}')">✏️</button><button class="btn-secondary" style="padding:6px 8px;" onclick="alternarUsuarioAdmin('${u.uid}')">${u.ativo===false?'✅':'⏸️'}</button><button class="btn-danger" style="padding:6px 8px;" onclick="excluirUsuarioAdmin('${u.uid}')" title="Excluir cadastro de acesso">🗑️</button>`}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:25px;">Nenhum usuário cadastrado.</td></tr>';
     } catch(e){ console.error(e); corpo.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:25px;">Não foi possível carregar os usuários.</td></tr>'; }
   }
   async function cancelarConviteAdmin(email){if(vanmathiPerfilAtual?.role!=='admin')return;await vanmathiDb.collection('convites').doc(String(email).toLowerCase()).delete();await carregarUsuariosAdmin();mostrarToast('Convite cancelado.');}
   function editarUsuarioAdmin(uid){ const u=vanmathiUsuariosCache.find(x=>x.uid===uid); if(u) abrirFormularioUsuario(uid,u); }
-  async function alternarUsuarioAdmin(uid){ const u=vanmathiUsuariosCache.find(x=>x.uid===uid); if(!u)return; await vanmathiDb.collection('usuarios').doc(uid).set({ativo:u.ativo===false,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}); await carregarUsuariosAdmin(); mostrarToast(u.ativo===false?'Usuário ativado!':'Usuário desativado!'); }
+  async function alternarUsuarioAdmin(uid){ const u=vanmathiUsuariosCache.find(x=>x.uid===uid); if(!u)return; await vanmathiDb.collection('usuarios').doc(uid).set({ativo:u.ativo===false,uid:uid,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}); await carregarUsuariosAdmin(); mostrarToast(u.ativo===false?'Usuário ativado!':'Usuário desativado!'); }
+  async function excluirUsuarioAdmin(uid){
+    if(vanmathiPerfilAtual?.role!=='admin' || !vanmathiDb || !uid) return;
+    const u=vanmathiUsuariosCache.find(x=>x.uid===uid);
+    if(!u) return;
+    if(String(uid)===String(vanmathiUsuario?.uid||'')){ alert('Por segurança, você não pode excluir o próprio administrador logado.'); return; }
+    const confirmar=confirm(`Excluir o cadastro de acesso de ${u.nome||u.email||'este usuário'}?\n\nIsso remove a autorização do Vanmathi e o cadastro no Firestore. A conta Google da pessoa não será apagada.`);
+    if(!confirmar)return;
+    try{
+      await vanmathiDb.collection('usuarios').doc(uid).delete();
+      if(u.email) await vanmathiDb.collection('convites').doc(String(u.email).toLowerCase()).delete().catch(()=>{});
+      await carregarUsuariosAdmin();
+      mostrarToast('Cadastro do usuário excluído.');
+    }catch(e){ console.error('Erro ao excluir usuário:',e); alert('Não foi possível excluir o cadastro.\n\n'+(e.message||e)); }
+  }
 
   function obterPacoteDadosVanmathi() {
     return {
@@ -1229,9 +1258,23 @@
           usuarioSnap = await usuarioRef.get();
         }
       }
-      // Não fazemos consulta por e-mail na coleção usuarios aqui.
-      // As regras protegem essa coleção contra listagens de funcionários/pintores.
-      // O cadastro inicial deve acontecer exclusivamente por convites/{email}.
+      // Compatibilidade: alguns cadastros antigos podem existir com um ID de documento diferente do UID real.
+      // Nesse caso, localizamos pelo e-mail exato e migramos o cadastro para usuarios/{UID}.
+      if (!usuarioSnap.exists && user.email) {
+        try {
+          const emailLogin = String(user.email).trim().toLowerCase();
+          const porEmail = await vanmathiDb.collection('usuarios').where('email','==',emailLogin).limit(1).get();
+          if (!porEmail.empty) {
+            const legadoDoc = porEmail.docs[0];
+            const legado = legadoDoc.data() || {};
+            await usuarioRef.set({...legado,uid:user.uid,email:emailLogin,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+            if (legadoDoc.id !== user.uid) await legadoDoc.ref.delete();
+            usuarioSnap = await usuarioRef.get();
+          }
+        } catch (eEmail) {
+          console.warn('Não foi possível localizar o cadastro pelo e-mail:', eEmail);
+        }
+      }
       if (!usuarioSnap.exists) {
         vanmathiCloudConectada = false;
         document.body.classList.add('vanmathi-bloqueado');
