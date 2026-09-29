@@ -1329,8 +1329,9 @@
         await carregarTarefasPintura();
         return;
       }
-      if (perfil.role === 'admin') await carregarUsuariosAdmin();
-      else if (perfil.role === 'funcionario') {
+      if (perfil.role === 'admin') {
+        await carregarUsuariosAdmin();
+      } else if (perfil.role === 'funcionario') {
         try { const ps = await vanmathiDb.collection('usuarios').where('role','==','pintura').where('ativo','==',true).get(); vanmathiUsuariosCache = ps.docs.map(d=>({uid:d.id,...d.data()})); } catch(e) { console.warn('Não foi possível carregar pintores:',e); }
       }
 
@@ -1353,6 +1354,7 @@
         vanmathiCarregandoNuvem = true;
         try { aplicarPacoteDadosVanmathi(snap.data()); }
         finally { vanmathiCarregandoNuvem = false; }
+        await sincronizarTarefasPinturaComVendas();
         atualizarStatusNuvem('Dados centrais carregados ☁️', 'var(--success)');
       }
 
@@ -1366,6 +1368,7 @@
         vanmathiCarregandoNuvem = true;
         try {
           aplicarPacoteDadosVanmathi(snapshot.data());
+          sincronizarTarefasPinturaComVendas();
           atualizarStatusNuvem('Atualizado em tempo real ☁️', 'var(--success)');
         } finally { vanmathiCarregandoNuvem = false; }
       }, (error) => {
@@ -1755,13 +1758,14 @@
     }
   }
 
-  function excluirVenda(id) {
-    listaVendas = listaVendas.filter(v => v.id !== id);
+  async function excluirVenda(id) {
+    listaVendas = listaVendas.filter(v => String(v.id) !== String(id));
     salvarTudoLocal();
     renderizarVendas();
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
+    await excluirTarefaPintura(id);
     mostrarToast("Venda removida e estoque recalculado!");
   }
 
@@ -1849,19 +1853,18 @@
     if(vanmathiPerfilAtual?.role!=='pintura')return;
     if(vanmathiNotificacoesListener) vanmathiNotificacoesListener();
     const email=String(vanmathiUsuario.email||'').toLowerCase();
+    let primeiraCarga=true;
     vanmathiNotificacoesListener=vanmathiDb.collection('notificacoes').where('destinatarioEmail','==',email).onSnapshot(snap=>{
+      const novas=[];
       snap.docChanges().forEach(ch=>{
-        if(ch.type!=='added')return;
+        if(ch.type!=='added' || primeiraCarga)return;
         const n={id:ch.doc.id,...ch.doc.data()};
-        if(n.tipo!=='pintura' || vanmathiUltimaNotificacaoPushId===n.id)return;
+        if(n.tipo==='pintura') novas.push(n);
+      });
+      primeiraCarga=false;
+      novas.forEach(n=>{
+        if(vanmathiUltimaNotificacaoPushId===n.id)return;
         vanmathiUltimaNotificacaoPushId=n.id;
-        if(Notification.permission==='granted'){
-          try{
-            const titulo=n.titulo||'Nova pintura disponível';
-            const body=n.mensagem||'Uma nova peça foi liberada para pintura.';
-            new Notification(titulo,{body,icon:'icons/icon-192.png',badge:'icons/icon-192.png',tag:'vanmathi-pintura-'+n.id});
-          }catch(e){console.warn('Notificação local:',e);}
-        }
       });
     },err=>console.warn('Listener de notificações push:',err));
   }
@@ -1933,26 +1936,71 @@
     if(!venda) return null;
     return tarefasPinturaGestaoCache.find(t=>String(t.vendaId)===String(venda.id)) || null;
   }
+  let vanmathiTarefasPinturaPintorListener = null;
+  let vanmathiPrimeiraCargaTarefasPintor = true;
+
+  function ordenarTarefasPintura(lista){
+    return lista.slice().sort((a,b)=>{
+      const da=a.atualizadoEm?.toDate?.()||new Date(a.atualizadoEm||0);
+      const db=b.atualizadoEm?.toDate?.()||new Date(b.atualizadoEm||0);
+      return db-da;
+    });
+  }
+
+  function mostrarNotificacaoLocalPintura(titulo,body,id){
+    if(Notification.permission!=='granted') return;
+    try{
+      new Notification(titulo||'Nova pintura atribuída',{
+        body:body||'Uma nova peça foi liberada para pintura.',
+        icon:'icons/icon-192.png',
+        badge:'icons/icon-192.png',
+        tag:'vanmathi-pintura-'+String(id||Date.now())
+      });
+    }catch(e){console.warn('Notificação local da pintura:',e);}
+  }
+
+  function iniciarListenerTarefasPinturaPintor(){
+    if(!vanmathiDb||!vanmathiUsuario||vanmathiPerfilAtual?.role!=='pintura') return;
+    if(vanmathiTarefasPinturaPintorListener) vanmathiTarefasPinturaPintorListener();
+    const email=String(vanmathiUsuario.email||'').trim().toLowerCase();
+    vanmathiPrimeiraCargaTarefasPintor=true;
+    vanmathiTarefasPinturaPintorListener=vanmathiDb.collection('tarefasPintura')
+      .where('responsavelPinturaEmail','==',email)
+      .onSnapshot(snap=>{
+        const novas=[];
+        snap.docChanges().forEach(ch=>{
+          if(ch.type==='added' && !vanmathiPrimeiraCargaTarefasPintor) novas.push({id:ch.doc.id,...ch.doc.data()});
+        });
+        tarefasPinturaCache=snap.docs.map(d=>({id:d.id,...d.data()}));
+        tarefasPinturaCache=ordenarTarefasPintura(tarefasPinturaCache);
+        renderizarTarefasPintura();
+        renderizarVendas();
+        if(novas.length){
+          novas.forEach(t=>mostrarNotificacaoLocalPintura(
+            'Nova pintura atribuída',
+            'A peça '+(t.produtoNome||'')+' foi liberada para pintura.',
+            t.vendaId||t.id
+          ));
+          carregarNotificacoes();
+        }
+        vanmathiPrimeiraCargaTarefasPintor=false;
+      },err=>{
+        console.error('Listener tarefas do pintor:',err);
+        vanmathiTarefasPinturaPintorListener=null;
+        const vendas=document.getElementById('tabelaVendasCorpo');
+        if(vendas) vendas.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:30px;">Não foi possível carregar as pinturas. Toque em "Atualizar" para tentar novamente.</td></tr>';
+      });
+  }
+
   async function carregarTarefasPintura(){
     if(!vanmathiDb||!vanmathiUsuario||vanmathiPerfilAtual?.role!=='pintura') return;
     try{
       const email=String(vanmathiUsuario.email||'').trim().toLowerCase();
-      // Evita exigir índice composto do Firestore. Filtramos por pintor no servidor
-      // e ordenamos no navegador, mantendo o acesso do pintor restrito às próprias tarefas.
       const snap=await vanmathiDb.collection('tarefasPintura').where('responsavelPinturaEmail','==',email).get();
-      const tarefasCarregadas=snap.docs.map(d=>({id:d.id,...d.data()}));
-      // A tarefa já é o registro oficial da atribuição ao pintor.
-      // Não dependemos de listaProdutosSalvos/listaVendas aqui, porque o perfil
-      // de pintura não carrega os dados financeiros centrais. Mesmo que o produto
-      // tenha sido excluído do catálogo depois, uma tarefa já atribuída continua
-      // visível enquanto o registro da tarefa existir.
-      tarefasPinturaCache=tarefasCarregadas.sort((a,b)=>{
-        const da=a.atualizadoEm?.toDate?.()||new Date(a.atualizadoEm||0);
-        const db=b.atualizadoEm?.toDate?.()||new Date(b.atualizadoEm||0);
-        return db-da;
-      });
+      tarefasPinturaCache=ordenarTarefasPintura(snap.docs.map(d=>({id:d.id,...d.data()})));
       renderizarTarefasPintura();
-      if(vanmathiPerfilAtual?.role==='pintura') renderizarVendas();
+      renderizarVendas();
+      iniciarListenerTarefasPinturaPintor();
     }catch(e){
       console.error('Erro tarefas pintura:',e);
       const corpo=document.getElementById('tabelaTarefasPintura');
@@ -2828,6 +2876,26 @@
     });
   }
 
+  async function sincronizarTarefasPinturaComVendas(){
+    if(!vanmathiDb || !['admin','funcionario'].includes(vanmathiPerfilAtual?.role)) return;
+    try{
+      const snap=await vanmathiDb.collection('tarefasPintura').get();
+      if(snap.empty) return;
+      const vendasAtuais=new Set((Array.isArray(listaVendas)?listaVendas:[]).map(v=>String(v.id)));
+      const batch=vanmathiDb.batch();
+      let removidas=0;
+      snap.docs.forEach(doc=>{
+        const t=doc.data()||{};
+        const vendaId=String(t.vendaId||doc.id);
+        if(!vendasAtuais.has(vendaId)){
+          batch.delete(doc.ref);
+          removidas++;
+        }
+      });
+      if(removidas) await batch.commit();
+    }catch(e){ console.warn('Não foi possível sincronizar tarefas de pintura com vendas:',e); }
+  }
+
   async function excluirTarefasPinturaDoProduto(produtoId) {
     if(!vanmathiDb || produtoId==null) return;
     try {
@@ -2860,6 +2928,7 @@
     // Mantém o pintor na mesma página: produto excluído do catálogo também
     // deixa de existir como tarefa de pintura.
     await excluirTarefasPinturaDoProduto(produto.id);
+    await sincronizarTarefasPinturaComVendas();
     if(vanmathiPerfilAtual?.role!=='pintura') renderizarVendas();
     mostrarToast("Produto removido. As tarefas de pintura vinculadas também foram removidas.");
   }
