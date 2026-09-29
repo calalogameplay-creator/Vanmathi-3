@@ -1821,10 +1821,24 @@
   async function carregarTarefasPintura(){
     if(!vanmathiDb||!vanmathiUsuario||vanmathiPerfilAtual?.role!=='pintura') return;
     try{
-      const email=String(vanmathiUsuario.email||'').toLowerCase();
-      const snap=await vanmathiDb.collection('tarefasPintura').where('responsavelPinturaEmail','==',email).orderBy('atualizadoEm','desc').get();
-      tarefasPinturaCache=snap.docs.map(d=>({id:d.id,...d.data()})); renderizarTarefasPintura(); if(vanmathiPerfilAtual?.role==='pintura') renderizarVendas();
-    }catch(e){console.error('Erro tarefas pintura:',e);const corpo=document.getElementById('tabelaTarefasPintura');if(corpo)corpo.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:30px;">Não foi possível carregar suas pinturas. Se o Firebase pedir, crie o índice indicado no erro.</td></tr>';}
+      const email=String(vanmathiUsuario.email||'').trim().toLowerCase();
+      // Evita exigir índice composto do Firestore. Filtramos por pintor no servidor
+      // e ordenamos no navegador, mantendo o acesso do pintor restrito às próprias tarefas.
+      const snap=await vanmathiDb.collection('tarefasPintura').where('responsavelPinturaEmail','==',email).get();
+      tarefasPinturaCache=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+        const da=a.atualizadoEm?.toDate?.()||new Date(a.atualizadoEm||0);
+        const db=b.atualizadoEm?.toDate?.()||new Date(b.atualizadoEm||0);
+        return db-da;
+      });
+      renderizarTarefasPintura();
+      if(vanmathiPerfilAtual?.role==='pintura') renderizarVendas();
+    }catch(e){
+      console.error('Erro tarefas pintura:',e);
+      const corpo=document.getElementById('tabelaTarefasPintura');
+      if(corpo) corpo.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:30px;">Não foi possível carregar suas pinturas. Verifique sua conexão e as permissões do Firebase.</td></tr>';
+      const vendas=document.getElementById('tabelaVendasCorpo');
+      if(vendas && vanmathiPerfilAtual?.role==='pintura') vendas.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:30px;">Não foi possível carregar as tarefas de pintura. Toque em "Atualizar" para tentar novamente.</td></tr>';
+    }
   }
   function renderizarTarefasPintura(){
     const lista=filtroPinturaAtual==='todos'?tarefasPinturaCache:tarefasPinturaCache.filter(t=>(t.statusPintura||'Pendente')===filtroPinturaAtual);
