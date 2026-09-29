@@ -2005,8 +2005,16 @@
       // Depois multiplica pela quantidade da venda.
       const custoOperacionalUnitario = obterCustoOperacionalProduto(produtoSalvo);
       const custoOperacionalTotal = custoOperacionalUnitario * qtdVenda;
-      const lucroTotal = v.lucroTotal !== undefined ? (parseFloat(v.lucroTotal) || 0) : obterNumeroMoeda(v.lucro) * qtdVenda;
-      const valorProduto = parseFloat(v.valorProdutoUnidade) || ((parseFloat(v.total) || 0) / qtdVenda);
+      // Se o produto ainda existir em "Meus Produtos Salvos", a Gestão de Vendas
+      // usa os valores atuais dele imediatamente. Assim, editar o produto atualiza
+      // preço e lucro da venda sem precisar editar a venda manualmente.
+      const valorProduto = produtoSalvo
+        ? obterNumeroMoeda(produtoSalvo.precoVenda || produtoSalvo.precoSugerido || produtoSalvo.valor)
+        : (parseFloat(v.valorProdutoUnidade) || ((parseFloat(v.total) || 0) / qtdVenda));
+      const lucroUnitarioAtual = produtoSalvo
+        ? obterNumeroMoeda(produtoSalvo.lucro)
+        : (v.lucroTotal !== undefined ? (parseFloat(v.lucroTotal) || 0) / qtdVenda : obterNumeroMoeda(v.lucro));
+      const lucroTotal = lucroUnitarioAtual * qtdVenda;
       html += `
         <tr>
           <td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td>
@@ -2017,7 +2025,7 @@
           <td style="color: var(--primary); font-weight: 600;">R$ ${(valorProduto * (parseInt(v.qtd) || 1)).toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--success); font-weight: 600;">R$ ${lucroTotal.toFixed(2).replace('.', ',')}</td>
           <td><span style="color: ${cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${v.status}</span></td>
-          <td><span style="font-weight: 600; color: ${v.precisaPintura ? 'var(--primary)' : 'var(--text-muted)'};">${v.precisaPintura ? 'Sim' : 'Não'}</span></td>
+          <td><span style="font-weight: 600; color: ${(produtoSalvo ? (produtoSalvo.precisaPintura === true || produtoSalvo.precisaPintura === 'sim') : !!v.precisaPintura) ? 'var(--primary)' : 'var(--text-muted)'};">${(produtoSalvo ? (produtoSalvo.precisaPintura === true || produtoSalvo.precisaPintura === 'sim') : !!v.precisaPintura) ? 'Sim' : 'Não'}</span></td>
           <td style="display: flex; gap: 6px;">
             <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="abrirModalEditarVenda(${v.id})" title="Editar venda">✏️</button>
             <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirVenda(${v.id})" title="Excluir venda">🗑️</button>
@@ -2393,6 +2401,7 @@
       if(produto) {
         produto.nome = nome;
         Object.assign(produto, dadosProduto);
+        atualizarVendasDoProduto(produto);
       }
       editandoId = null;
       document.getElementById('labelModoEdicao').innerText = 'Modo Novo Produto';
@@ -2403,7 +2412,11 @@
     }
 
     salvarTudoLocal();
-    renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios();
+    renderizarProdutosSalvos();
+    renderizarVendas();
+    atualizarFiltroLojasDinamico();
+    atualizarFiltroAnosDinamico();
+    atualizarRelatorios();
     mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[4] }, 'produtos');
   }
 
@@ -2411,6 +2424,12 @@
     const p = listaProdutosSalvos.find(item => item.id === id);
     if(!p) return;
     editandoId = p.id;
+
+    // Primeiro abrimos a aba da calculadora. A troca de aba recria os
+    // selects de materiais; por isso a composição salva é restaurada
+    // somente depois, evitando que seja apagada pela renderização inicial.
+    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
+
     document.getElementById('calcNomeProduto').value = p.nome;
     renderizarSelectLojas();
     const lojaOption = Array.from(document.getElementById('selectMarketplace').options).find(o => o.text.split('(')[0].trim() === (p.loja || 'Shopee'));
@@ -2418,7 +2437,7 @@
       document.getElementById('selectMarketplace').value = lojaOption.value;
       document.getElementById('calcTaxa').value = p.taxaMarketplace !== undefined ? p.taxaMarketplace : lojaOption.value;
     }
-    renderizarComposicaoMateriaisCalculadora(obterComposicaoProduto(p));
+
     document.getElementById('calcGramas').value = p.gramas;
     document.getElementById('calcHoras').value = p.horas || 0;
     document.getElementById('calcMinutos').value = p.minutos || 0;
@@ -2426,15 +2445,62 @@
     document.getElementById('calcEmbalagem').value = p.embalagem || '3.50';
     document.getElementById('calcFrete').value = p.frete || '0.00';
     document.getElementById('calcAcessorios').value = p.acessorios || '0.00';
-    document.getElementById('calcPrecisaPintura').value = p.precisaPintura ? 'sim' : 'nao';
+
+    // Restaura exatamente todos os materiais e respectivas gramagens
+    // que foram salvos no produto. Produtos antigos continuam usando
+    // o fallback materialId + gramas.
+    renderizarComposicaoMateriaisCalculadora(obterComposicaoProduto(p));
+
+    const campoPrecisaPintura = document.getElementById('calcPrecisaPintura');
+    if(campoPrecisaPintura) campoPrecisaPintura.value = p.precisaPintura ? 'sim' : 'nao';
     renderizarPintoresCalculadora();
-    if (p.pintorId) document.getElementById('calcPintor').value = p.pintorId;
-    document.getElementById('calcValorPintura').value = p.valorPintura !== undefined ? p.valorPintura : '0.00';
+    if (p.pintorId) {
+      const campoPintor = document.getElementById('calcPintor');
+      if(campoPintor) campoPintor.value = p.pintorId;
+    }
+    const campoValorPintura = document.getElementById('calcValorPintura');
+    if(campoValorPintura) campoValorPintura.value = p.valorPintura !== undefined ? p.valorPintura : '0.00';
     if(p.margem !== undefined) document.getElementById('calcMargem').value = p.margem;
     atualizarCamposPinturaCalculadora();
     document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
-    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
-    calcularPreco(); mostrarToast(`Carregado "${p.nome}" para edição!`);
+    calcularPreco();
+    mostrarToast(`Carregado "${p.nome}" para edição!`);
+  }
+
+  // Quando um produto é alterado em "Meus Produtos Salvos",
+  // as vendas vinculadas a ele passam a usar imediatamente os novos
+  // valores de preço, custo, lucro e pintura.
+  function atualizarVendasDoProduto(produto) {
+    if(!produto || !Array.isArray(listaVendas)) return;
+    const qtdPintura = obterNumeroMoeda(produto.valorPintura);
+    const novoPreco = obterNumeroMoeda(produto.precoVenda || produto.precoSugerido || produto.valor);
+    const novoCusto = obterNumeroMoeda(produto.custoOperacional);
+    const novoLucro = obterNumeroMoeda(produto.lucro);
+    const novaPrecisaPintura = produto.precisaPintura === true || produto.precisaPintura === 'sim';
+
+    listaVendas.forEach(venda => {
+      const mesmoId = String(venda.produtoId) === String(produto.id);
+      const mesmoNome = String(venda.produtoNome || '').trim().toLowerCase() === String(produto.nome || '').trim().toLowerCase();
+      const mesmaLoja = String(venda.loja || 'Shopee').trim().toLowerCase() === String(produto.loja || 'Shopee').trim().toLowerCase();
+      if(!mesmoId && !(mesmoNome && mesmaLoja)) return;
+
+      const qtd = parseInt(venda.qtd) || 1;
+      venda.produtoId = produto.id;
+      venda.produtoNome = produto.nome;
+      venda.loja = produto.loja || venda.loja || 'Shopee';
+      venda.valorProdutoUnidade = novoPreco;
+      venda.total = novoPreco * qtd;
+      venda.custoOperacionalUnidade = novoCusto;
+      venda.custoOperacionalTotal = novoCusto * qtd;
+      venda.lucroTotal = novoLucro * qtd;
+      venda.precisaPintura = novaPrecisaPintura;
+      venda.valorPintura = novaPrecisaPintura ? qtdPintura : 0;
+      venda.responsavelPinturaId = novaPrecisaPintura ? (produto.pintorId || '') : '';
+      venda.responsavelPinturaUid = novaPrecisaPintura ? (produto.pintorId || '') : '';
+      venda.responsavelPinturaNome = novaPrecisaPintura ? (produto.pintorNome || '') : '';
+      venda.responsavelPinturaEmail = novaPrecisaPintura ? (produto.pintorEmail || '') : '';
+      if(!novaPrecisaPintura) venda.statusPintura = '';
+    });
   }
 
   function excluirProduto(id) {
