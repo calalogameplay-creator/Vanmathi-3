@@ -18,6 +18,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging-compat.js"></script>
   <!-- Firebase Storage não é usado: os arquivos 3MF/GLB ficam no Google Drive. -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- GOOGLE DRIVE / GOOGLE IDENTITY SERVICES -->
@@ -290,6 +291,8 @@
       <button id="btnSincronizarNuvem" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="sincronizarAgora()">🔄 Sincronizar agora</button>
       <button id="btnSairNuvem" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="desconectarFirebaseVanmathi()">↪️ Sair da conta</button>
       <button id="btnNotificacoes" class="btn-secondary" style="width:100%;margin-top:7px;display:none;" onclick="abrirNotificacoes()">🔔 Notificações <span id="badgeNotificacoes" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:2px 6px;font-size:10px;margin-left:5px;">0</span></button>
+      <button id="btnAtivarNotificacoesPush" class="btn-primary" style="width:100%;margin-top:7px;display:none;" onclick="ativarNotificacoesPush()">📲 Ativar avisos no celular</button>
+      <small id="statusNotificacoesPush" style="display:none;margin-top:6px;color:var(--text-muted);line-height:1.35;"></small>
       <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.35;">Todos os dispositivos conectados à mesma conta Google usam a mesma base Vanmathi.</div>
     </div>
   </aside>
@@ -946,7 +949,7 @@
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW erro:', err));
+      navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>reg.update()).catch(err => console.log('SW erro:', err));
     });
   }
 
@@ -977,6 +980,10 @@
   let tarefasPinturaCache = [];
   let filtroPinturaAtual = "todos";
   let notificacoesCache = [];
+  let vanmathiMessaging = null;
+  let vanmathiPushToken = '';
+  let vanmathiNotificacoesListener = null;
+  let vanmathiUltimaNotificacaoPushId = '';
   let vanmathiUsuario = null;
   let vanmathiCloudConectada = false;
   let vanmathiListener = null;
@@ -1197,6 +1204,10 @@
           vanmathiCloudConectada = false;
           if (vanmathiListener) { vanmathiListener(); vanmathiListener = null; }
           if (vanmathiTarefasPinturaListener) { vanmathiTarefasPinturaListener(); vanmathiTarefasPinturaListener = null; }
+          if (vanmathiNotificacoesListener) { vanmathiNotificacoesListener(); vanmathiNotificacoesListener = null; }
+          vanmathiMessaging = null;
+          vanmathiPushToken = '';
+          ocultarPainelNotificacoesPush();
           document.body.classList.add('vanmathi-bloqueado');
           document.getElementById('btnConectarNuvem').style.display = 'block';
           document.getElementById('btnSincronizarNuvem').style.display = 'none';
@@ -1237,6 +1248,8 @@
     notificacoesCache=[];
     document.getElementById('btnNotificacoes').style.display='none';
     document.getElementById('badgeNotificacoes').style.display='none';
+    ocultarPainelNotificacoesPush();
+    if(vanmathiNotificacoesListener){vanmathiNotificacoesListener();vanmathiNotificacoesListener=null;}
     localStorage.removeItem('Vanmathi_Dados_Estoque');localStorage.removeItem('Vanmathi_Dados_Produtos');localStorage.removeItem('Vanmathi_Dados_Vendas');localStorage.removeItem('Vanmathi_Dados_Lojas');localStorage.removeItem('Vanmathi_Dados_Marcas');
     if (vanmathiAuth) await vanmathiAuth.signOut();
   }
@@ -1306,6 +1319,8 @@
       document.getElementById('btnSairNuvem').style.display = 'block';
       document.getElementById('btnNotificacoes').style.display = 'block';
       carregarNotificacoes();
+      prepararNotificacoesPush();
+      iniciarListenerNotificacoesPush();
       if (perfil.role === 'pintura') {
         // Pintura não recebe o documento central, portanto não recebe dados financeiros.
         listaMateriais = []; listaProdutosSalvos = []; listaVendas = []; listaLojas = []; listaMarcas = [];
@@ -1750,6 +1765,105 @@
     mostrarToast("Venda removida e estoque recalculado!");
   }
 
+  function ocultarPainelNotificacoesPush(){
+    const b=document.getElementById('btnAtivarNotificacoesPush');
+    const s=document.getElementById('statusNotificacoesPush');
+    if(b)b.style.display='none';
+    if(s){s.style.display='none';s.textContent='';}
+  }
+  function mostrarPainelNotificacoesPush(texto,modo='botao'){
+    const b=document.getElementById('btnAtivarNotificacoesPush');
+    const s=document.getElementById('statusNotificacoesPush');
+    if(!b||!s)return;
+    if(modo==='botao'){
+      b.style.display='block';
+      b.textContent='📲 Ativar avisos no celular';
+      b.disabled=false;
+      s.style.display='block';
+      s.textContent=texto||'Receba um aviso quando uma nova peça for liberada para pintura.';
+    }else{
+      b.style.display='none';
+      s.style.display='block';
+      s.textContent=texto||'';
+    }
+  }
+  async function prepararNotificacoesPush(){
+    try{
+      if(!vanmathiUsuario || !vanmathiCloudConectada) return;
+      if(!('Notification' in window) || !('serviceWorker' in navigator)){
+        mostrarPainelNotificacoesPush('Seu navegador não oferece notificações push neste dispositivo.');
+        return;
+      }
+      const ehPintor=vanmathiPerfilAtual?.role==='pintura';
+      if(!ehPintor){ocultarPainelNotificacoesPush();return;}
+      if(Notification.permission==='granted'){
+        mostrarPainelNotificacoesPush('🔔 Avisos do celular estão ativados para novas pinturas.','status');
+        await registrarPushFCM();
+      }else if(Notification.permission==='denied'){
+        mostrarPainelNotificacoesPush('As notificações estão bloqueadas. Ative-as nas configurações do iPhone/navegador para receber novos avisos.','status');
+      }else{
+        mostrarPainelNotificacoesPush('Ative para receber um aviso no celular quando uma nova pintura for liberada.','botao');
+      }
+    }catch(e){console.warn('Preparação de notificações push:',e);}
+  }
+  async function ativarNotificacoesPush(){
+    if(vanmathiPerfilAtual?.role!=='pintura') return;
+    if(!('Notification' in window)){
+      alert('Este dispositivo não oferece notificações para o Vanmathi.');
+      return;
+    }
+    try{
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted'){
+        mostrarPainelNotificacoesPush(permission==='denied'?'As notificações foram bloqueadas. Ative-as nas configurações do iPhone/navegador.':'Permissão de notificações não concedida.','status');
+        return;
+      }
+      await registrarPushFCM();
+      mostrarPainelNotificacoesPush('🔔 Avisos do celular estão ativados para novas pinturas.','status');
+      mostrarToast('Notificações do Vanmathi ativadas!');
+    }catch(e){
+      console.error('Ativação de notificações:',e);
+      mostrarPainelNotificacoesPush('Não foi possível ativar agora. Tente novamente depois de instalar o Vanmathi na Tela de Início.','status');
+    }
+  }
+  async function registrarPushFCM(){
+    if(vanmathiPerfilAtual?.role!=='pintura' || !vanmathiFirebase || !vanmathiDb || !vanmathiUsuario) return false;
+    if(!window.firebase?.messaging) throw new Error('SDK de mensagens do Firebase não carregado.');
+    if(Notification.permission!=='granted') return false;
+    try{
+      vanmathiMessaging=vanmathiMessaging||firebase.messaging();
+      const reg=await navigator.serviceWorker.register('sw.js');
+      const token=await vanmathiMessaging.getToken({serviceWorkerRegistration:reg});
+      if(!token) throw new Error('FCM não retornou token do dispositivo.');
+      vanmathiPushToken=token;
+      const ref=vanmathiDb.collection('dispositivosNotificacao').doc();
+      await ref.set({uid:vanmathiUsuario.uid,email:String(vanmathiUsuario.email||'').toLowerCase(),role:vanmathiPerfilAtual.role,token,plataforma:navigator.userAgent.includes('iPhone')||navigator.userAgent.includes('iPad')?'iOS':'web',ativo:true,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      return true;
+    }catch(e){
+      console.warn('FCM não conseguiu registrar este dispositivo:',e);
+      throw e;
+    }
+  }
+  function iniciarListenerNotificacoesPush(){
+    if(!vanmathiDb||!vanmathiUsuario||vanmathiNotificacoesListener)return;
+    if(vanmathiPerfilAtual?.role!=='pintura')return;
+    const email=String(vanmathiUsuario.email||'').toLowerCase();
+    vanmathiNotificacoesListener=vanmathiDb.collection('notificacoes').where('destinatarioEmail','==',email).onSnapshot(snap=>{
+      snap.docChanges().forEach(ch=>{
+        if(ch.type!=='added')return;
+        const n={id:ch.doc.id,...ch.doc.data()};
+        if(n.tipo!=='pintura' || vanmathiUltimaNotificacaoPushId===n.id)return;
+        vanmathiUltimaNotificacaoPushId=n.id;
+        if(Notification.permission==='granted'){
+          try{
+            const titulo=n.titulo||'Nova pintura disponível';
+            const body=n.mensagem||'Uma nova peça foi liberada para pintura.';
+            new Notification(titulo,{body,icon:'icons/icon-192.png',badge:'icons/icon-192.png',tag:'vanmathi-pintura-'+n.id});
+          }catch(e){console.warn('Notificação local:',e);}
+        }
+      });
+    },err=>console.warn('Listener de notificações push:',err));
+  }
   async function carregarNotificacoes(){
     if(!vanmathiDb||!vanmathiUsuario)return;try{const email=String(vanmathiUsuario.email||'').toLowerCase();const snap=await vanmathiDb.collection('notificacoes').where('destinatarioEmail','==',email).limit(30).get();notificacoesCache=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.criadoEm?.toDate?.()||b.criadoEm||'').localeCompare(String(a.criadoEm?.toDate?.()||a.criadoEm||'')));atualizarBadgeNotificacoes();}catch(e){console.warn('Notificações:',e);}}
   function atualizarBadgeNotificacoes(){const n=notificacoesCache.filter(x=>x.lida!==true).length;const b=document.getElementById('badgeNotificacoes');if(!b)return;b.innerText=n;b.style.display=n?'inline-block':'none';}
@@ -1825,11 +1939,30 @@
       // Evita exigir índice composto do Firestore. Filtramos por pintor no servidor
       // e ordenamos no navegador, mantendo o acesso do pintor restrito às próprias tarefas.
       const snap=await vanmathiDb.collection('tarefasPintura').where('responsavelPinturaEmail','==',email).get();
-      tarefasPinturaCache=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+      const tarefasCarregadas=snap.docs.map(d=>({id:d.id,...d.data()}));
+      // Se um produto foi excluído do catálogo central, a tarefa antiga não deve
+      // continuar aparecendo para o pintor. O produtoId é a referência principal;
+      // o nome fica como compatibilidade para tarefas antigas.
+      const produtoExiste=(t)=>{
+        const porId=t.produtoId!=null && listaProdutosSalvos.some(p=>String(p.id)===String(t.produtoId));
+        if(porId) return true;
+        if(t.produtoId!=null && String(t.produtoId).trim()!=='') return false;
+        const nome=String(t.produtoNome||'').trim().toLowerCase();
+        return !!nome && listaProdutosSalvos.some(p=>String(p.nome||'').trim().toLowerCase()===nome);
+      };
+      const tarefasOrfas=tarefasCarregadas.filter(t=>!produtoExiste(t));
+      tarefasPinturaCache=tarefasCarregadas.filter(produtoExiste).sort((a,b)=>{
         const da=a.atualizadoEm?.toDate?.()||new Date(a.atualizadoEm||0);
         const db=b.atualizadoEm?.toDate?.()||new Date(b.atualizadoEm||0);
         return db-da;
       });
+      // Limpeza no Firestore: depois que o produto saiu do catálogo, remove também
+      // a tarefa correspondente para que todos os perfis fiquem sincronizados.
+      if(tarefasOrfas.length){
+        const batch=vanmathiDb.batch();
+        tarefasOrfas.forEach(t=>batch.delete(vanmathiDb.collection('tarefasPintura').doc(t.id)));
+        await batch.commit();
+      }
       renderizarTarefasPintura();
       if(vanmathiPerfilAtual?.role==='pintura') renderizarVendas();
     }catch(e){
@@ -2707,10 +2840,30 @@
     });
   }
 
-  function excluirProduto(id) {
-    listaProdutosSalvos = listaProdutosSalvos.filter(item => item.id !== id);
+  async function excluirTarefasPinturaDoProduto(produtoId) {
+    if(!vanmathiDb || produtoId==null) return;
+    try {
+      const snap=await vanmathiDb.collection('tarefasPintura').where('produtoId','==',produtoId).get();
+      if(snap.empty) return;
+      const batch=vanmathiDb.batch();
+      snap.docs.forEach(doc=>batch.delete(doc.ref));
+      await batch.commit();
+    } catch(e) {
+      console.warn('Não foi possível limpar as tarefas de pintura do produto excluído:',e);
+    }
+  }
+
+  async function excluirProduto(id) {
+    const produto=listaProdutosSalvos.find(item => String(item.id)===String(id));
+    if(!produto) return;
+    listaProdutosSalvos = listaProdutosSalvos.filter(item => String(item.id)!==String(id));
     salvarTudoLocal();
-    renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios(); mostrarToast("Produto removido.");
+    renderizarProdutosSalvos(); atualizarFiltroLojasDinamico(); atualizarRelatorios();
+    // Mantém o pintor na mesma página: produto excluído do catálogo também
+    // deixa de existir como tarefa de pintura.
+    await excluirTarefasPinturaDoProduto(produto.id);
+    if(vanmathiPerfilAtual?.role!=='pintura') renderizarVendas();
+    mostrarToast("Produto removido. As tarefas de pintura vinculadas também foram removidas.");
   }
 
   function renderizarProdutosSalvos() {
