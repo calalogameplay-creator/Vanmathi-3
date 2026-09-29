@@ -618,6 +618,24 @@
             </div>
           </div>
 
+          <!-- PINTURA DO PRODUTO: ACRÉSCIMO SEM ALTERAR A ESTRUTURA EXISTENTE -->
+          <div class="form-group">
+            <label>Precisa de pintura?</label>
+            <select id="calcPrecisaPintura" onchange="atualizarCamposPinturaCalculadora()">
+              <option value="nao">Não</option>
+              <option value="sim">Sim</option>
+            </select>
+          </div>
+
+          <div id="blocoPinturaCalculadora" style="display:none;">
+            <div class="form-group">
+              <label>Pintor</label>
+              <select id="calcPintor" onchange="calcularPreco()">
+                <option value="">Selecione o pintor</option>
+              </select>
+            </div>
+          </div>
+
           <!-- BLOCO DE CUSTOS OPERACIONAIS (COM ENERGIA DINÂMICA) -->
           <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; margin-bottom: 12px;">
             <span style="font-size: 11px; text-transform: uppercase; color: var(--primary); font-weight: 600; display: block; margin-bottom: 8px;">⚡ Custos Operacionais & Insumos</span>
@@ -628,6 +646,9 @@
             <div class="form-row">
               <div class="form-group"><label>Frete / Logística (R$)</label><input type="number" id="calcFrete" value="0.00" step="0.50" oninput="calcularPreco()"></div>
               <div class="form-group"><label>Acessórios / Componentes (R$)</label><input type="number" id="calcAcessorios" value="0.00" min="0" step="0.01" oninput="calcularPreco()"></div>
+            </div>
+            <div id="blocoValorPinturaCalculadora" class="form-row" style="display:none;">
+              <div class="form-group"><label>Valor da Pintura (R$)</label><input type="number" id="calcValorPintura" value="0.00" min="0" step="0.01" oninput="calcularPreco()"></div>
             </div>
           </div>
 
@@ -656,6 +677,9 @@
             </div>
             <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px;">
               <span>Acessórios / Componentes:</span> <strong id="lblCustoAcessorios" style="color: var(--text-color);">R$ 0,00</strong>
+            </div>
+            <div id="linhaCustoPinturaResumo" style="font-size: 13px; color: var(--text-muted); display: none; justify-content: space-between; margin-bottom: 8px;">
+              <span>Valor da Pintura:</span> <strong id="lblCustoPinturaResumo" style="color: var(--text-color);">R$ 0,00</strong>
             </div>
             <div style="font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
               <span>Custo Operacional Total:</span> <strong id="lblCustoTotal" style="color: var(--warning);">R$ 0,00</strong>
@@ -1362,7 +1386,7 @@
       renderizarProdutosSalvos();
     } else {
       painelFiltros.style.display = 'none';
-      if(secaoId === 'precificacao') renderizarSelectMaterialCalculadora();
+      if(secaoId === 'precificacao') { renderizarSelectMaterialCalculadora(); renderizarPintoresCalculadora(); atualizarCamposPinturaCalculadora(); }
     }
 
     if(window.innerWidth <= 900) { toggleMenuMobile(); }
@@ -2207,6 +2231,25 @@
     return obterNumeroMoeda(produto.custoOperacional);
   }
 
+  function atualizarCamposPinturaCalculadora() {
+    const precisa = document.getElementById('calcPrecisaPintura')?.value === 'sim';
+    const blocoPintor = document.getElementById('blocoPinturaCalculadora');
+    const blocoValor = document.getElementById('blocoValorPinturaCalculadora');
+    if (blocoPintor) blocoPintor.style.display = precisa ? 'block' : 'none';
+    if (blocoValor) blocoValor.style.display = precisa ? 'flex' : 'none';
+    if (precisa) renderizarPintoresCalculadora();
+    calcularPreco();
+  }
+
+  function renderizarPintoresCalculadora() {
+    const sel = document.getElementById('calcPintor');
+    if (!sel) return;
+    const atual = sel.value;
+    const pintores = vanmathiUsuariosCache.filter(u => u.role === 'pintura' && u.ativo !== false);
+    sel.innerHTML = '<option value="">Selecione o pintor</option>' + pintores.map(u => `<option value="${u.uid}" data-email="${u.email || ''}">${u.nome || u.email}</option>`).join('');
+    if (atual) sel.value = atual;
+  }
+
   function obterDadosFinanceirosCalculadora() {
     const gramas = parseFloat(document.getElementById('calcGramas').value) || 0;
     const horas = parseFloat(document.getElementById('calcHoras').value) || 0;
@@ -2216,6 +2259,8 @@
     const embalagem = parseFloat(document.getElementById('calcEmbalagem').value) || 0;
     const frete = parseFloat(document.getElementById('calcFrete').value) || 0;
     const acessorios = parseFloat(document.getElementById('calcAcessorios').value) || 0;
+    const precisaPintura = document.getElementById('calcPrecisaPintura')?.value === 'sim';
+    const valorPintura = precisaPintura ? (parseFloat(document.getElementById('calcValorPintura')?.value) || 0) : 0;
     const taxaMkt = parseFloat(document.getElementById('calcTaxa').value) || 0;
     const margem = parseFloat(document.getElementById('calcMargem').value) || 0;
     const composicao = obterComposicaoMateriaisCalculadora();
@@ -2228,12 +2273,12 @@
       return total + (item.gramas * custoGramaReal);
     }, 0);
     const ce = totalHoras * custoEnergiaHora;
-    const custoOperacional = ce + embalagem + frete + acessorios;
+    const custoOperacional = ce + embalagem + frete + acessorios + valorPintura;
     const ct = valor + custoOperacional;
     const sub = ct + (ct * (margem / 100));
     const precoVenda = (1 - (taxaMkt / 100)) > 0 ? sub / (1 - (taxaMkt / 100)) : sub;
     const lucro = precoVenda - ct - (precoVenda * (taxaMkt / 100));
-    return { valor, custoOperacional, custoOperacionalTotal: ct, precoVenda, lucro, taxaMkt, totalHoras, acessorios };
+    return { valor, custoOperacional, custoOperacionalTotal: ct, precoVenda, lucro, taxaMkt, totalHoras, acessorios, precisaPintura, valorPintura };
   }
 
   function calcularPreco() {
@@ -2256,6 +2301,12 @@
     document.getElementById('lblCustoEmb').innerText = `R$ ${embalagem.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoFrete').innerText = `R$ ${frete.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblCustoAcessorios').innerText = `R$ ${acessorios.toFixed(2).replace('.', ',')}`;
+    const linhaCustoPintura = document.getElementById('linhaCustoPinturaResumo');
+    const lblCustoPinturaResumo = document.getElementById('lblCustoPinturaResumo');
+    if (linhaCustoPintura && lblCustoPinturaResumo) {
+      linhaCustoPintura.style.display = dados.precisaPintura ? 'flex' : 'none';
+      lblCustoPinturaResumo.innerText = `R$ ${dados.valorPintura.toFixed(2).replace('.', ',')}`;
+    }
     document.getElementById('lblCustoTotal').innerText = `R$ ${ct.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblPrecoSugerido').innerText = `R$ ${dados.precoVenda.toFixed(2).replace('.', ',')}`;
     document.getElementById('lblLucroEstimado').innerText = `Lucro Líquido Estimado: R$ ${dados.lucro.toFixed(2).replace('.', ',')}`;
@@ -2278,6 +2329,12 @@
     const frete = document.getElementById('calcFrete').value;
     const acessorios = document.getElementById('calcAcessorios').value;
     const margem = document.getElementById('calcMargem').value;
+    const precisaPintura = document.getElementById('calcPrecisaPintura')?.value === 'sim';
+    const pintorSelect = document.getElementById('calcPintor');
+    const pintorId = precisaPintura ? (pintorSelect?.value || '') : '';
+    const pintorOption = precisaPintura && pintorSelect ? pintorSelect.options[pintorSelect.selectedIndex] : null;
+    const pintorNome = precisaPintura ? (pintorOption?.textContent || '') : '';
+    const pintorEmail = precisaPintura ? (pintorOption?.dataset?.email || '') : '';
     const dadosFinanceiros = obterDadosFinanceirosCalculadora();
     const formatarMoeda = valor => `R$ ${valor.toFixed(2).replace('.', ',')}`;
 
@@ -2296,6 +2353,11 @@
       frete,
       acessorios,
       margem,
+      precisaPintura,
+      pintorId,
+      pintorNome,
+      pintorEmail,
+      valorPintura: dadosFinanceiros.valorPintura,
       taxaMarketplace: dadosFinanceiros.taxaMkt,
       valor: formatarMoeda(dadosFinanceiros.valor),
       // Na lista de produtos, "Custo Operacional" é o custo TOTAL
@@ -2346,7 +2408,12 @@
     document.getElementById('calcEmbalagem').value = p.embalagem || '3.50';
     document.getElementById('calcFrete').value = p.frete || '0.00';
     document.getElementById('calcAcessorios').value = p.acessorios || '0.00';
+    document.getElementById('calcPrecisaPintura').value = p.precisaPintura ? 'sim' : 'nao';
+    renderizarPintoresCalculadora();
+    if (p.pintorId) document.getElementById('calcPintor').value = p.pintorId;
+    document.getElementById('calcValorPintura').value = p.valorPintura !== undefined ? p.valorPintura : '0.00';
     if(p.margem !== undefined) document.getElementById('calcMargem').value = p.margem;
+    atualizarCamposPinturaCalculadora();
     document.getElementById('labelModoEdicao').innerText = `Editando: ${p.nome}`;
     mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
     calcularPreco(); mostrarToast(`Carregado "${p.nome}" para edição!`);
