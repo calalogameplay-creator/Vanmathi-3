@@ -769,7 +769,7 @@
         </div>
         <div class="form-group"><label>Descrição / orientação para o pintor</label><textarea id="vendaDescricaoPintura" rows="3" placeholder="Ex.: pintar a coleira de azul, deixar acabamento fosco..."></textarea></div>
         <div class="form-group"><label>Prazo para entregar a peça à administração</label><input type="date" id="vendaPrazoPintura"></div>
-        <div class="form-group"><label>Arquivo de referência (3MF / GLB)</label><input id="vendaArquivoPintura" type="file" accept=".3mf,.glb,model/3mf,model/gltf-binary" multiple></div>
+        <div class="form-group"><label>Arquivos de referência para o pintor <span style="color:var(--text-muted);font-weight:400;">(até 3)</span></label><input id="vendaArquivoPintura" type="file" accept=".3mf,.glb,.jpg,.jpeg,.png,.webp,.heic,.heif,model/3mf,model/gltf-binary,image/jpeg,image/png,image/webp,image/heic,image/heif" multiple><small style="display:block;color:var(--text-muted);margin-top:6px;">Envie até 3 arquivos: 3MF/GLB do modelo e fotos de referência do cachorro real (JPG, PNG, WEBP ou HEIC).</small></div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
@@ -1754,7 +1754,7 @@
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0;"><div style="padding:10px;border:1px solid var(--border);border-radius:8px;"><small style="color:var(--text-muted);display:block;">Valor total da pintura</small><strong>R$ ${obterNumeroMoeda(t.valorPintura).toFixed(2).replace('.',',')}</strong></div><div style="padding:10px;border:1px solid var(--border);border-radius:8px;"><small style="color:var(--text-muted);display:block;">Quantidade</small><strong>${t.qtd||1} unidade(s)</strong></div><div style="padding:10px;border:1px solid var(--border);border-radius:8px;"><small style="color:var(--text-muted);display:block;">Prazo de entrega</small><strong style="color:${prazoCor};">${prazoTexto}${atrasada?' • ATRASADA':''}</strong></div></div>
       <p style="font-size:13px;line-height:1.5;"><strong>Descrição:</strong><br>${t.observacaoPintura||'Sem orientação adicional.'}</p>
       <div class="form-group"><label>Status da pintura</label><select id="statusTarefaModal" ${podeAlterar?'':'disabled'}><option value="Pendente">Pendente</option><option value="Em andamento">Em andamento</option><option value="Parado">Parado</option><option value="Concluído">Concluído</option><option value="Finalizada">Finalizada</option></select></div>
-      ${podeAnexar?'<div class="form-group"><label>Anexar 3MF / GLB</label><input id="arquivosTarefaModal" type="file" accept=".3mf,.glb,model/3mf,model/gltf-binary" multiple></div>':''}
+      ${podeAnexar?'<div class="form-group"><label>Anexar referências (até 3 no total)</label><input id="arquivosTarefaModal" type="file" accept=".3mf,.glb,.jpg,.jpeg,.png,.webp,.heic,.heif,model/3mf,model/gltf-binary,image/jpeg,image/png,image/webp,image/heic,image/heif" multiple><small style="display:block;color:var(--text-muted);margin-top:6px;">3MF/GLB + fotos de referência.</small></div>':''}
       ${podeAnexarFoto?'<div class="form-group" style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);"><label>Comprovar pintura concluída</label><p style="font-size:12px;color:var(--text-muted);margin:4px 0 10px;">Tire uma foto da peça pronta. Ela será enviada ao Vanmathi e ficará disponível para a administração.</p><input id="fotoPinturaModal" type="file" accept="image/*" capture="environment" style="display:none" onchange="anexarFotoPinturaTarefa(\''+t.id+'\')"><button type="button" class="btn-primary" onclick="document.getElementById(\'fotoPinturaModal\').click()">📷 Tirar foto da peça pronta</button></div>':''}
       <div><strong style="font-size:13px;">Arquivos anexados</strong><div id="listaArquivosTarefa">${arquivos.length?arquivos.map(a=>`<div class="arquivo-pintura"><div><strong>${a.nome}</strong><small style="display:block;">${a.tipo||'Arquivo'} • Google Drive${a.compartilhadoComPintor===false?' • compartilhamento pendente':''}</small></div>${String(a.tipo||'').toUpperCase()==='FOTO'?`<img src="${a.url||a.downloadUrl}" alt="Foto da pintura pronta" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-left:auto;margin-right:8px;">`:''}<a class="btn-secondary" href="${a.url||a.downloadUrl}" target="_blank" rel="noopener">📂 Abrir no Drive</a></div>`).join(''):'<p style="color:var(--text-muted);font-size:12px;">Nenhum arquivo anexado ainda.</p>'}</div></div></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;"><button class="btn-secondary" onclick="fecharModalTarefaPintura()">Fechar</button>${podeAlterar?'<button class="btn-primary" onclick="salvarStatusTarefaPintura(\''+t.id+'\')">💾 Salvar status</button>':''}${podeAnexar?'<button class="btn-primary" onclick="anexarArquivosTarefaPintura(\''+t.id+'\')">📎 Anexar arquivos</button>':''}</div>`;
@@ -1999,12 +1999,23 @@
       const ehImagem=String(file.type||'').startsWith('image/') || ['jpg','jpeg','png','webp','heic','heif'].includes(ext);
       const permitidoModelo=['3mf','glb'].includes(ext);
       if(ehFotoPintor && !ehImagem){alert('Para o pintor, o anexo deve ser uma foto da peça.');return false;}
-      if(!ehFotoPintor && !permitidoModelo){alert('Só são permitidos arquivos 3MF ou GLB.');return false;}
+      if(!ehFotoPintor && !permitidoModelo && !ehImagem){alert('Para a referência, envie 3MF, GLB ou uma foto JPG, PNG, WEBP ou HEIC.');return false;}
       const limite=ehImagem ? 15*1024*1024 : 200*1024*1024;
       if(file.size>limite){alert('O arquivo '+file.name+' ultrapassa o limite de '+(ehImagem?'15 MB':'200 MB')+'.');return false;}
       return true;
     });
     if(!arquivosValidos.length)return;
+    if(!ehFotoPintor){
+      const existentes=Array.isArray(tarefa.arquivos)?tarefa.arquivos:[];
+      const referenciasExistentes=existentes.filter(a=>String(a?.tipo||'').toUpperCase()!=='FOTO').length;
+      const fotosReferenciaExistentes=existentes.filter(a=>String(a?.tipo||'').toUpperCase()==='FOTO').length;
+      const totalReferenciasExistentes=referenciasExistentes+fotosReferenciaExistentes;
+      if(totalReferenciasExistentes + arquivosValidos.length > 3){
+        const vagas=Math.max(0,3-totalReferenciasExistentes);
+        alert(vagas ? 'Esta tarefa já possui '+totalReferenciasExistentes+' arquivo(s) de referência. Você pode adicionar no máximo mais '+vagas+'.' : 'Esta tarefa já atingiu o limite de 3 arquivos de referência.');
+        return false;
+      }
+    }
     const responsavel=String(email||tarefa.responsavelPinturaEmail||'').toLowerCase();
     const destinatarios=ehFotoPintor?await obterEmailsAdministracaoTarefa(tarefa):[responsavel];
     if(!destinatarios.length) throw new Error('Não foi possível localizar a administração para compartilhar a foto.');
@@ -2024,6 +2035,7 @@
         const arquivo={
           nome:file.name,
           tipo:ehImagem?'FOTO':ext,
+          categoria:ehFotoPintor?'foto_final':'referencia_pintura',
           driveFileId:criado.id,
           url:criado.webViewLink||`https://drive.google.com/file/d/${criado.id}/view`,
           downloadUrl:criado.webContentLink||`https://drive.google.com/uc?export=download&id=${criado.id}`,
@@ -2792,4 +2804,3 @@
 </script>
 </body>
 </html>
-
