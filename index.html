@@ -1950,19 +1950,26 @@
         const nome=String(t.produtoNome||'').trim().toLowerCase();
         return !!nome && listaProdutosSalvos.some(p=>String(p.nome||'').trim().toLowerCase()===nome);
       };
-      const tarefasOrfas=tarefasCarregadas.filter(t=>!produtoExiste(t));
-      tarefasPinturaCache=tarefasCarregadas.filter(produtoExiste).sort((a,b)=>{
+      // Uma tarefa continua válida para o pintor se o produto ainda existir no
+      // catálogo OU se existir uma venda na Gestão de Vendas vinculada a esse produto.
+      // Isso permite excluir o produto de "Meus Produtos" sem apagar uma pintura
+      // que ainda pertence a uma venda existente.
+      const vendaExiste=(t)=>{
+        const porId=t.produtoId!=null && listaVendas.some(v=>String(v.produtoId)===String(t.produtoId));
+        if(porId) return true;
+        const nome=String(t.produtoNome||'').trim().toLowerCase();
+        return !!nome && listaVendas.some(v=>String(v.produtoNome||'').trim().toLowerCase()===nome);
+      };
+      const tarefaValida=(t)=>produtoExiste(t)||vendaExiste(t);
+      tarefasPinturaCache=tarefasCarregadas.filter(tarefaValida).sort((a,b)=>{
         const da=a.atualizadoEm?.toDate?.()||new Date(a.atualizadoEm||0);
         const db=b.atualizadoEm?.toDate?.()||new Date(b.atualizadoEm||0);
         return db-da;
       });
-      // Limpeza no Firestore: depois que o produto saiu do catálogo, remove também
-      // a tarefa correspondente para que todos os perfis fiquem sincronizados.
-      if(tarefasOrfas.length){
-        const batch=vanmathiDb.batch();
-        tarefasOrfas.forEach(t=>batch.delete(vanmathiDb.collection('tarefasPintura').doc(t.id)));
-        await batch.commit();
-      }
+      // NÃO fazemos delete no dispositivo do pintor. As regras do Firestore
+      // normalmente permitem ao pintor ler/atualizar a própria tarefa, mas não
+      // apagar documentos. Além disso, apagar aqui poderia remover uma tarefa
+      // cujo produto saiu do catálogo, mas cuja venda ainda existe.
       renderizarTarefasPintura();
       if(vanmathiPerfilAtual?.role==='pintura') renderizarVendas();
     }catch(e){
@@ -2843,6 +2850,16 @@
   async function excluirTarefasPinturaDoProduto(produtoId) {
     if(!vanmathiDb || produtoId==null) return;
     try {
+      // Se ainda houver uma venda vinculada ao produto, a pintura continua válida
+      // e NÃO deve ser removida da visão do pintor.
+      const produto=listaProdutosSalvos.find(p=>String(p.id)===String(produtoId));
+      const nomeProduto=String(produto?.nome||'').trim().toLowerCase();
+      const vendaMantemTarefa=Array.isArray(listaVendas) && listaVendas.some(v=>
+        String(v.produtoId||'')===String(produtoId) ||
+        (nomeProduto && String(v.produtoNome||'').trim().toLowerCase()===nomeProduto)
+      );
+      if(vendaMantemTarefa) return;
+
       const snap=await vanmathiDb.collection('tarefasPintura').where('produtoId','==',produtoId).get();
       if(snap.empty) return;
       const batch=vanmathiDb.batch();
