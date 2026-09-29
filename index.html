@@ -506,11 +506,12 @@
               <th>Valor do Produto</th>
               <th>Lucro</th>
               <th>Status</th>
+              <th>Pintura</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaVendasCorpo">
-            <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
+            <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
           </tbody>
         </table>
       </div>
@@ -744,7 +745,7 @@
       </div>
       <div class="form-group">
         <label>Selecione o Produto Salvo</label>
-        <select id="vendaSelectProduto"></select>
+        <select id="vendaSelectProduto" onchange="atualizarCamposPinturaVenda()"></select>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Quantidade Vendida</label><input type="number" id="vendaQtd" value="1" min="1"></div>
@@ -765,11 +766,12 @@
           <option value="Recebido">Recebido</option>
         </select>
       </div>
-      <div class="form-group"><label>Precisa de pintura?</label><select id="vendaPrecisaPintura" onchange="atualizarCamposPinturaVenda()"><option value="nao">Não</option><option value="sim">Sim</option></select></div>
       <div id="blocoPinturaVenda" style="display:none;">
-        <div class="form-row"><div class="form-group"><label>Responsável pela pintura</label><select id="vendaResponsavelPintura"></select></div><div class="form-group"><label>Status da pintura</label><select id="vendaStatusPintura"><option value="Pendente">Pendente</option><option value="Em andamento">Em andamento</option><option value="Finalizada">Finalizada</option></select></div></div>
-        <div class="form-group"><label>Orientação para pintura</label><textarea id="vendaObservacaoPintura" rows="3" placeholder="Ex.: pintar focinho preto, olhos verdes..."></textarea></div>
-        <div class="form-group"><label>Arquivo de referência (opcional)</label><input id="vendaArquivoPintura" type="file" accept=".3mf,.glb,model/3mf,model/gltf-binary" multiple></div>
+        <div style="padding:10px 12px; margin-bottom:10px; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,0.03);">
+          <strong style="font-size:13px;">🎨 Este produto precisa de pintura.</strong>
+          <span id="resumoPinturaVenda" style="display:block; color:var(--text-muted); font-size:12px; margin-top:4px;"></span>
+        </div>
+        <div class="form-group"><label>Arquivo de referência (3MF / GLB)</label><input id="vendaArquivoPintura" type="file" accept=".3mf,.glb,model/3mf,model/gltf-binary" multiple></div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
@@ -1560,8 +1562,6 @@
     document.getElementById('vendaData').value = new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = 'Concluído';
     document.getElementById('vendaPagamento').value = 'Recebido';
-    document.getElementById('vendaPrecisaPintura').value = 'nao';
-    document.getElementById('vendaObservacaoPintura').value = '';
     document.getElementById('vendaArquivoPintura').value = '';
     atualizarCamposPinturaVenda();
     document.getElementById('tituloModalVenda').innerText = 'Registrar Nova Venda';
@@ -1580,11 +1580,7 @@
     document.getElementById('vendaData').value = venda.data || new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = venda.status || 'Concluído';
     document.getElementById('vendaPagamento').value = venda.pagamentoStatus || (venda.status === 'Concluído' ? 'Recebido' : 'Pendente');
-    document.getElementById('vendaPrecisaPintura').value = venda.precisaPintura ? 'sim' : 'nao';
-    document.getElementById('vendaStatusPintura').value = venda.statusPintura || 'Pendente';
-    document.getElementById('vendaObservacaoPintura').value = venda.observacaoPintura || '';
     atualizarCamposPinturaVenda();
-    if (venda.responsavelPinturaEmail) document.getElementById('vendaResponsavelPintura').value = venda.responsavelPinturaId || '';
     document.getElementById('tituloModalVenda').innerText = 'Editar Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Alterações';
     document.getElementById('modalRegistrarVenda').classList.add('active');
@@ -1603,15 +1599,23 @@
     const data = document.getElementById('vendaData').value;
     const status = document.getElementById('vendaStatus').value;
     const pagamentoStatus = document.getElementById('vendaPagamento').value;
-    const precisaPintura = document.getElementById('vendaPrecisaPintura').value === 'sim';
-    const responsavelPinturaId = precisaPintura ? (document.getElementById('vendaResponsavelPintura').value || '') : '';
-    const responsavel = vanmathiUsuariosCache.find(u => String(u.uid) === String(responsavelPinturaId));
-    const statusPintura = precisaPintura ? (document.getElementById('vendaStatusPintura').value || 'Pendente') : '';
-    const observacaoPintura = precisaPintura ? (document.getElementById('vendaObservacaoPintura').value || '').trim() : '';
-    const arquivosPintura = precisaPintura ? document.getElementById('vendaArquivoPintura').files : [];
-
     const produto = listaProdutosSalvos.find(p => p.id === prodId);
     if(!produto) return;
+
+    // A pintura já é definida no cadastro do produto. Na venda não perguntamos
+    // novamente quem pinta nem quanto custa: apenas herdamos essas informações
+    // e, quando necessário, anexamos o arquivo 3MF/GLB.
+    const precisaPintura = produto.precisaPintura === true || produto.precisaPintura === 'sim';
+    const responsavelPinturaId = precisaPintura ? (produto.pintorId || '') : '';
+    const responsavelPintura = precisaPintura ? {
+      uid: produto.pintorId || '',
+      nome: produto.pintorNome || '',
+      email: produto.pintorEmail || ''
+    } : null;
+    const statusPintura = precisaPintura ? 'Em andamento' : '';
+    const observacaoPintura = '';
+    const arquivosPintura = precisaPintura ? document.getElementById('vendaArquivoPintura').files : [];
+    const idVendaAnterior = editandoVendaId;
 
     const numPreco = obterNumeroMoeda(produto.precoVenda || produto.precoSugerido);
     const totalVenda = numPreco * qtd;
@@ -1637,9 +1641,10 @@
       pagamentoStatus: pagamentoStatus,
       precisaPintura: precisaPintura,
       responsavelPinturaId: responsavelPinturaId,
-      responsavelPinturaUid: responsavel?.uid || '',
-      responsavelPinturaNome: responsavel?.nome || '',
-      responsavelPinturaEmail: responsavel?.email || '',
+      responsavelPinturaUid: responsavelPintura?.uid || '',
+      responsavelPinturaNome: responsavelPintura?.nome || '',
+      responsavelPinturaEmail: responsavelPintura?.email || '',
+      valorPintura: precisaPintura ? (obterNumeroMoeda(produto.valorPintura) || 0) : 0,
       statusPintura: statusPintura,
       observacaoPintura: observacaoPintura
     };
@@ -1661,10 +1666,11 @@
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
-    if (precisaPintura) {
-      await sincronizarTarefaPintura(dadosVenda, arquivosPintura, editandoVendaId || listaVendas[listaVendas.length-1].id);
-    } else if (editandoVendaId) {
-      await excluirTarefaPintura(editandoVendaId);
+    const idVendaAtual = idVendaAnterior || listaVendas[listaVendas.length - 1]?.id;
+    if (precisaPintura && idVendaAtual) {
+      await sincronizarTarefaPintura(dadosVenda, arquivosPintura, idVendaAtual);
+    } else if (idVendaAnterior) {
+      await excluirTarefaPintura(idVendaAnterior);
     }
   }
 
@@ -1686,16 +1692,27 @@
   async function marcarNotificacaoLida(id){const n=notificacoesCache.find(x=>x.id===id);if(!n)return;try{await vanmathiDb.collection('notificacoes').doc(id).update({lida:true});n.lida=true;atualizarBadgeNotificacoes();abrirNotificacoes();}catch(e){console.warn(e);}}
 
   function atualizarCamposPinturaVenda(){
-    const sim=document.getElementById('vendaPrecisaPintura')?.value==='sim';
-    const bloco=document.getElementById('blocoPinturaVenda'); if(bloco) bloco.style.display=sim?'block':'none';
-    if(sim) renderizarResponsaveisPinturaVenda();
+    const selectProduto=document.getElementById('vendaSelectProduto');
+    const bloco=document.getElementById('blocoPinturaVenda');
+    const resumo=document.getElementById('resumoPinturaVenda');
+    if(!selectProduto || !bloco) return;
+    const produto=listaProdutosSalvos.find(p=>String(p.id)===String(selectProduto.value));
+    const sim=!!(produto && (produto.precisaPintura===true || produto.precisaPintura==='sim'));
+    bloco.style.display=sim?'block':'none';
+    if(resumo){
+      if(sim){
+        const pintor=produto.pintorNome || 'Pintor não informado';
+        const valor=obterNumeroMoeda(produto.valorPintura);
+        resumo.textContent=`Pintor: ${pintor} • Valor da pintura: R$ ${valor.toFixed(2).replace('.', ',')} • Status: Em andamento`;
+      }else{
+        resumo.textContent='';
+      }
+    }
   }
   function renderizarResponsaveisPinturaVenda(){
-    const sel=document.getElementById('vendaResponsavelPintura'); if(!sel) return;
-    const atual=sel.value;
-    const pintores=vanmathiUsuariosCache.filter(u=>u.role==='pintura' && u.ativo!==false);
-    sel.innerHTML='<option value="">Selecione o responsável</option>'+pintores.map(u=>`<option value="${u.uid}">${u.nome||u.email}</option>`).join('');
-    if(atual) sel.value=atual;
+    // Mantida por compatibilidade com chamadas antigas. O pintor agora vem
+    // exclusivamente do cadastro do produto e não é escolhido na venda.
+    atualizarCamposPinturaVenda();
   }
   function abrirModalTarefaPintura(id){
     const t=tarefasPinturaCache.find(x=>x.id===id); if(!t) return;
@@ -1961,7 +1978,7 @@
     });
 
     if(vendasFiltradas.length === 0) {
-      corpo.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
       return;
     }
 
@@ -2000,6 +2017,7 @@
           <td style="color: var(--primary); font-weight: 600;">R$ ${(valorProduto * (parseInt(v.qtd) || 1)).toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--success); font-weight: 600;">R$ ${lucroTotal.toFixed(2).replace('.', ',')}</td>
           <td><span style="color: ${cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${v.status}</span></td>
+          <td><span style="font-weight: 600; color: ${v.precisaPintura ? 'var(--primary)' : 'var(--text-muted)'};">${v.precisaPintura ? 'Sim' : 'Não'}</span></td>
           <td style="display: flex; gap: 6px;">
             <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="abrirModalEditarVenda(${v.id})" title="Editar venda">✏️</button>
             <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirVenda(${v.id})" title="Excluir venda">🗑️</button>
