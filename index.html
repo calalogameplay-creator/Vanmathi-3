@@ -1845,8 +1845,9 @@
     }
   }
   function iniciarListenerNotificacoesPush(){
-    if(!vanmathiDb||!vanmathiUsuario||vanmathiNotificacoesListener)return;
+    if(!vanmathiDb||!vanmathiUsuario)return;
     if(vanmathiPerfilAtual?.role!=='pintura')return;
+    if(vanmathiNotificacoesListener) vanmathiNotificacoesListener();
     const email=String(vanmathiUsuario.email||'').toLowerCase();
     vanmathiNotificacoesListener=vanmathiDb.collection('notificacoes').where('destinatarioEmail','==',email).onSnapshot(snap=>{
       snap.docChanges().forEach(ch=>{
@@ -1940,36 +1941,16 @@
       // e ordenamos no navegador, mantendo o acesso do pintor restrito às próprias tarefas.
       const snap=await vanmathiDb.collection('tarefasPintura').where('responsavelPinturaEmail','==',email).get();
       const tarefasCarregadas=snap.docs.map(d=>({id:d.id,...d.data()}));
-      // Se um produto foi excluído do catálogo central, a tarefa antiga não deve
-      // continuar aparecendo para o pintor. O produtoId é a referência principal;
-      // o nome fica como compatibilidade para tarefas antigas.
-      const produtoExiste=(t)=>{
-        const porId=t.produtoId!=null && listaProdutosSalvos.some(p=>String(p.id)===String(t.produtoId));
-        if(porId) return true;
-        if(t.produtoId!=null && String(t.produtoId).trim()!=='') return false;
-        const nome=String(t.produtoNome||'').trim().toLowerCase();
-        return !!nome && listaProdutosSalvos.some(p=>String(p.nome||'').trim().toLowerCase()===nome);
-      };
-      // Uma tarefa continua válida para o pintor se o produto ainda existir no
-      // catálogo OU se existir uma venda na Gestão de Vendas vinculada a esse produto.
-      // Isso permite excluir o produto de "Meus Produtos" sem apagar uma pintura
-      // que ainda pertence a uma venda existente.
-      const vendaExiste=(t)=>{
-        const porId=t.produtoId!=null && listaVendas.some(v=>String(v.produtoId)===String(t.produtoId));
-        if(porId) return true;
-        const nome=String(t.produtoNome||'').trim().toLowerCase();
-        return !!nome && listaVendas.some(v=>String(v.produtoNome||'').trim().toLowerCase()===nome);
-      };
-      const tarefaValida=(t)=>produtoExiste(t)||vendaExiste(t);
-      tarefasPinturaCache=tarefasCarregadas.filter(tarefaValida).sort((a,b)=>{
+      // A tarefa já é o registro oficial da atribuição ao pintor.
+      // Não dependemos de listaProdutosSalvos/listaVendas aqui, porque o perfil
+      // de pintura não carrega os dados financeiros centrais. Mesmo que o produto
+      // tenha sido excluído do catálogo depois, uma tarefa já atribuída continua
+      // visível enquanto o registro da tarefa existir.
+      tarefasPinturaCache=tarefasCarregadas.sort((a,b)=>{
         const da=a.atualizadoEm?.toDate?.()||new Date(a.atualizadoEm||0);
         const db=b.atualizadoEm?.toDate?.()||new Date(b.atualizadoEm||0);
         return db-da;
       });
-      // NÃO fazemos delete no dispositivo do pintor. As regras do Firestore
-      // normalmente permitem ao pintor ler/atualizar a própria tarefa, mas não
-      // apagar documentos. Além disso, apagar aqui poderia remover uma tarefa
-      // cujo produto saiu do catálogo, mas cuja venda ainda existe.
       renderizarTarefasPintura();
       if(vanmathiPerfilAtual?.role==='pintura') renderizarVendas();
     }catch(e){
