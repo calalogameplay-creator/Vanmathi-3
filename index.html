@@ -417,11 +417,13 @@
                   <th>Loja</th>
                   <th>Qtd</th>
                   <th>Total</th>
+                  <th>Recebido</th>
+                  <th>Saldo</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody id="tabelaRelVisaoGeral">
-                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 25px;">Nenhuma venda registrada no período.</td></tr>
+                <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">Nenhuma venda registrada no período.</td></tr>
               </tbody>
             </table>
           </div>
@@ -525,11 +527,11 @@
         <table>
           <thead id="cabecalhoTabelaVendas">
             <tr>
-              <th>Data</th><th>Produto</th><th>Loja Online</th><th>Qtd</th><th>Custo Operacional</th><th>Valor do Produto</th><th>Lucro</th><th>Status</th><th>Pintura</th><th>Ações</th>
+              <th>Data</th><th>Produto / Cliente</th><th>Loja Online</th><th>Qtd</th><th>Custo Operacional</th><th>Valor do Produto</th><th>Lucro</th><th>Parcelas</th><th>Status</th><th>Pintura</th><th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaVendasCorpo">
-            <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
+            <tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda cadastrada ainda. Clique em "+ Registrar Venda".</td></tr>
           </tbody>
         </table>
       </div>
@@ -769,6 +771,11 @@
         <div class="form-group"><label>Quantidade Vendida</label><input type="number" id="vendaQtd" value="1" min="1"></div>
         <div class="form-group"><label>Data da Venda</label><input type="date" id="vendaData"></div>
       </div>
+      <div class="form-group"><label>Cliente (opcional)</label><select id="vendaClienteId"><option value="">Sem cliente vinculado</option></select><small style="color:var(--text-muted)">Vincula a venda ao histórico do cliente e aos recibos.</small></div>
+      <div class="form-row">
+        <div class="form-group"><label>Quantidade de parcelas</label><input type="number" id="vendaQtdParcelas" min="1" max="60" value="1" onchange="ajustarPagamentoParcelasVenda()"><small style="color:var(--text-muted)">De 1 a 60 parcelas.</small></div>
+        <div class="form-group"><label>1º vencimento</label><input type="date" id="vendaPrimeiroVencimento"></div>
+      </div>
       <div class="form-group">
         <label>Status do Pedido</label>
         <select id="vendaStatus">
@@ -781,6 +788,7 @@
         <label>Status do Pagamento</label>
         <select id="vendaPagamento">
           <option value="Pendente">Pendente / A receber</option>
+          <option value="Parcial">Parcialmente recebido</option>
           <option value="Recebido">Recebido</option>
         </select>
       </div>
@@ -1144,8 +1152,8 @@
     const menuEmpresa = document.getElementById('menuEmpresa');
     const menuVendas = document.getElementById('menuVendas');
     if (menuUsuarios) menuUsuarios.style.display = role === 'admin' ? '' : 'none';
-    if (menuClientes) menuClientes.style.display = role === 'admin' ? '' : 'none';
-    if (menuRecibos) menuRecibos.style.display = role === 'admin' ? '' : 'none';
+    if (menuClientes) menuClientes.style.display = ['admin','funcionario'].includes(role) ? '' : 'none';
+    if (menuRecibos) menuRecibos.style.display = ['admin','funcionario'].includes(role) ? '' : 'none';
     if (menuEmpresa) menuEmpresa.style.display = role === 'admin' ? '' : 'none';
     // O perfil Pintura usa exclusivamente a aba Gestão de Vendas, em modo de produção.
     if (menuPintura) menuPintura.style.display = 'none';
@@ -1238,7 +1246,7 @@
 
   function obterPacoteDadosVanmathi() {
     return {
-      versao: 2,
+      versao: 3,
       atualizadoEm: new Date().toISOString(),
       materiais: listaMateriais,
       produtos: listaProdutosSalvos,
@@ -1261,9 +1269,11 @@
     if (Array.isArray(pacote.clientes)) listaClientes = pacote.clientes;
     if (Array.isArray(pacote.recibos)) listaRecibos = pacote.recibos;
     if (pacote.dadosEmpresa && typeof pacote.dadosEmpresa === 'object') dadosEmpresa = {...dadosEmpresa, ...pacote.dadosEmpresa};
+    listaVendas.forEach(v=>{if(!v.parcelamento){v.parcelamento=criarParcelamentoVan(v.total,1,v.data);if(v.pagamentoStatus==='Recebido'){v.recebimentos=[{id:'pg_migrado_'+v.id,valor:Number(v.total)||0,data:v.data||new Date().toISOString(),origem:'migração',usuario:''}];v.parcelamento.parcelas[0].pago=Number(v.total)||0;v.parcelamento.parcelas[0].status='Pago';v.parcelamento.parcelas[0].pagoEm=v.data||null;}}if(!Array.isArray(v.recebimentos))v.recebimentos=[];atualizarResumoFinanceiroVenda(v);});
     // Recalcula campos derivados das vendas sempre que chega um pacote novo do Firestore.
     // Isso cobre alterações feitas neste dispositivo e em outros dispositivos conectados.
     sincronizarVendasComProdutos();
+    listaVendas.forEach(v=>sincronizarRecibosDaVenda(v));
     salvarTudoLocal(false);
     localStorage.setItem('Vanmathi_Dados_Clientes', JSON.stringify(listaClientes));
     localStorage.setItem('Vanmathi_Dados_Recibos', JSON.stringify(listaRecibos));
@@ -1559,7 +1569,8 @@
     document.getElementById('secao-' + secaoId).classList.add('active');
     
     document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
-    if (['clientes','recibos','empresa','usuarios'].includes(secaoId) && vanmathiPerfilAtual?.role !== 'admin') { alert('Esta área é exclusiva para administradores.'); return; }
+    if (['empresa','usuarios'].includes(secaoId) && vanmathiPerfilAtual?.role !== 'admin') { alert('Esta área é exclusiva para administradores.'); return; }
+    if (['clientes','recibos'].includes(secaoId) && !['admin','funcionario'].includes(vanmathiPerfilAtual?.role)) { alert('Esta área está disponível para os perfis administrativo e financeiro.'); return; }
     if (secaoId === 'usuarios') carregarUsuariosAdmin();
     if (secaoId === 'clientes') renderizarClientes();
     if (secaoId === 'recibos') { renderizarRecibos(); atualizarSelectClientesRecibo(); }
@@ -1758,6 +1769,9 @@
     if(vanmathiPerfilAtual?.role==='admin') carregarUsuariosAdmin();
     else if(vanmathiPerfilAtual?.role==='funcionario') renderizarResponsaveisPinturaVenda();
     document.getElementById('vendaQtd').value = 1;
+    renderizarSelectClientesVenda('');
+    document.getElementById('vendaQtdParcelas').value = 1;
+    document.getElementById('vendaPrimeiroVencimento').value = new Date().toISOString().slice(0,10);
     document.getElementById('vendaData').value = new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = 'Concluído';
     document.getElementById('vendaPagamento').value = 'Recebido';
@@ -1778,9 +1792,12 @@
     const produtoVinculado = listaProdutosSalvos.find(p => p.id === venda.produtoId) || listaProdutosSalvos.find(p => p.nome === venda.produtoNome && (p.loja || 'Shopee') === venda.loja);
     preencherSelectProdutosVenda(produtoVinculado ? produtoVinculado.id : null);
     document.getElementById('vendaQtd').value = venda.qtd || 1;
+    renderizarSelectClientesVenda(venda.clienteId||'');
+    document.getElementById('vendaQtdParcelas').value = venda.parcelamento?.quantidade || venda.parcelasTotal || 1;
+    document.getElementById('vendaPrimeiroVencimento').value = venda.parcelamento?.parcelas?.[0]?.vencimento || venda.data || new Date().toISOString().slice(0,10);
     document.getElementById('vendaData').value = venda.data || new Date().toISOString().split('T')[0];
     document.getElementById('vendaStatus').value = venda.status || 'Concluído';
-    document.getElementById('vendaPagamento').value = venda.pagamentoStatus || (venda.status === 'Concluído' ? 'Recebido' : 'Pendente');
+    document.getElementById('vendaPagamento').value = ['Recebido','Parcial','Pendente'].includes(venda.pagamentoStatus) ? venda.pagamentoStatus : (venda.status === 'Concluído' ? 'Recebido' : 'Pendente');
     if(document.getElementById('vendaDescricaoPintura')) document.getElementById('vendaDescricaoPintura').value = venda.observacaoPintura || '';
     if(document.getElementById('vendaPrazoPintura')) document.getElementById('vendaPrazoPintura').value = venda.prazoEntregaPintura || '';
     atualizarCamposPinturaVenda();
@@ -1801,7 +1818,9 @@
     const qtd = parseInt(document.getElementById('vendaQtd').value) || 1;
     const data = document.getElementById('vendaData').value;
     const status = document.getElementById('vendaStatus').value;
-    const pagamentoStatus = document.getElementById('vendaPagamento').value;
+    let pagamentoStatus = document.getElementById('vendaPagamento').value;
+    const parcelasInformadas = Math.max(1,Math.min(60,parseInt(document.getElementById('vendaQtdParcelas')?.value)||1));
+    if(parcelasInformadas>1 && !editandoVendaId) pagamentoStatus='Pendente';
     const prazoEntregaPintura = String(document.getElementById('vendaPrazoPintura')?.value || '').trim();
     const produto = listaProdutosSalvos.find(p => p.id === prodId);
     if(!produto) return;
@@ -1831,7 +1850,12 @@
     const totalHorasNum = (parseFloat(produto.horas) || 0) + ((parseFloat(produto.minutos) || 0) / 60);
     const lucroUnidade = obterNumeroMoeda(produto.lucro);
 
+    const clienteId = document.getElementById('vendaClienteId')?.value || '';
+    const clienteSelecionado = listaClientes.find(c=>String(c.id)===String(clienteId));
+    const qtdParcelas = Math.max(1,Math.min(60,parseInt(document.getElementById('vendaQtdParcelas')?.value)||1));
     const dadosVenda = {
+      clienteId: clienteSelecionado?.id || '',
+      clienteNome: clienteSelecionado?.nome || '',
       produtoId: produto.id,
       produtoNome: produto.nome,
       loja: produto.loja || 'Shopee',
@@ -1862,17 +1886,28 @@
     if(editandoVendaId) {
       const indice = listaVendas.findIndex(v => v.id === editandoVendaId);
       if(indice !== -1) {
-        listaVendas[indice] = { ...listaVendas[indice], id: editandoVendaId, ...dadosVenda };
-        mostrarToast('Venda atualizada! Estoque e produção recalculados.');
+        const anterior=listaVendas[indice];
+        const totalMudou=Math.abs((Number(anterior.total)||0)-totalVenda)>0.005;
+        const plano=anterior.parcelamento&&!totalMudou&&Number(anterior.parcelamento.quantidade)===qtdParcelas?anterior.parcelamento:criarParcelamentoVan(totalVenda,qtdParcelas,document.getElementById('vendaPrimeiroVencimento').value||data);
+        listaVendas[indice]={...anterior,...dadosVenda,id:editandoVendaId,parcelamento:plano,recebimentos:Array.isArray(anterior.recebimentos)?anterior.recebimentos:[]};
+        reconciliarParcelasComRecebimentos(listaVendas[indice]);
+        atualizarResumoFinanceiroVenda(listaVendas[indice]);
+        sincronizarRecibosDaVenda(listaVendas[indice]);
+        mostrarToast('Venda atualizada! Estoque, parcelas e produção recalculados.');
       }
     } else {
-      listaVendas.push({ id: Date.now(), ...dadosVenda });
-      mostrarToast('Venda registrada! Estoque e produção atualizados.');
+      const nova={id:Date.now(),...dadosVenda,parcelamento:criarParcelamentoVan(totalVenda,qtdParcelas,document.getElementById('vendaPrimeiroVencimento').value||data),recebimentos:[]};
+      listaVendas.push(nova);
+      if(pagamentoStatus==='Recebido'&&qtdParcelas===1){nova.recebimentos.push({id:'pg_'+Date.now(),valor:totalVenda,data:new Date().toISOString(),origem:'cadastro',usuario:vanmathiUsuario?.uid||''});nova.parcelamento.parcelas[0].pago=totalVenda;nova.parcelamento.parcelas[0].status='Pago';nova.parcelamento.parcelas[0].pagoEm=new Date().toISOString();}
+      atualizarResumoFinanceiroVenda(nova);
+      mostrarToast('Venda registrada! Estoque, parcelas e produção atualizados.');
     }
 
     salvarTudoLocal();
     fecharModalRegistrarVenda();
     renderizarVendas();
+    renderizarClientes();
+    renderizarRecibos();
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
@@ -2480,7 +2515,7 @@
     });
 
     if(vendasFiltradas.length === 0) {
-      corpo.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma venda encontrada.</td></tr>`;
       return;
     }
 
@@ -2520,16 +2555,18 @@
       html += `
         <tr>
           <td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td>
-          <td><strong>${v.produtoNome}</strong></td>
+          <td><strong>${escaparHtmlVan(v.produtoNome)}</strong>${v.clienteNome?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px">👤 ${escaparHtmlVan(v.clienteNome)}</div>`:`<div style="font-size:11px;color:var(--text-muted);margin-top:3px">Sem cliente vinculado</div>`}</td>
           <td>${v.loja}</td>
           <td>${v.qtd} un</td>
           <td style="color: var(--warning); font-weight: 600;">R$ ${custoOperacionalTotal.toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--primary); font-weight: 600;">R$ ${(valorProduto * (parseInt(v.qtd) || 1)).toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--success); font-weight: 600;">R$ ${lucroTotal.toFixed(2).replace('.', ',')}</td>
+          <td><button class="btn-secondary" style="padding:5px 8px;font-size:11px;white-space:nowrap" onclick="abrirModalParcelasVenda(${v.id})">${Number(v.parcelasPagas)||0}/${Number(v.parcelamento?.quantidade)||Number(v.parcelasTotal)||1} pagas</button><div style="font-size:10px;color:var(--text-muted);margin-top:3px">Saldo ${moedaVan(v.saldoRestante ?? (Number(v.total)||0))}</div></td>
           <td><span style="color: ${cor}; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${v.status}</span></td>
           <td><span style="font-weight:600;color:${(obterTarefaPinturaGestao(v)?.statusPintura || v.statusPintura) === 'Concluído' ? 'var(--success)' : ((obterTarefaPinturaGestao(v)?.statusPintura || v.statusPintura) === 'Parado' ? 'var(--danger)' : ((obterTarefaPinturaGestao(v)?.statusPintura || v.statusPintura) === 'Em andamento' ? 'var(--primary)' : 'var(--warning)'))};">${(produtoSalvo ? (produtoSalvo.precisaPintura === true || produtoSalvo.precisaPintura === 'sim') : !!v.precisaPintura) ? (obterTarefaPinturaGestao(v)?.statusPintura || v.statusPintura || 'Pendente') : '—'}</span></td>
           <td style="display: flex; gap: 6px;">
             <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="abrirModalEditarVenda(${v.id})" title="Editar venda">✏️</button>
+            <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="gerarReciboDaVenda(${v.id})" title="Gerar recibo desta venda">🧾</button>
             <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirVenda(${v.id})" title="Excluir venda">🗑️</button>
           </td>
         </tr>`;
@@ -3008,6 +3045,7 @@
       venda.responsavelPinturaNome = precisaPintura ? (produto.pintorNome || '') : '';
       venda.responsavelPinturaEmail = precisaPintura ? (produto.pintorEmail || '') : '';
       if(!precisaPintura) venda.statusPintura = '';
+      if(venda.parcelamento) ajustarPlanoVendaAoTotal(venda);
     });
   }
 
@@ -3150,22 +3188,18 @@
 
       if(status === 'Devolvido') {
         totalPerdas += total;
-      } else if(status === 'Em Produção') {
-        totalEmProducao += total;
-        pedidosProducao++;
-      } else if(status === 'Concluído') {
-        totalFat += total;
-        totalHoras += horasVenda;
-        totalPecasVendidas += qtd;
-        pedidosConcluidos++;
-        lucroRealizado += lucroVenda;
-        if(pagamento === 'Recebido') totalRecebido += total;
-        else totalAReceber += total;
+      } else {
+        const recebidoVenda=Array.isArray(v.recebimentos)?v.recebimentos.reduce((a,p)=>a+(Number(p.valor)||0),0):(pagamento==='Recebido'?total:0);
+        totalRecebido+=Math.min(total,recebidoVenda);
+        totalAReceber+=Math.max(0,total-recebidoVenda);
+        if(status === 'Em Produção') { totalEmProducao += total; pedidosProducao++; }
+        else if(status === 'Concluído') { totalFat += total; totalHoras += horasVenda; totalPecasVendidas += qtd; pedidosConcluidos++; lucroRealizado += lucroVenda; }
       }
 
       const cor = status === 'Concluído' ? 'var(--success)' : (status === 'Devolvido' ? 'var(--danger)' : 'var(--warning)');
-      const pagamentoTexto = status === 'Devolvido' ? 'Estornado' : (pagamento === 'Recebido' ? 'Recebido' : 'A receber');
-      htmlVendas += `<tr><td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td><td><strong>${v.produtoNome}</strong></td><td>${v.loja}</td><td>${qtd} un</td><td style="color:var(--primary);font-weight:600;">R$ ${total.toFixed(2).replace('.', ',')}</td><td><span style="color:${cor};font-weight:600;">${status}</span><br><small style="color:var(--text-muted);">${pagamentoTexto}</small></td></tr>`;
+      const pagamentoTexto = status === 'Devolvido' ? 'Estornado' : (pagamento === 'Recebido' ? 'Recebido' : (pagamento === 'Parcial' ? 'Parcialmente recebido' : 'A receber'));
+      const recebidoLinha=Array.isArray(v.recebimentos)?Math.min(total,v.recebimentos.reduce((a,p)=>a+(Number(p.valor)||0),0)):(pagamento==='Recebido'?total:0);const saldoLinha=Math.max(0,total-recebidoLinha);
+      htmlVendas += `<tr><td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td><td><strong>${escaparHtmlVan(v.produtoNome)}</strong>${v.clienteNome?`<br><small>${escaparHtmlVan(v.clienteNome)}</small>`:''}</td><td>${escaparHtmlVan(v.loja||'')}</td><td>${qtd} un</td><td style="color:var(--primary);font-weight:600;">R$ ${total.toFixed(2).replace('.', ',')}</td><td style="color:var(--success);font-weight:600;">${moedaVan(recebidoLinha)}</td><td style="color:var(--warning);font-weight:600;">${moedaVan(saldoLinha)}</td><td><span style="color:${cor};font-weight:600;">${status}</span><br><small style="color:var(--text-muted);">${pagamentoTexto}</small></td></tr>`;
     });
 
     document.getElementById('tabelaRelVisaoGeral').innerHTML = htmlVendas || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:25px;">Nenhuma venda encontrada.</td></tr>`;
@@ -3210,21 +3244,40 @@
   }
 
 
+  function podeGerirFinanceiroVan(){if(!['admin','funcionario'].includes(vanmathiPerfilAtual?.role)){alert('Disponível para os perfis administrativo e financeiro.');return false;}return true;}
+  function renderizarSelectClientesVenda(selecionado=''){const el=document.getElementById('vendaClienteId');if(!el)return;const clientes=listaClientes.filter(c=>!c.arquivado);el.innerHTML='<option value="">Sem cliente vinculado</option>'+clientes.map(c=>`<option value="${escaparHtmlVan(c.id)}" ${String(c.id)===String(selecionado)?'selected':''}>${escaparHtmlVan(c.nome)}</option>`).join('');}
+  function ajustarPagamentoParcelasVenda(){const qtd=Math.max(1,Math.min(60,parseInt(document.getElementById('vendaQtdParcelas')?.value)||1));const campo=document.getElementById('vendaQtdParcelas');if(campo)campo.value=qtd;const pag=document.getElementById('vendaPagamento');if(pag&&qtd>1&&pag.value==='Recebido')pag.value='Pendente';}
+  function moedaNumeroVan(v){return Math.round((Number(v)||0)*100)/100;}
+  function criarParcelamentoVan(total,qtd,primeiroVencimento){const n=Math.max(1,Math.min(60,parseInt(qtd)||1));const cents=Math.round((Number(total)||0)*100);const base=Math.floor(cents/n);const inicio=primeiroVencimento||new Date().toISOString().slice(0,10);const d=new Date(inicio+'T12:00:00');return {quantidade:n,valorParcela:base/100,parcelas:Array.from({length:n},(_,i)=>{const venc=new Date(d);venc.setMonth(venc.getMonth()+i);return {numero:i+1,valor:(i===n-1?cents-base*(n-1):base)/100,pago:0,status:'Pendente',vencimento:venc.toISOString().slice(0,10),pagoEm:null};}),recebimentos:[]};}
+  function reconciliarParcelasComRecebimentos(v){if(!v||!v.parcelamento||!Array.isArray(v.parcelamento.parcelas))return;let restante=moedaNumeroVan((v.recebimentos||[]).reduce((a,p)=>a+(Number(p.valor)||0),0));const ultimo=(v.recebimentos||[]).slice(-1)[0];for(const p of v.parcelamento.parcelas){const valor=Math.max(0,Number(p.valor)||0);p.pago=moedaNumeroVan(Math.min(valor,restante));p.status=p.pago>=valor-0.005?'Pago':p.pago>0?'Parcial':'Pendente';p.pagoEm=p.status==='Pago'?(p.pagoEm||ultimo?.data||null):null;restante=moedaNumeroVan(restante-p.pago);}}
+  function ajustarPlanoVendaAoTotal(v){if(!v)return;const total=moedaNumeroVan(v.total);const plano=v.parcelamento;if(!plano||!Array.isArray(plano.parcelas)||!plano.parcelas.length){v.parcelamento=criarParcelamentoVan(total,1,v.data);atualizarResumoFinanceiroVenda(v);return;}const soma=moedaNumeroVan(plano.parcelas.reduce((a,p)=>a+(Number(p.valor)||0),0));if(Math.abs(soma-total)>0.005){const n=Number(plano.quantidade)||plano.parcelas.length;const inicio=plano.parcelas[0]?.vencimento||v.data;v.parcelamento=criarParcelamentoVan(total,n,inicio);let recebido=moedaNumeroVan((v.recebimentos||[]).reduce((a,p)=>a+(Number(p.valor)||0),0));for(const p of v.parcelamento.parcelas){const aplicar=Math.min(Number(p.valor)||0,recebido);p.pago=moedaNumeroVan(aplicar);p.status=p.pago>=Number(p.valor)-0.005?'Pago':p.pago>0?'Parcial':'Pendente';if(p.status==='Pago')p.pagoEm=(v.recebimentos||[]).slice(-1)[0]?.data||null;recebido=moedaNumeroVan(recebido-aplicar);}}atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);}
+  function atualizarResumoFinanceiroVenda(v){const total=moedaNumeroVan(v.total);const recebido=moedaNumeroVan((v.recebimentos||[]).reduce((s,p)=>s+(Number(p.valor)||0),0));v.totalRecebido=recebido;v.saldoRestante=Math.max(0,moedaNumeroVan(total-recebido));const ps=Array.isArray(v.parcelamento?.parcelas)?v.parcelamento.parcelas:[];v.parcelasPagas=ps.filter(p=>Number(p.pago)>=Number(p.valor)-0.005).length;v.parcelasTotal=Number(v.parcelamento?.quantidade)||ps.length||1;v.valorParcela=Number(v.parcelamento?.valorParcela)||total/v.parcelasTotal;v.pagamentoStatus=v.saldoRestante<=0.005?'Recebido':(recebido>0?'Parcial':'Pendente');return v;}
+  function obterVendaFinanceira(id){return listaVendas.find(v=>String(v.id)===String(id));}
+  function sincronizarRecibosDaVenda(v){if(!v)return;listaRecibos.filter(r=>String(r.vendaId||'')===String(v.id)).forEach(r=>{const totalRecibo=Number(r.total)||0;r.recebido=Math.min(totalRecibo,Number(v.totalRecebido)||0);r.pendente=Math.max(0,Math.round((totalRecibo-r.recebido)*100)/100);r.situacao=r.pendente<=0.005?'Pago':r.recebido>0?'Parcial':'Pendente';r.baixas=(v.recebimentos||[]).map(p=>({...p}));});}
+  function salvarPacoteComercialVanSemDisparar(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));}
+  function registrarPagamentoVenda(id,valorForcado=null,origem='gestao'){if(!podeGerirFinanceiroVan())return;const v=obterVendaFinanceira(id);if(!v)return;v.recebimentos=Array.isArray(v.recebimentos)?v.recebimentos:[];v.parcelamento=v.parcelamento||criarParcelamentoVan(v.total,1,v.data);v.parcelamento.parcelas=Array.isArray(v.parcelamento.parcelas)?v.parcelamento.parcelas:[];atualizarResumoFinanceiroVenda(v);if(v.saldoRestante<=0.005){alert('Esta venda já está totalmente recebida.');return;}let entrada=valorForcado;if(entrada===null){const resp=prompt(`Venda: ${v.produtoNome}\nSaldo restante: ${moedaVan(v.saldoRestante)}\nValor recebido agora (R$):`);if(resp===null)return;entrada=Number(String(resp).replace(',','.'));}const valor=moedaNumeroVan(entrada);if(!Number.isFinite(valor)||valor<=0||valor>v.saldoRestante+0.005){alert('Informe um valor válido, maior que zero e até o saldo restante.');return;}const agora=new Date().toISOString();v.recebimentos.push({id:'pg_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),valor,data:agora,origem,usuario:vanmathiUsuario?.uid||''});let restante=valor;for(const parcela of v.parcelamento.parcelas){const falta=Math.max(0,(Number(parcela.valor)||0)-(Number(parcela.pago)||0));if(falta<=0.005)continue;const alocar=Math.min(falta,restante);parcela.pago=moedaNumeroVan((Number(parcela.pago)||0)+alocar);parcela.status=parcela.pago>=Number(parcela.valor)-0.005?'Pago':'Parcial';if(parcela.status==='Pago')parcela.pagoEm=agora;restante=moedaNumeroVan(restante-alocar);if(restante<=0.005)break;}atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);salvarTudoLocal(true);salvarPacoteComercialVanSemDisparar();renderizarVendas();renderizarClientes();renderizarRecibos();atualizarRelatorios();if(document.getElementById('modalParcelasVenda')?.classList.contains('active'))abrirModalParcelasVenda(v.id);if(reciboVisualizadoId){const rv=listaRecibos.find(r=>String(r.id)===String(reciboVisualizadoId));if(rv&&String(rv.vendaId)===String(v.id))mostrarRecibo(rv.id);}mostrarToast('Pagamento registrado e informações financeiras atualizadas.');}
+  function marcarParcelaComoPaga(vendaId,numero){const v=obterVendaFinanceira(vendaId);const p=v?.parcelamento?.parcelas?.find(x=>Number(x.numero)===Number(numero));if(!v||!p)return;const falta=Math.max(0,Number(p.valor)-Number(p.pago||0));if(falta<=0.005){alert('Esta parcela já está paga.');return;}registrarPagamentoVenda(vendaId,falta,'parcela_'+numero);}
+  function abrirModalParcelasVenda(id){const v=obterVendaFinanceira(id);if(!v)return;v.parcelamento=v.parcelamento||criarParcelamentoVan(v.total,1,v.data);if(!Array.isArray(v.parcelamento.parcelas)||!v.parcelamento.parcelas.length)v.parcelamento=criarParcelamentoVan(v.total,1,v.data);atualizarResumoFinanceiroVenda(v);const el=document.getElementById('conteudoParcelasVenda');if(!el){setTimeout(()=>abrirModalParcelasVenda(id),100);return;}document.getElementById('tituloParcelasVenda').textContent='Parcelas — '+(v.produtoNome||'Venda');const n=Number(v.parcelamento.quantidade)||v.parcelamento.parcelas.length;const rec=Number(v.totalRecebido)||0,total=Number(v.total)||0,saldo=Number(v.saldoRestante??(total-rec)),pct=total>0?Math.min(100,rec/total*100):0;const linhas=v.parcelamento.parcelas.map(p=>`<tr><td>${p.numero}</td><td>${dataVan(p.vencimento)}</td><td>${moedaVan(p.valor)}</td><td>${moedaVan(p.pago||0)}</td><td><span class="status-pill-van" style="background:${p.status==='Pago'?'#dcfce7':p.status==='Parcial'?'#fef3c7':'#fee2e2'};color:${p.status==='Pago'?'#166534':p.status==='Parcial'?'#92400e':'#991b1b'}">${escaparHtmlVan(p.status||'Pendente')}</span></td><td>${Number(p.pago)<Number(p.valor)-0.005?`<button class="btn-secondary" onclick="marcarParcelaComoPaga('${escaparHtmlVan(v.id)}',${p.numero})">Dar baixa</button>`:'—'}</td></tr>`).join('');const hist=(v.recebimentos||[]).slice().reverse().map(p=>`<li>${dataVan(p.data)} — <strong>${moedaVan(p.valor)}</strong> <small>(${escaparHtmlVan(p.origem||'recebimento')})</small></li>`).join('')||'<li>Nenhum pagamento registrado.</li>';el.innerHTML=`<div class="metrics-grid"><div class="metric-card"><span>Valor unitário</span><h3>${moedaVan(v.valorProdutoUnidade||total/Math.max(1,Number(v.qtd)||1))}</h3></div><div class="metric-card"><span>Valor total</span><h3>${moedaVan(total)}</h3></div><div class="metric-card"><span>Valor por parcela</span><h3>${moedaVan(v.parcelamento.valorParcela||total/n)}</h3><small>${n} parcelas combinadas</small></div><div class="metric-card"><span>Saldo restante</span><h3>${moedaVan(saldo)}</h3></div><div class="metric-card"><span>Parcelas pagas</span><h3>${Number(v.parcelasPagas)||0} de ${n}</h3></div><div class="metric-card"><span>Total recebido</span><h3>${moedaVan(rec)}</h3></div></div><div class="card-box" style="margin:12px 0;padding:12px"><div style="display:flex;justify-content:space-between"><strong>Progresso dos pagamentos</strong><span>${pct.toFixed(0)}%</span></div><div style="height:8px;background:var(--border);border-radius:20px;overflow:hidden;margin:9px 0"><div style="height:100%;width:${pct}%;background:var(--success)"></div></div><button class="btn-primary" onclick="registrarPagamentoVenda('${escaparHtmlVan(v.id)}')">＋ Registrar recebimento</button> <button class="btn-secondary" onclick="gerarReciboDaVenda('${escaparHtmlVan(v.id)}')">🧾 Gerar recibo</button></div><h3>Parcelas</h3><div class="table-container"><table><thead><tr><th>Nº</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Situação</th><th>Ação</th></tr></thead><tbody>${linhas}</tbody></table></div><h3 style="margin-top:18px">Histórico de recebimentos</h3><ul>${hist}</ul>`;document.getElementById('modalParcelasVenda').classList.add('active');}
+  function fecharModalParcelasVenda(){document.getElementById('modalParcelasVenda')?.classList.remove('active');}
+  function gerarReciboDaVenda(id){if(!podeGerirFinanceiroVan())return;const v=obterVendaFinanceira(id);if(!v)return;const existente=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));if(existente){mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');mostrarRecibo(existente.id);return;}const cliente=listaClientes.find(c=>String(c.id)===String(v.clienteId));if(!cliente){alert('Vincule um cliente à venda antes de gerar o recibo. Edite a venda e selecione o cliente.');return;}const seq=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0)+1;atualizarResumoFinanceiroVenda(v);const total=Number(v.total)||0;const r={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaId:v.id,sequencia:seq,numero:String(seq).padStart(4,'0'),data:v.data||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:[{descricao:v.produtoNome,detalhes:(v.composicaoMateriais||[]).map(m=>m.nome||m.materialNome||'').filter(Boolean).join(', '),qtd:Number(v.qtd)||1,preco:Number(v.valorProdutoUnidade)||(total/Math.max(1,Number(v.qtd)||1)),total}],subtotal:total,desconto:0,total,recebido:Number(v.totalRecebido)||0,pendente:Number(v.saldoRestante??total),formaPagamento:'Parcelado',observacao:'Recibo vinculado à venda '+v.produtoNome,parcelamento:JSON.parse(JSON.stringify(v.parcelamento||{})),baixas:(v.recebimentos||[]).map(p=>({...p})),situacao:(Number(v.saldoRestante)||0)<=0.005?'Pago':(Number(v.totalRecebido)||0)>0?'Parcial':'Pendente',empresa:{...dadosEmpresa,logo:''},criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};listaRecibos.push(r);salvarPacoteComercialVan();renderizarRecibos();mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');mostrarRecibo(r.id);mostrarToast('Recibo vinculado à venda e ao histórico de pagamentos.');}
+
+  const modalParcelasMarkupVan = `<div class="modal-overlay" id="modalParcelasVenda" style="z-index:10020"><div class="modal-box" style="width:min(760px,96vw);max-height:88vh;overflow:auto"><div class="modal-header"><span id="tituloParcelasVenda">Parcelas da venda</span><span style="cursor:pointer;color:var(--text-muted)" onclick="fecharModalParcelasVenda()">✕</span></div><div id="conteudoParcelasVenda"></div><div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn-secondary" onclick="fecharModalParcelasVenda()">Fechar</button></div></div></div>`;
+  document.addEventListener('DOMContentLoaded',()=>{if(!document.getElementById('modalParcelasVenda'))document.body.insertAdjacentHTML('beforeend',modalParcelasMarkupVan);});
   // ===== Clientes, recibos e dados comerciais da empresa =====
   function escaparHtmlVan(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function moedaVan(v){return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
   function dataVan(v){if(!v)return '—';const d=new Date(String(v).length===10?String(v)+'T12:00:00':v);return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('pt-BR');}
   function apenasAdminVan(){if(vanmathiPerfilAtual?.role!=='admin'){alert('Esta função é exclusiva para administradores.');return false;}return true;}
   function salvarPacoteComercialVan(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));salvarTudoLocal(true);}
-  function novoCliente(){if(!apenasAdminVan())return;document.getElementById('clienteIdEditando').value='';['clienteNome','clienteTelefone','clienteEmail','clienteDocumento','clienteEndereco','clienteObservacoes'].forEach(id=>document.getElementById(id).value='');document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
+  function novoCliente(){if(!podeGerirFinanceiroVan())return;document.getElementById('clienteIdEditando').value='';['clienteNome','clienteTelefone','clienteEmail','clienteDocumento','clienteEndereco','clienteObservacoes'].forEach(id=>document.getElementById(id).value='');document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
   function cancelarEdicaoCliente(){document.getElementById('formCliente').style.display='none';}
-  function salvarCliente(){if(!apenasAdminVan())return;const nome=document.getElementById('clienteNome').value.trim();if(!nome){alert('Informe o nome do cliente.');return;}const id=document.getElementById('clienteIdEditando').value;const dados={nome,telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),documento:document.getElementById('clienteDocumento').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),observacoes:document.getElementById('clienteObservacoes').value.trim(),atualizadoEm:new Date().toISOString()};if(id){const i=listaClientes.findIndex(c=>String(c.id)===id);if(i>=0)listaClientes[i]={...listaClientes[i],...dados};}else listaClientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),...dados,criadoEm:new Date().toISOString()});salvarPacoteComercialVan();cancelarEdicaoCliente();renderizarClientes();mostrarToast('Cliente salvo com sucesso.');}
-  function editarCliente(id){if(!apenasAdminVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;document.getElementById('clienteIdEditando').value=c.id;document.getElementById('clienteNome').value=c.nome||'';document.getElementById('clienteTelefone').value=c.telefone||'';document.getElementById('clienteEmail').value=c.email||'';document.getElementById('clienteDocumento').value=c.documento||'';document.getElementById('clienteEndereco').value=c.endereco||'';document.getElementById('clienteObservacoes').value=c.observacoes||'';document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
-  function excluirCliente(id){if(!apenasAdminVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;const tem=listaRecibos.some(r=>String(r.clienteId)===String(id));if(tem){if(!confirm('Este cliente tem recibos vinculados. Para preservar o histórico financeiro, o cadastro será arquivado e deixará de aparecer na lista. Continuar?'))return;c.arquivado=true;}else{if(!confirm('Excluir este cliente?'))return;listaClientes=listaClientes.filter(x=>String(x.id)!==String(id));}salvarPacoteComercialVan();renderizarClientes();mostrarToast(tem?'Cliente arquivado; histórico preservado.':'Cliente excluído.');}
-  function renderizarClientes(){const tbody=document.getElementById('tabelaClientes');if(!tbody)return;const q=(document.getElementById('buscaClientes')?.value||'').toLowerCase().trim();const arr=listaClientes.filter(c=>!c.arquivado&&[c.nome,c.telefone,c.email,c.documento].some(v=>String(v||'').toLowerCase().includes(q)));document.getElementById('contadorClientes').textContent=arr.length+' cliente'+(arr.length===1?'':'s');if(!arr.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente encontrado.</td></tr>';return;}tbody.innerHTML=arr.map(c=>{const rs=listaRecibos.filter(r=>String(r.clienteId)===String(c.id));const total=rs.reduce((s,r)=>s+(Number(r.total)||0),0);return `<tr><td><strong>${escaparHtmlVan(c.nome)}</strong><div style="font-size:11px;color:var(--text-muted)">${escaparHtmlVan(c.email||'')}</div></td><td>${escaparHtmlVan(c.telefone||'—')}</td><td>${rs.length}</td><td>${moedaVan(total)}</td><td><button class="btn-secondary" onclick="editarCliente('${escaparHtmlVan(c.id)}')">✏️</button> <button class="btn-secondary" onclick="novoRecibo('${escaparHtmlVan(c.id)}')">🧾</button> <button class="btn-danger" onclick="excluirCliente('${escaparHtmlVan(c.id)}')">×</button></td></tr>`;}).join('');}
+  function salvarCliente(){if(!podeGerirFinanceiroVan())return;const nome=document.getElementById('clienteNome').value.trim();if(!nome){alert('Informe o nome do cliente.');return;}const id=document.getElementById('clienteIdEditando').value;const dados={nome,telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),documento:document.getElementById('clienteDocumento').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),observacoes:document.getElementById('clienteObservacoes').value.trim(),atualizadoEm:new Date().toISOString()};if(id){const i=listaClientes.findIndex(c=>String(c.id)===id);if(i>=0)listaClientes[i]={...listaClientes[i],...dados};}else listaClientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),...dados,criadoEm:new Date().toISOString()});salvarPacoteComercialVan();cancelarEdicaoCliente();renderizarClientes();mostrarToast('Cliente salvo com sucesso.');}
+  function editarCliente(id){if(!podeGerirFinanceiroVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;document.getElementById('clienteIdEditando').value=c.id;document.getElementById('clienteNome').value=c.nome||'';document.getElementById('clienteTelefone').value=c.telefone||'';document.getElementById('clienteEmail').value=c.email||'';document.getElementById('clienteDocumento').value=c.documento||'';document.getElementById('clienteEndereco').value=c.endereco||'';document.getElementById('clienteObservacoes').value=c.observacoes||'';document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
+  function excluirCliente(id){if(!podeGerirFinanceiroVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;const tem=listaRecibos.some(r=>String(r.clienteId)===String(id));if(tem){if(!confirm('Este cliente tem recibos vinculados. Para preservar o histórico financeiro, o cadastro será arquivado e deixará de aparecer na lista. Continuar?'))return;c.arquivado=true;}else{if(!confirm('Excluir este cliente?'))return;listaClientes=listaClientes.filter(x=>String(x.id)!==String(id));}salvarPacoteComercialVan();renderizarClientes();mostrarToast(tem?'Cliente arquivado; histórico preservado.':'Cliente excluído.');}
+  function renderizarClientes(){const tbody=document.getElementById('tabelaClientes');if(!tbody)return;renderizarSelectClientesVenda(document.getElementById('vendaClienteId')?.value||'');const q=(document.getElementById('buscaClientes')?.value||'').toLowerCase().trim();const arr=listaClientes.filter(c=>!c.arquivado&&[c.nome,c.telefone,c.email,c.documento].some(v=>String(v||'').toLowerCase().includes(q)));document.getElementById('contadorClientes').textContent=arr.length+' cliente'+(arr.length===1?'':'s');if(!arr.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente encontrado.</td></tr>';return;}tbody.innerHTML=arr.map(c=>{const vs=listaVendas.filter(v=>String(v.clienteId||'')===String(c.id));const rs=listaRecibos.filter(r=>String(r.clienteId)===String(c.id)&&!r.vendaId);const total=vs.reduce((a,v)=>a+(Number(v.total)||0),0)+rs.reduce((a,r)=>a+(Number(r.total)||0),0);const recebido=vs.reduce((a,v)=>a+(Array.isArray(v.recebimentos)?v.recebimentos.reduce((b,p)=>b+(Number(p.valor)||0),0):(v.pagamentoStatus==='Recebido'?Number(v.total)||0:0)),0)+rs.reduce((a,r)=>a+(Number(r.recebido)||0),0);return `<tr><td><strong>${escaparHtmlVan(c.nome)}</strong><div style="font-size:11px;color:var(--text-muted)">${escaparHtmlVan(c.email||'')}</div></td><td>${escaparHtmlVan(c.telefone||'—')}</td><td>${vs.length+rs.length}</td><td>${moedaVan(total)}<div style="font-size:11px;color:var(--text-muted)">Recebido: ${moedaVan(recebido)} · Saldo: ${moedaVan(Math.max(0,total-recebido))}</div></td><td><button class="btn-secondary" onclick="editarCliente('${escaparHtmlVan(c.id)}')">✏️</button> <button class="btn-secondary" onclick="novoRecibo('${escaparHtmlVan(c.id)}')">🧾</button> <button class="btn-danger" onclick="excluirCliente('${escaparHtmlVan(c.id)}')">×</button></td></tr>`;}).join('');}
   function atualizarSelectClientesRecibo(selecionado=''){const el=document.getElementById('reciboCliente');if(!el)return;el.innerHTML='<option value="">Selecione um cliente</option>'+listaClientes.filter(c=>!c.arquivado).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR')).map(c=>`<option value="${escaparHtmlVan(c.id)}">${escaparHtmlVan(c.nome)}</option>`).join('');if(selecionado)el.value=String(selecionado);}
   function preencherDadosClienteRecibo(){const c=listaClientes.find(x=>String(x.id)===String(document.getElementById('reciboCliente').value));if(c&&!document.getElementById('reciboObservacao').value&&c.observacoes)document.getElementById('reciboObservacao').value='Observação do cliente: '+c.observacoes;}
-  function novoRecibo(clienteId=''){if(!apenasAdminVan())return;if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}itensRascunhoRecibo=[];document.getElementById('tituloFormRecibo').textContent='Novo recibo';document.getElementById('reciboData').value=new Date().toISOString().slice(0,10);document.getElementById('reciboForma').value='PIX';document.getElementById('reciboPago').value='0';document.getElementById('reciboDesconto').value='0';document.getElementById('reciboObservacao').value='';atualizarSelectClientesRecibo(clienteId);adicionarItemRecibo();renderizarItensRascunhoRecibo();atualizarTotaisRecibo();document.getElementById('formRecibo').style.display='block';document.getElementById('visualizadorRecibo').style.display='none';document.getElementById('formRecibo').scrollIntoView({behavior:'smooth',block:'start'});}
+  function novoRecibo(clienteId=''){if(!podeGerirFinanceiroVan())return;if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}itensRascunhoRecibo=[];document.getElementById('tituloFormRecibo').textContent='Novo recibo';document.getElementById('reciboData').value=new Date().toISOString().slice(0,10);document.getElementById('reciboForma').value='PIX';document.getElementById('reciboPago').value='0';document.getElementById('reciboDesconto').value='0';document.getElementById('reciboObservacao').value='';atualizarSelectClientesRecibo(clienteId);adicionarItemRecibo();renderizarItensRascunhoRecibo();atualizarTotaisRecibo();document.getElementById('formRecibo').style.display='block';document.getElementById('visualizadorRecibo').style.display='none';document.getElementById('formRecibo').scrollIntoView({behavior:'smooth',block:'start'});}
   function cancelarRecibo(){document.getElementById('formRecibo').style.display='none';}
   function adicionarItemRecibo(item={}){itensRascunhoRecibo.push({descricao:item.descricao||'',detalhes:item.detalhes||'',qtd:Number(item.qtd)||1,preco:Number(item.preco)||0,produtoId:item.produtoId||''});renderizarItensRascunhoRecibo();}
   function adicionarProdutoSalvoRecibo(){if(!listaProdutosSalvos.length){alert('Não há produtos salvos. Você pode preencher o item manualmente.');return;}const op=listaProdutosSalvos.map((p,i)=>`${i+1}. ${p.nome} — ${moedaVan(obterNumeroMoeda(p.precoVenda||p.precoSugerido))}`).join('\n');const resp=prompt('Digite o número do produto salvo:\n'+op);if(resp===null)return;const p=listaProdutosSalvos[Number(resp)-1];if(!p){alert('Número inválido.');return;}adicionarItemRecibo({descricao:p.nome,detalhes:[p.materialNome,p.cor,p.composicaoMateriais?.map?.(x=>x.cor||x.nome).filter(Boolean).join(' + ')].filter(Boolean).join(' · '),preco:obterNumeroMoeda(p.precoVenda||p.precoSugerido),produtoId:p.id});}
@@ -3233,10 +3286,10 @@
   function removerItemRecibo(i){itensRascunhoRecibo.splice(i,1);renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
   function calcularTotaisRascunho(){const subtotal=itensRascunhoRecibo.reduce((s,i)=>s+(Math.max(0,Number(i.qtd)||0)*Math.max(0,Number(i.preco)||0)),0);const desconto=Math.min(subtotal,Math.max(0,Number(document.getElementById('reciboDesconto')?.value)||0));const total=Math.max(0,subtotal-desconto);const recebido=Math.min(total,Math.max(0,Number(document.getElementById('reciboPago')?.value)||0));return {subtotal,desconto,total,recebido,pendente:Math.max(0,total-recebido)};}
   function atualizarTotaisRecibo(){const t=calcularTotaisRascunho();const e=document.getElementById('reciboTotalExibido');if(e)e.value=moedaVan(t.total);const r=document.getElementById('resumoPagamentoRecibo');if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong><br>Recebido: <strong style="color:var(--success)">${moedaVan(t.recebido)}</strong> · Pendente: <strong style="color:var(--warning)">${moedaVan(t.pendente)}</strong>`;}
-  function salvarRecibo(){if(!apenasAdminVan())return;const cliente=listaClientes.find(c=>String(c.id)===String(document.getElementById('reciboCliente').value));if(!cliente){alert('Selecione um cliente.');return;}if(!itensRascunhoRecibo.length||itensRascunhoRecibo.some(i=>!String(i.descricao||'').trim()||Number(i.qtd)<1||Number(i.preco)<0)){alert('Inclua ao menos um item válido, com descrição, quantidade e preço.');return;}const t=calcularTotaisRascunho();if(t.total<=0){alert('O valor total precisa ser maior que zero.');return;}const maior=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0);const seq=maior+1;const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data:document.getElementById('reciboData').value||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao).trim(),detalhes:String(i.detalhes||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)})),subtotal:t.subtotal,desconto:t.desconto,total:t.total,recebido:t.recebido,pendente:t.pendente,formaPagamento:document.getElementById('reciboForma').value,observacao:document.getElementById('reciboObservacao').value.trim(),situacao:t.pendente<=0?'Pago':t.recebido>0?'Parcial':'Pendente',empresa:{...dadosEmpresa,logo:''},criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};listaRecibos.push(recibo);salvarPacoteComercialVan();cancelarRecibo();renderizarRecibos();mostrarRecibo(recibo.id);mostrarToast('Recibo '+recibo.numero+' emitido com sucesso.');}
+  function salvarRecibo(){if(!podeGerirFinanceiroVan())return;const cliente=listaClientes.find(c=>String(c.id)===String(document.getElementById('reciboCliente').value));if(!cliente){alert('Selecione um cliente.');return;}if(!itensRascunhoRecibo.length||itensRascunhoRecibo.some(i=>!String(i.descricao||'').trim()||Number(i.qtd)<1||Number(i.preco)<0)){alert('Inclua ao menos um item válido, com descrição, quantidade e preço.');return;}const t=calcularTotaisRascunho();if(t.total<=0){alert('O valor total precisa ser maior que zero.');return;}const maior=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0);const seq=maior+1;const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data:document.getElementById('reciboData').value||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao).trim(),detalhes:String(i.detalhes||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)})),subtotal:t.subtotal,desconto:t.desconto,total:t.total,recebido:t.recebido,pendente:t.pendente,formaPagamento:document.getElementById('reciboForma').value,observacao:document.getElementById('reciboObservacao').value.trim(),situacao:t.pendente<=0?'Pago':t.recebido>0?'Parcial':'Pendente',empresa:{...dadosEmpresa,logo:''},criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};listaRecibos.push(recibo);salvarPacoteComercialVan();cancelarRecibo();renderizarRecibos();mostrarRecibo(recibo.id);mostrarToast('Recibo '+recibo.numero+' emitido com sucesso.');}
   function renderizarRecibos(){const tb=document.getElementById('tabelaRecibos');if(!tb)return;const q=(document.getElementById('buscaRecibos')?.value||'').toLowerCase().trim();const arr=[...listaRecibos].sort((a,b)=>(Number(b.sequencia)||0)-(Number(a.sequencia)||0)).filter(r=>[r.numero,r.cliente?.nome,r.data].some(v=>String(v||'').toLowerCase().includes(q)));tb.innerHTML=arr.length?arr.map(r=>`<tr><td><strong>#${escaparHtmlVan(r.numero||r.sequencia)}</strong></td><td>${dataVan(r.data)}</td><td>${escaparHtmlVan(r.cliente?.nome||'Cliente removido')}</td><td>${moedaVan(r.total)}</td><td>${moedaVan(r.recebido)}</td><td><span class="status-pill-van" style="background:${r.situacao==='Pago'?'#dcfce7':r.situacao==='Parcial'?'#fef3c7':'#fee2e2'};color:${r.situacao==='Pago'?'#166534':r.situacao==='Parcial'?'#92400e':'#991b1b'}">${escaparHtmlVan(r.situacao||'Pendente')}</span></td><td><button class="btn-secondary" onclick="mostrarRecibo('${escaparHtmlVan(r.id)}')">Ver</button> <button class="btn-secondary" onclick="registrarBaixaRecibo('${escaparHtmlVan(r.id)}')">Receber</button> <button class="btn-danger" onclick="excluirRecibo('${escaparHtmlVan(r.id)}')">×</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum recibo encontrado.</td></tr>';document.getElementById('totalRecibosVan').textContent=listaRecibos.length;document.getElementById('valorRecibosVan').textContent=moedaVan(listaRecibos.reduce((s,r)=>s+(Number(r.total)||0),0));document.getElementById('pendenteRecibosVan').textContent=moedaVan(listaRecibos.reduce((s,r)=>s+(Number(r.pendente)||0),0));}
-  function excluirRecibo(id){if(!apenasAdminVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||!confirm('Excluir o recibo '+r.numero+'? Esta ação não pode ser desfeita.'))return;listaRecibos=listaRecibos.filter(x=>String(x.id)!==String(id));salvarPacoteComercialVan();renderizarRecibos();fecharVisualizadorRecibo();mostrarToast('Recibo excluído.');}
-  function registrarBaixaRecibo(id){if(!apenasAdminVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||Number(r.pendente)<=0){alert('Este recibo não tem saldo pendente.');return;}const v=prompt(`Saldo pendente: ${moedaVan(r.pendente)}\nInforme o valor recebido agora (R$):`);if(v===null)return;const n=Number(String(v).replace(',','.'));if(!Number.isFinite(n)||n<=0||n>r.pendente+0.001){alert('Informe um valor válido, até o saldo pendente.');return;}r.recebido=Math.min(r.total,(Number(r.recebido)||0)+n);r.pendente=Math.max(0,Number(r.total)-r.recebido);r.situacao=r.pendente<=0.005?'Pago':'Parcial';r.baixas=Array.isArray(r.baixas)?r.baixas:[];r.baixas.push({valor:n,data:new Date().toISOString(),usuario:vanmathiUsuario?.uid||''});salvarPacoteComercialVan();renderizarRecibos();if(reciboVisualizadoId===id)mostrarRecibo(id);mostrarToast('Recebimento registrado.');}
+  function excluirRecibo(id){if(!podeGerirFinanceiroVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||!confirm('Excluir o recibo '+r.numero+'? Esta ação não pode ser desfeita.'))return;listaRecibos=listaRecibos.filter(x=>String(x.id)!==String(id));salvarPacoteComercialVan();renderizarRecibos();fecharVisualizadorRecibo();mostrarToast('Recibo excluído.');}
+  function registrarBaixaRecibo(id){if(!podeGerirFinanceiroVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||Number(r.pendente)<=0){alert('Este recibo não tem saldo pendente.');return;}if(r.vendaId){registrarPagamentoVenda(r.vendaId,null,'recibo');return;}const resp=prompt(`Saldo pendente: ${moedaVan(r.pendente)}\nInforme o valor recebido agora (R$):`);if(resp===null)return;const n=Number(String(resp).replace(',','.'));if(!Number.isFinite(n)||n<=0||n>r.pendente+0.001){alert('Informe um valor válido, até o saldo pendente.');return;}r.recebido=Math.min(r.total,(Number(r.recebido)||0)+n);r.pendente=Math.max(0,Number(r.total)-r.recebido);r.situacao=r.pendente<=0.005?'Pago':'Parcial';r.baixas=Array.isArray(r.baixas)?r.baixas:[];r.baixas.push({valor:n,data:new Date().toISOString(),usuario:vanmathiUsuario?.uid||''});salvarPacoteComercialVan();renderizarRecibos();renderizarClientes();atualizarRelatorios();if(reciboVisualizadoId===id)mostrarRecibo(id);mostrarToast('Recebimento registrado.');}
   function mostrarRecibo(id){const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r)return;reciboVisualizadoId=id;const e=r.empresa||dadosEmpresa;const cor=e.cor||'#0f2d53';const itens=(r.itens||[]).map(i=>`<tr><td>${escaparHtmlVan(i.descricao)}</td><td>${escaparHtmlVan(i.detalhes||'—')}</td><td style="text-align:center">${i.qtd}</td><td style="text-align:right">${moedaVan(i.preco)}</td><td style="text-align:right">${moedaVan(i.total)}</td></tr>`).join('');const logo=(e.logo||dadosEmpresa.logo)?`<img src="${e.logo||dadosEmpresa.logo}" alt="Logotipo da empresa">`:'';const html=`<div class="receipt-brand-van" style="border-color:${escaparHtmlVan(cor)}">${logo}<div><h1 style="margin:0;color:${escaparHtmlVan(cor)};font-size:24px">${escaparHtmlVan(e.nome||'Vanmathi Impressão 3D')}</h1>${e.razao?`<div>${escaparHtmlVan(e.razao)}</div>`:''}<div style="font-size:11px;color:#475569;margin-top:5px">${e.cnpj?'CNPJ: '+escaparHtmlVan(e.cnpj)+' · ':''}${escaparHtmlVan(e.email||'')}${e.telefone?' · '+escaparHtmlVan(e.telefone):''}</div>${e.endereco?`<div style="font-size:11px;color:#475569">${escaparHtmlVan(e.endereco)}</div>`:''}${e.site?`<div style="font-size:11px;color:#475569">${escaparHtmlVan(e.site)}</div>`:''}</div><div style="margin-left:auto;text-align:right"><strong style="font-size:18px">RECIBO DE VENDA</strong><div style="font-size:12px;margin-top:5px">Nº ${escaparHtmlVan(r.numero)}</div><div style="font-size:12px">Data: ${dataVan(r.data)}</div></div></div><div style="margin-bottom:20px"><h3 style="margin:0 0 8px;color:${escaparHtmlVan(cor)}">DADOS DO CLIENTE</h3><div><strong>${escaparHtmlVan(r.cliente?.nome||'')}</strong></div>${r.cliente?.documento?`<div>Documento: ${escaparHtmlVan(r.cliente.documento)}</div>`:''}${r.cliente?.telefone?`<div>Telefone: ${escaparHtmlVan(r.cliente.telefone)}</div>`:''}${r.cliente?.email?`<div>E-mail: ${escaparHtmlVan(r.cliente.email)}</div>`:''}${r.cliente?.endereco?`<div>Endereço: ${escaparHtmlVan(r.cliente.endereco)}</div>`:''}</div><h3 style="color:${escaparHtmlVan(cor)}">PRODUTOS</h3><table><thead><tr><th>Produto</th><th>Material / cores / detalhes</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead><tbody>${itens}</tbody></table><div style="width:min(330px,100%);margin:20px 0 0 auto;font-size:13px"><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Subtotal</span><strong>${moedaVan(r.subtotal)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Desconto</span><strong>${moedaVan(r.desconto)}</strong></div><div style="display:flex;justify-content:space-between;padding:12px 0;border-top:2px solid ${escaparHtmlVan(cor)};font-size:18px;color:${escaparHtmlVan(cor)}"><strong>VALOR TOTAL</strong><strong>${moedaVan(r.total)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Saldo pendente</span><strong>${moedaVan(r.pendente)}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0"><span>Pagamento</span><strong>${escaparHtmlVan(r.formaPagamento||'—')} · ${escaparHtmlVan(r.situacao||'Pendente')}</strong></div></div>${r.observacao?`<div style="margin-top:18px;padding:12px;background:#f8fafc;border-radius:6px;font-size:12px"><strong>Observações:</strong> ${escaparHtmlVan(r.observacao)}</div>`:''}<div style="border-top:1px solid #e5e7eb;margin-top:28px;padding-top:14px;text-align:center;font-size:12px;color:#475569">${escaparHtmlVan(e.mensagem||'Obrigado pela preferência!')}<br>${escaparHtmlVan(e.rodape||'')}${e.redeSocial?`<br>${escaparHtmlVan(e.redeSocial)}`:''}</div>`;document.getElementById('areaImpressaoRecibo').innerHTML=html;document.getElementById('visualizadorRecibo').style.display='block';document.getElementById('visualizadorRecibo').scrollIntoView({behavior:'smooth',block:'start'});}
   function fecharVisualizadorRecibo(){document.getElementById('visualizadorRecibo').style.display='none';reciboVisualizadoId=null;}
   function imprimirReciboAtual(){if(!reciboVisualizadoId)return;window.print();}
@@ -3249,8 +3302,11 @@
   document.addEventListener('DOMContentLoaded',()=>{renderizarClientes();renderizarRecibos();carregarFormularioEmpresa();});
 
 
+
+
   filtrarTabela();
   renderizarSelectLojas();
+  renderizarSelectClientesVenda('');
   renderizarSelectMaterialCalculadora();
   renderizarProdutosSalvos();
   renderizarVendas();
