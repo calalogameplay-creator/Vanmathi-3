@@ -227,6 +227,22 @@
       .calc-grid { grid-template-columns: 1fr; }
     }
 
+
+    /* Módulos administrativos: clientes, recibos e dados da empresa */
+    .form-grid-van{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;}
+    .form-grid-van .full{grid-column:1/-1;}
+    .logo-preview-van{width:112px;height:112px;border:1px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.025);color:var(--text-muted);}
+    .logo-preview-van img{max-width:100%;max-height:100%;object-fit:contain;}
+    .receipt-preview-van{background:#fff;color:#172033;border-radius:10px;padding:28px;max-width:850px;margin:0 auto;box-shadow:0 8px 30px rgba(0,0,0,.15);}
+    .receipt-preview-van table{min-width:0;color:#172033;font-size:12px;}
+    .receipt-preview-van th,.receipt-preview-van td{color:#172033;border-bottom:1px solid #e5e7eb;padding:10px 8px;}
+    .receipt-preview-van th{background:#f8fafc;color:#475569;}
+    .receipt-brand-van{display:flex;gap:16px;align-items:center;border-bottom:3px solid #0f2d53;padding-bottom:18px;margin-bottom:20px;}
+    .receipt-brand-van img{max-width:100px;max-height:75px;object-fit:contain;}
+    .status-pill-van{display:inline-block;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;}
+    @media(max-width:700px){.form-grid-van{grid-template-columns:1fr}.form-grid-van .full{grid-column:auto}.receipt-preview-van{padding:16px}.receipt-preview-van table{font-size:10px}}
+    @media print{body *{visibility:hidden!important}#areaImpressaoRecibo,#areaImpressaoRecibo *{visibility:visible!important}#areaImpressaoRecibo{position:absolute;left:0;top:0;width:100%;padding:0!important;margin:0!important;box-shadow:none!important}#areaImpressaoRecibo table{width:100%} .no-print-van{display:none!important}}
+
     /* Bloqueio visual e de interação até autenticação/autorização Firebase */
     body.vanmathi-bloqueado > .mobile-header,
     body.vanmathi-bloqueado > #sidebarOverlay,
@@ -281,6 +297,9 @@
         <li><a onclick="mudarAbaMenu(event, 'precificacao')">💰 Calculadora & Lojas</a></li>
         <li><a onclick="mudarAbaMenu(event, 'produtos')">🏷️ Meus Produtos Salvos</a></li>
         <li id="menuPintura" style="display:none;"><a onclick="mudarAbaMenu(event, 'pintura')">🎨 Pintura</a></li>
+        <li id="menuClientes" style="display:none;"><a onclick="mudarAbaMenu(event, 'clientes')">👤 Clientes</a></li>
+        <li id="menuRecibos" style="display:none;"><a onclick="mudarAbaMenu(event, 'recibos')">🧾 Recibos</a></li>
+        <li id="menuEmpresa" style="display:none;"><a onclick="mudarAbaMenu(event, 'empresa')">🏢 Dados da Empresa</a></li>
         <li id="menuUsuarios" style="display:none;"><a onclick="mudarAbaMenu(event, 'usuarios')">👥 Usuários</a></li>
       </ul>
     </div>
@@ -868,6 +887,75 @@
   <div class="toast-container" id="toastContainer"></div>
 
 
+
+    <div id="secao-clientes" class="content-section">
+      <div class="header-painel"><div class="header-title"><small>Relacionamento</small><h1>👤 Clientes</h1><p>Cadastre clientes uma única vez e consulte seu histórico de compras e recibos.</p></div><button class="btn-primary" onclick="novoCliente()">＋ Novo cliente</button></div>
+      <div class="card-box">
+        <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaClientes" placeholder="Buscar por nome, telefone ou e-mail" oninput="renderizarClientes()"></div><span class="badge-count" id="contadorClientes">0 clientes</span></div>
+        <div id="formCliente" style="display:none;border:1px solid var(--border);padding:16px;border-radius:10px;margin-bottom:18px;">
+          <input type="hidden" id="clienteIdEditando">
+          <div class="form-grid-van">
+            <div class="form-group"><label>Nome completo *</label><input id="clienteNome" maxlength="120" placeholder="Nome do cliente"></div>
+            <div class="form-group"><label>Telefone / WhatsApp</label><input id="clienteTelefone" maxlength="30" placeholder="(21) 99999-9999"></div>
+            <div class="form-group"><label>E-mail</label><input id="clienteEmail" type="email" maxlength="150" placeholder="cliente@email.com"></div>
+            <div class="form-group"><label>CPF/CNPJ (opcional)</label><input id="clienteDocumento" maxlength="24" placeholder="Documento do cliente"></div>
+            <div class="form-group full"><label>Endereço de entrega / cobrança</label><input id="clienteEndereco" maxlength="250" placeholder="Rua, número, bairro, cidade e CEP"></div>
+            <div class="form-group full"><label>Observações</label><input id="clienteObservacoes" maxlength="500" placeholder="Preferências, cores ou informações úteis"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarEdicaoCliente()">Cancelar</button><button class="btn-primary" onclick="salvarCliente()">💾 Salvar cliente</button></div>
+        </div>
+        <div class="table-container"><table><thead><tr><th>Cliente</th><th>Contato</th><th>Compras</th><th>Total registrado</th><th>Ações</th></tr></thead><tbody id="tabelaClientes"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente cadastrado.</td></tr></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="secao-recibos" class="content-section">
+      <div class="header-painel"><div class="header-title"><small>Documentos comerciais</small><h1>🧾 Recibos</h1><p>Emita, consulte, imprima ou compartilhe recibos de venda.</p></div><button class="btn-primary" onclick="novoRecibo()">＋ Novo recibo</button></div>
+      <div class="metrics-grid"><div class="metric-card"><span>Recibos emitidos</span><h3 id="totalRecibosVan">0</h3></div><div class="metric-card"><span>Total documentado</span><h3 id="valorRecibosVan">R$ 0,00</h3></div><div class="metric-card"><span>Saldo pendente</span><h3 id="pendenteRecibosVan">R$ 0,00</h3></div></div>
+      <div class="card-box">
+        <div id="formRecibo" style="display:none;border:1px solid var(--border);padding:18px;border-radius:10px;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><h3 id="tituloFormRecibo">Novo recibo</h3><button class="btn-secondary" onclick="cancelarRecibo()">Fechar</button></div>
+          <div class="form-grid-van">
+            <div class="form-group"><label>Cliente *</label><select id="reciboCliente" onchange="preencherDadosClienteRecibo()"><option value="">Selecione um cliente</option></select></div>
+            <div class="form-group"><label>Data de emissão</label><input id="reciboData" type="date"></div>
+            <div class="form-group"><label>Forma de pagamento</label><select id="reciboForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Outro</option></select></div>
+            <div class="form-group"><label>Valor já recebido (R$)</label><input id="reciboPago" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div>
+            <div class="form-group full"><label>Observação / prazo / detalhes do pedido</label><input id="reciboObservacao" maxlength="500" placeholder="Ex.: cores personalizadas, prazo de entrega..."></div>
+          </div>
+          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Material e cores / detalhes</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn-secondary" onclick="adicionarItemRecibo()">＋ Adicionar item</button><button class="btn-secondary" onclick="adicionarProdutoSalvoRecibo()">＋ Usar produto salvo</button></div>
+          <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="reciboDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div><div class="form-group"><label>Valor total</label><input id="reciboTotalExibido" readonly value="R$ 0,00"></div></div>
+          <div id="resumoPagamentoRecibo" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarRecibo()">Cancelar</button><button class="btn-primary" onclick="salvarRecibo()">💾 Salvar e gerar recibo</button></div>
+        </div>
+        <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaRecibos" placeholder="Buscar por número ou cliente" oninput="renderizarRecibos()"></div></div>
+        <div class="table-container"><table><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Total</th><th>Recebido</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="tabelaRecibos"><tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum recibo emitido.</td></tr></tbody></table></div>
+      </div>
+      <div id="visualizadorRecibo" style="display:none;margin-top:20px" class="card-box"><div class="table-toolbar no-print-van"><h3>Prévia do recibo</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="imprimirReciboAtual()">🖨️ Imprimir / Salvar PDF</button><button class="btn-secondary" onclick="compartilharReciboWhatsApp()">💬 WhatsApp</button><button class="btn-secondary" onclick="fecharVisualizadorRecibo()">Fechar</button></div></div><div id="areaImpressaoRecibo" class="receipt-preview-van"></div></div>
+    </div>
+
+    <div id="secao-empresa" class="content-section">
+      <div class="header-painel"><div class="header-title"><small>Configuração comercial</small><h1>🏢 Dados da Empresa</h1><p>Edite a identidade da empresa aqui. Os novos recibos usarão essas informações automaticamente.</p></div></div>
+      <div class="card-box">
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:20px"><div class="logo-preview-van" id="previewLogoEmpresa">🖼️ Logo</div><div style="flex:1;min-width:220px"><h3>Logotipo</h3><p class="subtitle">Prefira PNG com fundo transparente. A imagem será otimizada antes de ser salva.</p><input id="empresaLogoArquivo" type="file" accept="image/png,image/jpeg,image/webp" onchange="processarLogoEmpresa(event)"><button class="btn-secondary" style="margin-top:8px" onclick="removerLogoEmpresa()">Remover logotipo</button></div></div>
+        <div class="form-grid-van">
+          <div class="form-group"><label>Nome fantasia *</label><input id="empresaNome" maxlength="120" placeholder="Vanmathi Impressão 3D"></div>
+          <div class="form-group"><label>Razão social</label><input id="empresaRazao" maxlength="180" placeholder="Razão social, se aplicável"></div>
+          <div class="form-group"><label>CNPJ</label><input id="empresaCnpj" maxlength="24" placeholder="00.000.000/0000-00"></div>
+          <div class="form-group"><label>Inscrição estadual / municipal (opcional)</label><input id="empresaInscricao" maxlength="60" placeholder="Número, se aplicável"></div>
+          <div class="form-group"><label>E-mail comercial</label><input id="empresaEmail" type="email" maxlength="150" placeholder="contato@empresa.com.br"></div>
+          <div class="form-group"><label>Telefone / WhatsApp</label><input id="empresaTelefone" maxlength="30" placeholder="(21) 99999-9999"></div>
+          <div class="form-group"><label>Site oficial</label><input id="empresaSite" maxlength="200" placeholder="https://..." type="url"></div>
+          <div class="form-group"><label>Instagram / rede social</label><input id="empresaRedeSocial" maxlength="200" placeholder="https://instagram.com/..." type="url"></div>
+          <div class="form-group full"><label>Endereço comercial</label><input id="empresaEndereco" maxlength="250" placeholder="Rua, número, complemento, bairro, cidade - UF, CEP"></div>
+          <div class="form-group full"><label>Mensagem de agradecimento no recibo</label><input id="empresaMensagem" maxlength="180" placeholder="Obrigado pela preferência!"></div>
+          <div class="form-group full"><label>Rodapé / informações adicionais</label><input id="empresaRodape" maxlength="250" placeholder="Informações adicionais que devem aparecer no recibo"></div>
+          <div class="form-group full"><label>Cor principal dos documentos</label><input id="empresaCor" type="color" value="#0f2d53" style="height:44px;max-width:160px"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="carregarFormularioEmpresa()">Descartar alterações</button><button class="btn-primary" onclick="salvarDadosEmpresa()">💾 Salvar dados da empresa</button></div>
+        <p class="subtitle" style="margin-top:14px">Apenas administradores podem alterar estes dados. Os recibos antigos preservam uma cópia das informações usadas na emissão.</p>
+      </div>
+    </div>
+
     <div id="secao-pintura" class="content-section">
       <div class="header-painel">
         <div class="header-title"><small>Produção</small><h1>🎨 Pintura</h1><p>Veja somente as peças de pintura atribuídas a você.</p></div>
@@ -916,6 +1004,12 @@
     { id: 101, nome: "Fone 3D", loja: "Shopee", materialId: 1, materialNome: "PETG Preto (3D Print - PETG)", gramas: 60, horas: 2, minutos: 30, embalagem: "3.50", frete: "0.00", custoEnergiaHora: "0.20", margem: 100, precoSugerido: "R$ 29,35" }
   ];
   let listaVendas = JSON.parse(localStorage.getItem('Vanmathi_Dados_Vendas')) || [];
+  let listaClientes = JSON.parse(localStorage.getItem('Vanmathi_Dados_Clientes')) || [];
+  let listaRecibos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Recibos')) || [];
+  let dadosEmpresa = JSON.parse(localStorage.getItem('Vanmathi_Dados_Empresa')) || {nome:'Vanmathi Impressão 3D', razao:'', cnpj:'', inscricao:'', email:'', telefone:'', site:'', redeSocial:'', endereco:'', mensagem:'Obrigado pela preferência!', rodape:'', cor:'#0f2d53', logo:''};
+  let itensRascunhoRecibo = [];
+  let reciboVisualizadoId = null;
+  let logoEmpresaTemporaria = null;
   let listaLojas = JSON.parse(localStorage.getItem('Vanmathi_Dados_Lojas')) || [
     { id: 1, nome: "Shopee", taxa: 18 },
     { id: 2, nome: "Mercado Livre", taxa: 13 },
@@ -1045,13 +1139,19 @@
   function aplicarPermissoesInterface(role) {
     const menuUsuarios = document.getElementById('menuUsuarios');
     const menuPintura = document.getElementById('menuPintura');
+    const menuClientes = document.getElementById('menuClientes');
+    const menuRecibos = document.getElementById('menuRecibos');
+    const menuEmpresa = document.getElementById('menuEmpresa');
     const menuVendas = document.getElementById('menuVendas');
     if (menuUsuarios) menuUsuarios.style.display = role === 'admin' ? '' : 'none';
+    if (menuClientes) menuClientes.style.display = role === 'admin' ? '' : 'none';
+    if (menuRecibos) menuRecibos.style.display = role === 'admin' ? '' : 'none';
+    if (menuEmpresa) menuEmpresa.style.display = role === 'admin' ? '' : 'none';
     // O perfil Pintura usa exclusivamente a aba Gestão de Vendas, em modo de produção.
     if (menuPintura) menuPintura.style.display = 'none';
     document.querySelectorAll('.nav-links > li').forEach(li => {
       if (role === 'pintura') li.style.display = li.id === 'menuVendas' ? '' : 'none';
-      else if (li.id !== 'menuUsuarios' && li.id !== 'menuPintura') li.style.display = '';
+      else if (!['menuUsuarios','menuPintura','menuClientes','menuRecibos','menuEmpresa'].includes(li.id)) li.style.display = '';
     });
     if (role === 'pintura') {
       if (menuVendas) {
@@ -1144,7 +1244,10 @@
       produtos: listaProdutosSalvos,
       vendas: listaVendas,
       lojas: listaLojas,
-      marcas: listaMarcas
+      marcas: listaMarcas,
+      clientes: listaClientes,
+      recibos: listaRecibos,
+      dadosEmpresa: dadosEmpresa
     };
   }
 
@@ -1155,7 +1258,19 @@
     if (Array.isArray(pacote.vendas)) listaVendas = pacote.vendas;
     if (Array.isArray(pacote.lojas)) listaLojas = pacote.lojas;
     if (Array.isArray(pacote.marcas)) listaMarcas = pacote.marcas;
+    if (Array.isArray(pacote.clientes)) listaClientes = pacote.clientes;
+    if (Array.isArray(pacote.recibos)) listaRecibos = pacote.recibos;
+    if (pacote.dadosEmpresa && typeof pacote.dadosEmpresa === 'object') dadosEmpresa = {...dadosEmpresa, ...pacote.dadosEmpresa};
+    // Recalcula campos derivados das vendas sempre que chega um pacote novo do Firestore.
+    // Isso cobre alterações feitas neste dispositivo e em outros dispositivos conectados.
+    sincronizarVendasComProdutos();
     salvarTudoLocal(false);
+    localStorage.setItem('Vanmathi_Dados_Clientes', JSON.stringify(listaClientes));
+    localStorage.setItem('Vanmathi_Dados_Recibos', JSON.stringify(listaRecibos));
+    localStorage.setItem('Vanmathi_Dados_Empresa', JSON.stringify(dadosEmpresa));
+    if (document.getElementById('tabelaClientes')) renderizarClientes();
+    if (document.getElementById('tabelaRecibos')) renderizarRecibos();
+    if (document.getElementById('empresaNome')) carregarFormularioEmpresa();
     renderizarSelectLojas();
     renderizarSelectMaterialCalculadora();
     renderizarProdutosSalvos();
@@ -1172,6 +1287,9 @@
     localStorage.setItem('Vanmathi_Dados_Vendas', JSON.stringify(listaVendas));
     localStorage.setItem('Vanmathi_Dados_Lojas', JSON.stringify(listaLojas));
     localStorage.setItem('Vanmathi_Dados_Marcas', JSON.stringify(listaMarcas));
+    localStorage.setItem('Vanmathi_Dados_Clientes', JSON.stringify(listaClientes));
+    localStorage.setItem('Vanmathi_Dados_Recibos', JSON.stringify(listaRecibos));
+    localStorage.setItem('Vanmathi_Dados_Empresa', JSON.stringify(dadosEmpresa));
     if (dispararNuvem && !vanmathiCarregandoNuvem) {
       vanmathiUltimaAlteracaoLocal = Date.now();
       agendarSalvamentoNuvem();
@@ -1390,7 +1508,14 @@
   }
 
   async function salvarNuvemVanmathi() {
-    if (!vanmathiCloudConectada || !vanmathiUsuario || !vanmathiDb || vanmathiCarregandoNuvem) return;
+    if (!vanmathiCloudConectada || !vanmathiUsuario || !vanmathiDb) return;
+    // Se o listener estiver aplicando uma atualização remota, reagenda a gravação
+    // local pendente em vez de descartá-la silenciosamente.
+    if (vanmathiCarregandoNuvem) {
+      clearTimeout(vanmathiSaveTimer);
+      vanmathiSaveTimer = setTimeout(() => salvarNuvemVanmathi(), 350);
+      return;
+    }
     try {
       const dadosRef = vanmathiDb.collection('vanmathi').doc('dados');
       await dadosRef.set({
@@ -1434,7 +1559,11 @@
     document.getElementById('secao-' + secaoId).classList.add('active');
     
     document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
+    if (['clientes','recibos','empresa','usuarios'].includes(secaoId) && vanmathiPerfilAtual?.role !== 'admin') { alert('Esta área é exclusiva para administradores.'); return; }
     if (secaoId === 'usuarios') carregarUsuariosAdmin();
+    if (secaoId === 'clientes') renderizarClientes();
+    if (secaoId === 'recibos') { renderizarRecibos(); atualizarSelectClientesRecibo(); }
+    if (secaoId === 'empresa') carregarFormularioEmpresa();
     if (secaoId === 'pintura') carregarTarefasPintura();
 
     const painelFiltros = document.getElementById('painelFiltrosTopo');
@@ -2840,40 +2969,51 @@
     mostrarToast(`Carregado "${p.nome}" para edição!`);
   }
 
-  // Quando um produto é alterado em "Meus Produtos Salvos",
-  // as vendas vinculadas a ele passam a usar imediatamente os novos
-  // valores de preço, custo, lucro e pintura.
+  // Mantém os campos derivados das vendas alinhados ao cadastro atual do produto.
+  // Preserva quantidade, data, status do pedido e status de pagamento.
   function atualizarVendasDoProduto(produto) {
     if(!produto || !Array.isArray(listaVendas)) return;
-    const qtdPintura = obterNumeroMoeda(produto.valorPintura);
+    const composicaoAtual = obterComposicaoProduto(produto);
+    const gramasAtual = composicaoAtual.reduce((soma, item) => soma + (parseFloat(item.gramas) || 0), 0);
+    const horasAtual = (parseFloat(produto.horas) || 0) + ((parseFloat(produto.minutos) || 0) / 60);
     const novoPreco = obterNumeroMoeda(produto.precoVenda || produto.precoSugerido || produto.valor);
-    const novoCusto = obterNumeroMoeda(produto.custoOperacional);
+    const novoCusto = obterCustoOperacionalProduto(produto);
     const novoLucro = obterNumeroMoeda(produto.lucro);
-    const novaPrecisaPintura = produto.precisaPintura === true || produto.precisaPintura === 'sim';
+    const precisaPintura = produto.precisaPintura === true || produto.precisaPintura === 'sim';
 
     listaVendas.forEach(venda => {
-      const mesmoId = String(venda.produtoId) === String(produto.id);
+      const mesmoId = venda.produtoId != null && String(venda.produtoId) === String(produto.id);
       const mesmoNome = String(venda.produtoNome || '').trim().toLowerCase() === String(produto.nome || '').trim().toLowerCase();
       const mesmaLoja = String(venda.loja || 'Shopee').trim().toLowerCase() === String(produto.loja || 'Shopee').trim().toLowerCase();
       if(!mesmoId && !(mesmoNome && mesmaLoja)) return;
 
-      const qtd = parseInt(venda.qtd) || 1;
+      const qtd = Math.max(1, parseInt(venda.qtd, 10) || 1);
       venda.produtoId = produto.id;
       venda.produtoNome = produto.nome;
       venda.loja = produto.loja || venda.loja || 'Shopee';
+      venda.materialId = produto.materialId || (composicaoAtual[0] && composicaoAtual[0].materialId) || null;
+      venda.materialNome = produto.materialNome || venda.materialNome || '';
+      venda.composicaoMateriais = composicaoAtual.map(item => ({ materialId: item.materialId, gramas: item.gramas }));
+      venda.gramasUnidade = gramasAtual || (parseFloat(produto.gramas) || 0);
+      venda.horasUnidade = horasAtual;
       venda.valorProdutoUnidade = novoPreco;
       venda.total = novoPreco * qtd;
       venda.custoOperacionalUnidade = novoCusto;
       venda.custoOperacionalTotal = novoCusto * qtd;
       venda.lucroTotal = novoLucro * qtd;
-      venda.precisaPintura = novaPrecisaPintura;
-      venda.valorPintura = novaPrecisaPintura ? qtdPintura : 0;
-      venda.responsavelPinturaId = novaPrecisaPintura ? (produto.pintorId || '') : '';
-      venda.responsavelPinturaUid = novaPrecisaPintura ? (produto.pintorId || '') : '';
-      venda.responsavelPinturaNome = novaPrecisaPintura ? (produto.pintorNome || '') : '';
-      venda.responsavelPinturaEmail = novaPrecisaPintura ? (produto.pintorEmail || '') : '';
-      if(!novaPrecisaPintura) venda.statusPintura = '';
+      venda.precisaPintura = precisaPintura;
+      venda.valorPintura = precisaPintura ? obterNumeroMoeda(produto.valorPintura) : 0;
+      venda.responsavelPinturaId = precisaPintura ? (produto.pintorId || '') : '';
+      venda.responsavelPinturaUid = precisaPintura ? (produto.pintorId || '') : '';
+      venda.responsavelPinturaNome = precisaPintura ? (produto.pintorNome || '') : '';
+      venda.responsavelPinturaEmail = precisaPintura ? (produto.pintorEmail || '') : '';
+      if(!precisaPintura) venda.statusPintura = '';
     });
+  }
+
+  function sincronizarVendasComProdutos() {
+    if(!Array.isArray(listaVendas) || !Array.isArray(listaProdutosSalvos)) return;
+    listaProdutosSalvos.forEach(produto => atualizarVendasDoProduto(produto));
   }
 
   async function sincronizarTarefasPinturaComVendas(){
@@ -3069,6 +3209,46 @@
     atualizarElementoSeguro('tabelaAlertasEstoque', 'innerHTML', htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`);
   }
 
+
+  // ===== Clientes, recibos e dados comerciais da empresa =====
+  function escaparHtmlVan(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function moedaVan(v){return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+  function dataVan(v){if(!v)return '—';const d=new Date(String(v).length===10?String(v)+'T12:00:00':v);return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('pt-BR');}
+  function apenasAdminVan(){if(vanmathiPerfilAtual?.role!=='admin'){alert('Esta função é exclusiva para administradores.');return false;}return true;}
+  function salvarPacoteComercialVan(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));salvarTudoLocal(true);}
+  function novoCliente(){if(!apenasAdminVan())return;document.getElementById('clienteIdEditando').value='';['clienteNome','clienteTelefone','clienteEmail','clienteDocumento','clienteEndereco','clienteObservacoes'].forEach(id=>document.getElementById(id).value='');document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
+  function cancelarEdicaoCliente(){document.getElementById('formCliente').style.display='none';}
+  function salvarCliente(){if(!apenasAdminVan())return;const nome=document.getElementById('clienteNome').value.trim();if(!nome){alert('Informe o nome do cliente.');return;}const id=document.getElementById('clienteIdEditando').value;const dados={nome,telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),documento:document.getElementById('clienteDocumento').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),observacoes:document.getElementById('clienteObservacoes').value.trim(),atualizadoEm:new Date().toISOString()};if(id){const i=listaClientes.findIndex(c=>String(c.id)===id);if(i>=0)listaClientes[i]={...listaClientes[i],...dados};}else listaClientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),...dados,criadoEm:new Date().toISOString()});salvarPacoteComercialVan();cancelarEdicaoCliente();renderizarClientes();mostrarToast('Cliente salvo com sucesso.');}
+  function editarCliente(id){if(!apenasAdminVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;document.getElementById('clienteIdEditando').value=c.id;document.getElementById('clienteNome').value=c.nome||'';document.getElementById('clienteTelefone').value=c.telefone||'';document.getElementById('clienteEmail').value=c.email||'';document.getElementById('clienteDocumento').value=c.documento||'';document.getElementById('clienteEndereco').value=c.endereco||'';document.getElementById('clienteObservacoes').value=c.observacoes||'';document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
+  function excluirCliente(id){if(!apenasAdminVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;const tem=listaRecibos.some(r=>String(r.clienteId)===String(id));if(tem){if(!confirm('Este cliente tem recibos vinculados. Para preservar o histórico financeiro, o cadastro será arquivado e deixará de aparecer na lista. Continuar?'))return;c.arquivado=true;}else{if(!confirm('Excluir este cliente?'))return;listaClientes=listaClientes.filter(x=>String(x.id)!==String(id));}salvarPacoteComercialVan();renderizarClientes();mostrarToast(tem?'Cliente arquivado; histórico preservado.':'Cliente excluído.');}
+  function renderizarClientes(){const tbody=document.getElementById('tabelaClientes');if(!tbody)return;const q=(document.getElementById('buscaClientes')?.value||'').toLowerCase().trim();const arr=listaClientes.filter(c=>!c.arquivado&&[c.nome,c.telefone,c.email,c.documento].some(v=>String(v||'').toLowerCase().includes(q)));document.getElementById('contadorClientes').textContent=arr.length+' cliente'+(arr.length===1?'':'s');if(!arr.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente encontrado.</td></tr>';return;}tbody.innerHTML=arr.map(c=>{const rs=listaRecibos.filter(r=>String(r.clienteId)===String(c.id));const total=rs.reduce((s,r)=>s+(Number(r.total)||0),0);return `<tr><td><strong>${escaparHtmlVan(c.nome)}</strong><div style="font-size:11px;color:var(--text-muted)">${escaparHtmlVan(c.email||'')}</div></td><td>${escaparHtmlVan(c.telefone||'—')}</td><td>${rs.length}</td><td>${moedaVan(total)}</td><td><button class="btn-secondary" onclick="editarCliente('${escaparHtmlVan(c.id)}')">✏️</button> <button class="btn-secondary" onclick="novoRecibo('${escaparHtmlVan(c.id)}')">🧾</button> <button class="btn-danger" onclick="excluirCliente('${escaparHtmlVan(c.id)}')">×</button></td></tr>`;}).join('');}
+  function atualizarSelectClientesRecibo(selecionado=''){const el=document.getElementById('reciboCliente');if(!el)return;el.innerHTML='<option value="">Selecione um cliente</option>'+listaClientes.filter(c=>!c.arquivado).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR')).map(c=>`<option value="${escaparHtmlVan(c.id)}">${escaparHtmlVan(c.nome)}</option>`).join('');if(selecionado)el.value=String(selecionado);}
+  function preencherDadosClienteRecibo(){const c=listaClientes.find(x=>String(x.id)===String(document.getElementById('reciboCliente').value));if(c&&!document.getElementById('reciboObservacao').value&&c.observacoes)document.getElementById('reciboObservacao').value='Observação do cliente: '+c.observacoes;}
+  function novoRecibo(clienteId=''){if(!apenasAdminVan())return;if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}itensRascunhoRecibo=[];document.getElementById('tituloFormRecibo').textContent='Novo recibo';document.getElementById('reciboData').value=new Date().toISOString().slice(0,10);document.getElementById('reciboForma').value='PIX';document.getElementById('reciboPago').value='0';document.getElementById('reciboDesconto').value='0';document.getElementById('reciboObservacao').value='';atualizarSelectClientesRecibo(clienteId);adicionarItemRecibo();renderizarItensRascunhoRecibo();atualizarTotaisRecibo();document.getElementById('formRecibo').style.display='block';document.getElementById('visualizadorRecibo').style.display='none';document.getElementById('formRecibo').scrollIntoView({behavior:'smooth',block:'start'});}
+  function cancelarRecibo(){document.getElementById('formRecibo').style.display='none';}
+  function adicionarItemRecibo(item={}){itensRascunhoRecibo.push({descricao:item.descricao||'',detalhes:item.detalhes||'',qtd:Number(item.qtd)||1,preco:Number(item.preco)||0,produtoId:item.produtoId||''});renderizarItensRascunhoRecibo();}
+  function adicionarProdutoSalvoRecibo(){if(!listaProdutosSalvos.length){alert('Não há produtos salvos. Você pode preencher o item manualmente.');return;}const op=listaProdutosSalvos.map((p,i)=>`${i+1}. ${p.nome} — ${moedaVan(obterNumeroMoeda(p.precoVenda||p.precoSugerido))}`).join('\n');const resp=prompt('Digite o número do produto salvo:\n'+op);if(resp===null)return;const p=listaProdutosSalvos[Number(resp)-1];if(!p){alert('Número inválido.');return;}adicionarItemRecibo({descricao:p.nome,detalhes:[p.materialNome,p.cor,p.composicaoMateriais?.map?.(x=>x.cor||x.nome).filter(Boolean).join(' + ')].filter(Boolean).join(' · '),preco:obterNumeroMoeda(p.precoVenda||p.precoSugerido),produtoId:p.id});}
+  function renderizarItensRascunhoRecibo(){const tb=document.getElementById('itensRecibo');if(!tb)return;tb.innerHTML=itensRascunhoRecibo.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemRecibo(${i},'descricao',this.value)" style="min-width:140px;width:100%"></td><td><input aria-label="Material e cores" value="${escaparHtmlVan(it.detalhes)}" maxlength="200" onchange="atualizarItemRecibo(${i},'detalhes',this.value)" style="min-width:150px;width:100%"></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemRecibo(${i},'qtd',this.value)" style="width:65px"></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemRecibo(${i},'preco',this.value)" style="width:100px"></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemRecibo(${i})">×</button></td></tr>`).join('');}
+  function atualizarItemRecibo(i,k,v){if(!itensRascunhoRecibo[i])return;itensRascunhoRecibo[i][k]=['qtd','preco'].includes(k)?Math.max(0,Number(v)||0):v;if(k==='qtd')itensRascunhoRecibo[i].qtd=Math.max(1,Math.floor(itensRascunhoRecibo[i].qtd));renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
+  function removerItemRecibo(i){itensRascunhoRecibo.splice(i,1);renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
+  function calcularTotaisRascunho(){const subtotal=itensRascunhoRecibo.reduce((s,i)=>s+(Math.max(0,Number(i.qtd)||0)*Math.max(0,Number(i.preco)||0)),0);const desconto=Math.min(subtotal,Math.max(0,Number(document.getElementById('reciboDesconto')?.value)||0));const total=Math.max(0,subtotal-desconto);const recebido=Math.min(total,Math.max(0,Number(document.getElementById('reciboPago')?.value)||0));return {subtotal,desconto,total,recebido,pendente:Math.max(0,total-recebido)};}
+  function atualizarTotaisRecibo(){const t=calcularTotaisRascunho();const e=document.getElementById('reciboTotalExibido');if(e)e.value=moedaVan(t.total);const r=document.getElementById('resumoPagamentoRecibo');if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong><br>Recebido: <strong style="color:var(--success)">${moedaVan(t.recebido)}</strong> · Pendente: <strong style="color:var(--warning)">${moedaVan(t.pendente)}</strong>`;}
+  function salvarRecibo(){if(!apenasAdminVan())return;const cliente=listaClientes.find(c=>String(c.id)===String(document.getElementById('reciboCliente').value));if(!cliente){alert('Selecione um cliente.');return;}if(!itensRascunhoRecibo.length||itensRascunhoRecibo.some(i=>!String(i.descricao||'').trim()||Number(i.qtd)<1||Number(i.preco)<0)){alert('Inclua ao menos um item válido, com descrição, quantidade e preço.');return;}const t=calcularTotaisRascunho();if(t.total<=0){alert('O valor total precisa ser maior que zero.');return;}const maior=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0);const seq=maior+1;const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data:document.getElementById('reciboData').value||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao).trim(),detalhes:String(i.detalhes||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)})),subtotal:t.subtotal,desconto:t.desconto,total:t.total,recebido:t.recebido,pendente:t.pendente,formaPagamento:document.getElementById('reciboForma').value,observacao:document.getElementById('reciboObservacao').value.trim(),situacao:t.pendente<=0?'Pago':t.recebido>0?'Parcial':'Pendente',empresa:{...dadosEmpresa,logo:''},criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};listaRecibos.push(recibo);salvarPacoteComercialVan();cancelarRecibo();renderizarRecibos();mostrarRecibo(recibo.id);mostrarToast('Recibo '+recibo.numero+' emitido com sucesso.');}
+  function renderizarRecibos(){const tb=document.getElementById('tabelaRecibos');if(!tb)return;const q=(document.getElementById('buscaRecibos')?.value||'').toLowerCase().trim();const arr=[...listaRecibos].sort((a,b)=>(Number(b.sequencia)||0)-(Number(a.sequencia)||0)).filter(r=>[r.numero,r.cliente?.nome,r.data].some(v=>String(v||'').toLowerCase().includes(q)));tb.innerHTML=arr.length?arr.map(r=>`<tr><td><strong>#${escaparHtmlVan(r.numero||r.sequencia)}</strong></td><td>${dataVan(r.data)}</td><td>${escaparHtmlVan(r.cliente?.nome||'Cliente removido')}</td><td>${moedaVan(r.total)}</td><td>${moedaVan(r.recebido)}</td><td><span class="status-pill-van" style="background:${r.situacao==='Pago'?'#dcfce7':r.situacao==='Parcial'?'#fef3c7':'#fee2e2'};color:${r.situacao==='Pago'?'#166534':r.situacao==='Parcial'?'#92400e':'#991b1b'}">${escaparHtmlVan(r.situacao||'Pendente')}</span></td><td><button class="btn-secondary" onclick="mostrarRecibo('${escaparHtmlVan(r.id)}')">Ver</button> <button class="btn-secondary" onclick="registrarBaixaRecibo('${escaparHtmlVan(r.id)}')">Receber</button> <button class="btn-danger" onclick="excluirRecibo('${escaparHtmlVan(r.id)}')">×</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum recibo encontrado.</td></tr>';document.getElementById('totalRecibosVan').textContent=listaRecibos.length;document.getElementById('valorRecibosVan').textContent=moedaVan(listaRecibos.reduce((s,r)=>s+(Number(r.total)||0),0));document.getElementById('pendenteRecibosVan').textContent=moedaVan(listaRecibos.reduce((s,r)=>s+(Number(r.pendente)||0),0));}
+  function excluirRecibo(id){if(!apenasAdminVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||!confirm('Excluir o recibo '+r.numero+'? Esta ação não pode ser desfeita.'))return;listaRecibos=listaRecibos.filter(x=>String(x.id)!==String(id));salvarPacoteComercialVan();renderizarRecibos();fecharVisualizadorRecibo();mostrarToast('Recibo excluído.');}
+  function registrarBaixaRecibo(id){if(!apenasAdminVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||Number(r.pendente)<=0){alert('Este recibo não tem saldo pendente.');return;}const v=prompt(`Saldo pendente: ${moedaVan(r.pendente)}\nInforme o valor recebido agora (R$):`);if(v===null)return;const n=Number(String(v).replace(',','.'));if(!Number.isFinite(n)||n<=0||n>r.pendente+0.001){alert('Informe um valor válido, até o saldo pendente.');return;}r.recebido=Math.min(r.total,(Number(r.recebido)||0)+n);r.pendente=Math.max(0,Number(r.total)-r.recebido);r.situacao=r.pendente<=0.005?'Pago':'Parcial';r.baixas=Array.isArray(r.baixas)?r.baixas:[];r.baixas.push({valor:n,data:new Date().toISOString(),usuario:vanmathiUsuario?.uid||''});salvarPacoteComercialVan();renderizarRecibos();if(reciboVisualizadoId===id)mostrarRecibo(id);mostrarToast('Recebimento registrado.');}
+  function mostrarRecibo(id){const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r)return;reciboVisualizadoId=id;const e=r.empresa||dadosEmpresa;const cor=e.cor||'#0f2d53';const itens=(r.itens||[]).map(i=>`<tr><td>${escaparHtmlVan(i.descricao)}</td><td>${escaparHtmlVan(i.detalhes||'—')}</td><td style="text-align:center">${i.qtd}</td><td style="text-align:right">${moedaVan(i.preco)}</td><td style="text-align:right">${moedaVan(i.total)}</td></tr>`).join('');const logo=(e.logo||dadosEmpresa.logo)?`<img src="${e.logo||dadosEmpresa.logo}" alt="Logotipo da empresa">`:'';const html=`<div class="receipt-brand-van" style="border-color:${escaparHtmlVan(cor)}">${logo}<div><h1 style="margin:0;color:${escaparHtmlVan(cor)};font-size:24px">${escaparHtmlVan(e.nome||'Vanmathi Impressão 3D')}</h1>${e.razao?`<div>${escaparHtmlVan(e.razao)}</div>`:''}<div style="font-size:11px;color:#475569;margin-top:5px">${e.cnpj?'CNPJ: '+escaparHtmlVan(e.cnpj)+' · ':''}${escaparHtmlVan(e.email||'')}${e.telefone?' · '+escaparHtmlVan(e.telefone):''}</div>${e.endereco?`<div style="font-size:11px;color:#475569">${escaparHtmlVan(e.endereco)}</div>`:''}${e.site?`<div style="font-size:11px;color:#475569">${escaparHtmlVan(e.site)}</div>`:''}</div><div style="margin-left:auto;text-align:right"><strong style="font-size:18px">RECIBO DE VENDA</strong><div style="font-size:12px;margin-top:5px">Nº ${escaparHtmlVan(r.numero)}</div><div style="font-size:12px">Data: ${dataVan(r.data)}</div></div></div><div style="margin-bottom:20px"><h3 style="margin:0 0 8px;color:${escaparHtmlVan(cor)}">DADOS DO CLIENTE</h3><div><strong>${escaparHtmlVan(r.cliente?.nome||'')}</strong></div>${r.cliente?.documento?`<div>Documento: ${escaparHtmlVan(r.cliente.documento)}</div>`:''}${r.cliente?.telefone?`<div>Telefone: ${escaparHtmlVan(r.cliente.telefone)}</div>`:''}${r.cliente?.email?`<div>E-mail: ${escaparHtmlVan(r.cliente.email)}</div>`:''}${r.cliente?.endereco?`<div>Endereço: ${escaparHtmlVan(r.cliente.endereco)}</div>`:''}</div><h3 style="color:${escaparHtmlVan(cor)}">PRODUTOS</h3><table><thead><tr><th>Produto</th><th>Material / cores / detalhes</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead><tbody>${itens}</tbody></table><div style="width:min(330px,100%);margin:20px 0 0 auto;font-size:13px"><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Subtotal</span><strong>${moedaVan(r.subtotal)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Desconto</span><strong>${moedaVan(r.desconto)}</strong></div><div style="display:flex;justify-content:space-between;padding:12px 0;border-top:2px solid ${escaparHtmlVan(cor)};font-size:18px;color:${escaparHtmlVan(cor)}"><strong>VALOR TOTAL</strong><strong>${moedaVan(r.total)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Saldo pendente</span><strong>${moedaVan(r.pendente)}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0"><span>Pagamento</span><strong>${escaparHtmlVan(r.formaPagamento||'—')} · ${escaparHtmlVan(r.situacao||'Pendente')}</strong></div></div>${r.observacao?`<div style="margin-top:18px;padding:12px;background:#f8fafc;border-radius:6px;font-size:12px"><strong>Observações:</strong> ${escaparHtmlVan(r.observacao)}</div>`:''}<div style="border-top:1px solid #e5e7eb;margin-top:28px;padding-top:14px;text-align:center;font-size:12px;color:#475569">${escaparHtmlVan(e.mensagem||'Obrigado pela preferência!')}<br>${escaparHtmlVan(e.rodape||'')}${e.redeSocial?`<br>${escaparHtmlVan(e.redeSocial)}`:''}</div>`;document.getElementById('areaImpressaoRecibo').innerHTML=html;document.getElementById('visualizadorRecibo').style.display='block';document.getElementById('visualizadorRecibo').scrollIntoView({behavior:'smooth',block:'start'});}
+  function fecharVisualizadorRecibo(){document.getElementById('visualizadorRecibo').style.display='none';reciboVisualizadoId=null;}
+  function imprimirReciboAtual(){if(!reciboVisualizadoId)return;window.print();}
+  function compartilharReciboWhatsApp(){const r=listaRecibos.find(x=>String(x.id)===String(reciboVisualizadoId));if(!r)return;const texto=`${r.empresa?.nome||dadosEmpresa.nome||'Vanmathi'} — Recibo nº ${r.numero}\nCliente: ${r.cliente?.nome||''}\nData: ${dataVan(r.data)}\nTotal: ${moedaVan(r.total)}\nRecebido: ${moedaVan(r.recebido)}\nPendente: ${moedaVan(r.pendente)}\nPagamento: ${r.situacao}\nObrigado pela preferência!`;window.open('https://wa.me/?text='+encodeURIComponent(texto),'_blank','noopener');}
+  function carregarFormularioEmpresa(){if(!document.getElementById('empresaNome'))return;const d=dadosEmpresa||{};const map={empresaNome:'nome',empresaRazao:'razao',empresaCnpj:'cnpj',empresaInscricao:'inscricao',empresaEmail:'email',empresaTelefone:'telefone',empresaSite:'site',empresaRedeSocial:'redeSocial',empresaEndereco:'endereco',empresaMensagem:'mensagem',empresaRodape:'rodape',empresaCor:'cor'};Object.entries(map).forEach(([id,k])=>{const el=document.getElementById(id);if(el)el.value=d[k]||({'nome':'Vanmathi Impressão 3D','mensagem':'Obrigado pela preferência!','cor':'#0f2d53'}[k]||'');});logoEmpresaTemporaria=d.logo||'';const p=document.getElementById('previewLogoEmpresa');if(p)p.innerHTML=d.logo?`<img src="${d.logo}" alt="Logotipo atual">`:'🖼️ Logo';}
+  async function processarLogoEmpresa(ev){if(!apenasAdminVan())return;const f=ev.target.files?.[0];if(!f)return;if(!/^image\/(png|jpeg|webp)$/.test(f.type)){alert('Use um arquivo PNG, JPG ou WebP.');ev.target.value='';return;}if(f.size>8*1024*1024){alert('A imagem deve ter até 8 MB antes da otimização.');ev.target.value='';return;}try{const img=new Image();const url=URL.createObjectURL(f);img.onload=()=>{const scale=Math.min(1,900/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);let data=c.toDataURL('image/jpeg',0.82);if(data.length>230000)data=c.toDataURL('image/jpeg',0.65);logoEmpresaTemporaria=data;document.getElementById('previewLogoEmpresa').innerHTML=`<img src="${data}" alt="Prévia do logotipo">`;URL.revokeObjectURL(url);};img.onerror=()=>{URL.revokeObjectURL(url);alert('Não foi possível ler esta imagem.');};img.src=url;}catch(e){alert('Erro ao carregar o logotipo: '+e.message);}}
+  function removerLogoEmpresa(){if(!apenasAdminVan())return;logoEmpresaTemporaria='';document.getElementById('previewLogoEmpresa').textContent='🖼️ Logo';document.getElementById('empresaLogoArquivo').value='';}
+  function salvarDadosEmpresa(){if(!apenasAdminVan())return;const nome=document.getElementById('empresaNome').value.trim();if(!nome){alert('Informe o nome fantasia da empresa.');return;}const url=document.getElementById('empresaSite').value.trim();const rede=document.getElementById('empresaRedeSocial').value.trim();for(const u of [url,rede])if(u&&!/^https?:\/\//i.test(u)){alert('Os links do site e das redes sociais devem começar com https:// ou http://.');return;}dadosEmpresa={nome,razao:document.getElementById('empresaRazao').value.trim(),cnpj:document.getElementById('empresaCnpj').value.trim(),inscricao:document.getElementById('empresaInscricao').value.trim(),email:document.getElementById('empresaEmail').value.trim(),telefone:document.getElementById('empresaTelefone').value.trim(),site:url,redeSocial:rede,endereco:document.getElementById('empresaEndereco').value.trim(),mensagem:document.getElementById('empresaMensagem').value.trim(),rodape:document.getElementById('empresaRodape').value.trim(),cor:document.getElementById('empresaCor').value||'#0f2d53',logo:logoEmpresaTemporaria||''};salvarPacoteComercialVan();mostrarToast('Dados da empresa atualizados. Os próximos recibos usarão essas informações.');}
+  // Atualiza o conteúdo comercial em qualquer dispositivo pelo documento central já utilizado pelo app.
+  document.addEventListener('DOMContentLoaded',()=>{renderizarClientes();renderizarRecibos();carregarFormularioEmpresa();});
+
+
   filtrarTabela();
   renderizarSelectLojas();
   renderizarSelectMaterialCalculadora();
@@ -3078,6 +3258,9 @@
   atualizarFiltroLojasDinamico();
   atualizarFiltroAnosDinamico();
   atualizarRelatorios();
+  renderizarClientes();
+  renderizarRecibos();
+  carregarFormularioEmpresa();
 </script>
 </body>
 </html>
