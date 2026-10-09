@@ -241,7 +241,8 @@
     .receipt-brand-van img{max-width:100px;max-height:75px;object-fit:contain;}
     .status-pill-van{display:inline-block;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;}
     @media(max-width:700px){.form-grid-van{grid-template-columns:1fr}.form-grid-van .full{grid-column:auto}.receipt-preview-van{padding:16px}.receipt-preview-van table{font-size:10px}}
-    @media print{body *{visibility:hidden!important}#areaImpressaoRecibo,#areaImpressaoRecibo *{visibility:visible!important}#areaImpressaoRecibo{position:absolute;left:0;top:0;width:100%;padding:0!important;margin:0!important;box-shadow:none!important}#areaImpressaoRecibo table{width:100%} .no-print-van{display:none!important}}
+    .rv-area{background:#e9eef6;padding:12px;border-radius:10px;overflow:auto}
+    .rv-area .rv-page{margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.25)}
 
     /* Bloqueio visual e de interação até autenticação/autorização Firebase */
     body.vanmathi-bloqueado > .mobile-header,
@@ -923,16 +924,16 @@
         <div id="formRecibo" style="display:none;border:1px solid var(--border);padding:18px;border-radius:10px;margin-bottom:20px;">
           <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><h3 id="tituloFormRecibo">Novo recibo</h3><button class="btn-secondary" onclick="cancelarRecibo()">Fechar</button></div>
           <div class="form-grid-van">
-            <div class="form-group full"><label>Preencher a partir de Gestão de Vendas</label><select id="reciboVendaOrigem" onchange="preencherReciboDaVenda()"><option value="">Recibo avulso — selecionar produto manualmente</option></select><small style="color:var(--text-muted)">Ao selecionar uma venda, cliente, quantidade, valor unitário, total e parcelas são preenchidos automaticamente.</small></div>
+            <div class="form-group full"><label>Produto vendido (Gestão de Vendas)</label><select id="reciboVendaOrigem" onchange="preencherReciboDaVenda()"><option value="">Recibo avulso — digitar os itens manualmente</option></select><small style="color:var(--text-muted)">Escolha o produto: quantidade, valor, parcelas e recebimentos vêm da venda. Ao salvar, o cliente e as parcelas definidos aqui também passam a valer em Gestão de Vendas.</small></div>
             <div class="form-group"><label>Cliente *</label><select id="reciboCliente" onchange="preencherDadosClienteRecibo()"><option value="">Selecione um cliente</option></select></div>
             <div class="form-group"><label>Data de emissão</label><input id="reciboData" type="date"></div>
             <div class="form-group"><label>Forma de pagamento</label><select id="reciboForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Parcelado</option><option>Outro</option></select></div>
-            <div class="form-group"><label>Quantidade de parcelas</label><input id="reciboParcelas" type="number" min="0" max="60" step="1" value="1" oninput="atualizarTotaisRecibo()"><small style="color:var(--text-muted)">Use 0 para não exibir parcelas no recibo.</small></div>
+            <div class="form-group"><label>Quantidade de parcelas</label><input id="reciboParcelas" type="number" min="0" max="60" step="1" value="1" oninput="atualizarTotaisRecibo()"><small style="color:var(--text-muted)">De 1 a 60 (em recibo avulso, 0 não exibe parcelas).</small></div>
             <div class="form-group"><label>Valor já recebido (R$)</label><input id="reciboPago" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div>
             <div class="form-group full"><label>Observações</label><input id="reciboObservacao" maxlength="500" placeholder="Prazo de entrega ou outras informações do pedido"></div>
           </div>
-          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn-secondary" onclick="adicionarItemRecibo()">＋ Adicionar item</button><button class="btn-secondary" onclick="adicionarVendaRecibo()">＋ Usar venda da Gestão de Vendas</button></div>
+          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Material</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button id="btnAddItemRecibo" class="btn-secondary" onclick="adicionarItemRecibo()">＋ Adicionar item</button></div>
           <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="reciboDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div><div class="form-group"><label>Valor total</label><input id="reciboTotalExibido" readonly value="R$ 0,00"></div></div>
           <div id="resumoPagamentoRecibo" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
           <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarRecibo()">Cancelar</button><button class="btn-primary" onclick="salvarRecibo()">💾 Salvar e gerar recibo</button></div>
@@ -940,11 +941,11 @@
         <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaRecibos" placeholder="Buscar por número ou cliente" oninput="renderizarRecibos()"></div></div>
         <div class="table-container"><table><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Total</th><th>Recebido</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="tabelaRecibos"><tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum recibo emitido.</td></tr></tbody></table></div>
       </div>
-      <div id="visualizadorRecibo" style="display:none;margin-top:20px" class="card-box"><div class="table-toolbar no-print-van"><h3>Prévia do recibo</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="imprimirReciboAtual()">🖨️ Imprimir / Salvar PDF</button><button class="btn-secondary" onclick="compartilharReciboWhatsApp()">💬 WhatsApp</button><button class="btn-secondary" onclick="fecharVisualizadorRecibo()">Fechar</button></div></div><div id="areaImpressaoRecibo" class="receipt-preview-van"></div></div>
+      <div id="visualizadorRecibo" style="display:none;margin-top:20px" class="card-box"><div class="table-toolbar no-print-van"><h3>Recibo (A4 · retrato)</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="imprimirReciboAtual()">🖨️ Imprimir / Salvar PDF (A4)</button><button class="btn-secondary" onclick="compartilharReciboWhatsApp()">💬 WhatsApp</button><button class="btn-secondary" onclick="fecharVisualizadorRecibo()">Fechar</button></div></div><div id="areaImpressaoRecibo" class="rv-area"></div></div>
     </div>
 
     <div id="secao-empresa" class="content-section">
-      <div class="header-painel"><div class="header-title"><small>Configuração comercial</small><h1>🏢 Dados da Empresa</h1><p>Edite a identidade da empresa aqui. Os novos recibos usarão essas informações automaticamente.</p></div></div>
+      <div class="header-painel"><div class="header-title"><small>Configuração comercial</small><h1>🏢 Dados da Empresa</h1><p>Edite a identidade da empresa aqui. Os recibos usam essas informações automaticamente, em tempo real.</p></div></div>
       <div class="card-box">
         <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:20px"><div class="logo-preview-van" id="previewLogoEmpresa">🖼️ Logo</div><div style="flex:1;min-width:220px"><h3>Logotipo</h3><p class="subtitle">Prefira PNG com fundo transparente. A imagem será otimizada antes de ser salva.</p><input id="empresaLogoArquivo" type="file" accept="image/png,image/jpeg,image/webp" onchange="processarLogoEmpresa(event)"><button class="btn-secondary" style="margin-top:8px" onclick="removerLogoEmpresa()">Remover logotipo</button></div></div>
         <div class="form-grid-van">
@@ -954,15 +955,20 @@
           <div class="form-group"><label>Inscrição estadual / municipal (opcional)</label><input id="empresaInscricao" maxlength="60" placeholder="Número, se aplicável"></div>
           <div class="form-group"><label>E-mail comercial</label><input id="empresaEmail" type="email" maxlength="150" placeholder="contato@empresa.com.br"></div>
           <div class="form-group"><label>Telefone / WhatsApp</label><input id="empresaTelefone" maxlength="30" placeholder="(21) 99999-9999"></div>
-          <div class="form-group"><label>Site oficial</label><input id="empresaSite" maxlength="200" placeholder="https://..." type="url"></div>
+          <div class="form-group"><label>Site oficial</label><input id="empresaSite" maxlength="200" placeholder="https://..." type="url"><small style="color:var(--text-muted)">O QR Code do recibo é gerado automaticamente a partir deste link.</small></div>
           <div class="form-group"><label>Instagram / rede social</label><input id="empresaRedeSocial" maxlength="200" placeholder="https://instagram.com/..." type="url"></div>
           <div class="form-group full"><label>Endereço comercial</label><input id="empresaEndereco" maxlength="250" placeholder="Rua, número, complemento, bairro, cidade - UF, CEP"></div>
           <div class="form-group full"><label>Mensagem de agradecimento no recibo</label><input id="empresaMensagem" maxlength="180" placeholder="Obrigado pela preferência!"></div>
-          <div class="form-group full"><label>Rodapé / informações adicionais</label><input id="empresaRodape" maxlength="250" placeholder="Informações adicionais que devem aparecer no recibo"></div>
+          <div class="form-group"><label>Marca no recibo (título grande)</label><input id="empresaMarca" maxlength="40" placeholder="Vanmathi 3"><small style="color:var(--text-muted)">Número no final fica destacado em laranja.</small></div>
+          <div class="form-group"><label>Segmento (abaixo da marca)</label><input id="empresaSubmarca" maxlength="40" placeholder="Impressão 3D"></div>
+          <div class="form-group full"><label>Slogan</label><input id="empresaSlogan" maxlength="80" placeholder="Ideias ganham forma."></div>
+          <div class="form-group full"><label>Frase final do recibo</label><input id="empresaFraseFinal" maxlength="80" placeholder="Sua ideia, nossa impressão."></div>
+          <div class="form-group full"><label>Valores do rodapé (separe com •)</label><input id="empresaValores" maxlength="120" placeholder="Qualidade • Precisão • Inovação"></div>
+          <div class="form-group full"><label>Informações adicionais do recibo (uma por linha)</label><textarea id="empresaRodape" rows="3" maxlength="400" style="width:100%;background:var(--bg-sidebar);border:1px solid var(--border);color:var(--text-color);padding:10px;border-radius:8px;font-size:13px;font-family:inherit"></textarea></div>
           <div class="form-group full"><label>Cor principal dos documentos</label><input id="empresaCor" type="color" value="#0f2d53" style="height:44px;max-width:160px"></div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="carregarFormularioEmpresa()">Descartar alterações</button><button class="btn-primary" onclick="salvarDadosEmpresa()">💾 Salvar dados da empresa</button></div>
-        <p class="subtitle" style="margin-top:14px">Apenas administradores podem alterar estes dados. Os recibos antigos preservam uma cópia das informações usadas na emissão.</p>
+        <p class="subtitle" style="margin-top:14px">Apenas administradores podem alterar estes dados. Todos os recibos (novos e antigos) usam sempre os dados atuais da empresa.</p>
       </div>
     </div>
 
@@ -1016,7 +1022,7 @@
   let listaVendas = JSON.parse(localStorage.getItem('Vanmathi_Dados_Vendas')) || [];
   let listaClientes = JSON.parse(localStorage.getItem('Vanmathi_Dados_Clientes')) || [];
   let listaRecibos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Recibos')) || [];
-  let dadosEmpresa = JSON.parse(localStorage.getItem('Vanmathi_Dados_Empresa')) || {nome:'Vanmathi Impressão 3D', razao:'', cnpj:'', inscricao:'', email:'', telefone:'', site:'', redeSocial:'', endereco:'', mensagem:'Obrigado pela preferência!', rodape:'', cor:'#0f2d53', logo:''};
+  let dadosEmpresa = JSON.parse(localStorage.getItem('Vanmathi_Dados_Empresa')) || {nome:'Vanmathi Impressão 3D', razao:'', cnpj:'', inscricao:'', email:'', telefone:'', site:'', redeSocial:'', endereco:'', mensagem:'Obrigado pela preferência!', rodape:'', cor:'#0f2d53', logo:'', marca:'Vanmathi 3', submarca:'Impressão 3D', slogan:'Ideias ganham forma.', fraseFinal:'Sua ideia, nossa impressão.', valores:'Qualidade • Precisão • Inovação'};
   let itensRascunhoRecibo = [];
   let reciboVisualizadoId = null;
   let logoEmpresaTemporaria = null;
@@ -1603,7 +1609,7 @@
       if(secaoId === 'precificacao') { renderizarSelectMaterialCalculadora(); renderizarPintoresCalculadora(); atualizarCamposPinturaCalculadora(); }
     }
 
-    if(window.innerWidth <= 900) { toggleMenuMobile(); }
+    if(window.innerWidth <= 900 && document.getElementById('asideMenu').classList.contains('mobile-open')) { toggleMenuMobile(); }
   }
 
   function mudarTabRelatorio(event, tabId) {
@@ -1889,6 +1895,11 @@
       const indice = listaVendas.findIndex(v => v.id === editandoVendaId);
       if(indice !== -1) {
         const anterior=listaVendas[indice];
+        const reciboDaVenda=listaRecibos.find(r=>String(r.vendaId||'')===String(editandoVendaId));
+        if(reciboDaVenda && !dadosVenda.clienteId){
+          if(!confirm('Esta venda tem o recibo #'+reciboDaVenda.numero+' vinculado. Remover o cliente da venda também exclui esse recibo. Continuar?')) return;
+          listaRecibos=listaRecibos.filter(r=>r!==reciboDaVenda);
+        }
         const totalMudou=Math.abs((Number(anterior.total)||0)-totalVenda)>0.005;
         const plano=anterior.parcelamento&&!totalMudou&&Number(anterior.parcelamento.quantidade)===qtdParcelas?anterior.parcelamento:criarParcelamentoVan(totalVenda,qtdParcelas,document.getElementById('vendaPrimeiroVencimento').value||data);
         listaVendas[indice]={...anterior,...dadosVenda,id:editandoVendaId,parcelamento:plano,recebimentos:Array.isArray(anterior.recebimentos)?anterior.recebimentos:[]};
@@ -1932,9 +1943,14 @@
   }
 
   async function excluirVenda(id) {
+    const reciboVinc = listaRecibos.find(r => String(r.vendaId||'') === String(id));
+    if(reciboVinc && !confirm('Esta venda possui o recibo #'+reciboVinc.numero+' vinculado. Excluir a venda também exclui esse recibo. Continuar?')) return;
+    if(reciboVinc) { listaRecibos = listaRecibos.filter(r => r !== reciboVinc); if(reciboVisualizadoId === reciboVinc.id) fecharVisualizadorRecibo(); }
     listaVendas = listaVendas.filter(v => String(v.id) !== String(id));
     salvarTudoLocal();
     renderizarVendas();
+    renderizarRecibos();
+    renderizarClientes();
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
@@ -3262,17 +3278,459 @@
   function ajustarPlanoVendaAoTotal(v){if(!v)return;const total=moedaNumeroVan(v.total);const plano=v.parcelamento;if(!plano||!Array.isArray(plano.parcelas)||!plano.parcelas.length){v.parcelamento=criarParcelamentoVan(total,1,v.data);atualizarResumoFinanceiroVenda(v);return;}const soma=moedaNumeroVan(plano.parcelas.reduce((a,p)=>a+(Number(p.valor)||0),0));if(Math.abs(soma-total)>0.005){const n=Number(plano.quantidade)||plano.parcelas.length;const inicio=plano.parcelas[0]?.vencimento||v.data;v.parcelamento=criarParcelamentoVan(total,n,inicio);let recebido=moedaNumeroVan((v.recebimentos||[]).reduce((a,p)=>a+(Number(p.valor)||0),0));for(const p of v.parcelamento.parcelas){const aplicar=Math.min(Number(p.valor)||0,recebido);p.pago=moedaNumeroVan(aplicar);p.status=p.pago>=Number(p.valor)-0.005?'Pago':p.pago>0?'Parcial':'Pendente';if(p.status==='Pago')p.pagoEm=(v.recebimentos||[]).slice(-1)[0]?.data||null;recebido=moedaNumeroVan(recebido-aplicar);}}atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);}
   function atualizarResumoFinanceiroVenda(v){const total=moedaNumeroVan(v.total);const recebido=moedaNumeroVan((v.recebimentos||[]).reduce((s,p)=>s+(Number(p.valor)||0),0));v.totalRecebido=recebido;v.saldoRestante=Math.max(0,moedaNumeroVan(total-recebido));const ps=Array.isArray(v.parcelamento?.parcelas)?v.parcelamento.parcelas:[];v.parcelasPagas=ps.filter(p=>Number(p.pago)>=Number(p.valor)-0.005).length;v.parcelasTotal=Number(v.parcelamento?.quantidade)||ps.length||1;v.valorParcela=Number(v.parcelamento?.valorParcela)||total/v.parcelasTotal;v.pagamentoStatus=v.saldoRestante<=0.005?'Recebido':(recebido>0?'Parcial':'Pendente');return v;}
   function obterVendaFinanceira(id){return listaVendas.find(v=>String(v.id)===String(id));}
-  function sincronizarRecibosDaVenda(v){if(!v)return;listaRecibos.filter(r=>String(r.vendaId||'')===String(v.id)).forEach(r=>{const totalRecibo=Number(r.total)||0;r.recebido=Math.min(totalRecibo,Number(v.totalRecebido)||0);r.pendente=Math.max(0,Math.round((totalRecibo-r.recebido)*100)/100);r.situacao=r.pendente<=0.005?'Pago':r.recebido>0?'Parcial':'Pendente';r.baixas=(v.recebimentos||[]).map(p=>({...p}));r.parcelamento=JSON.parse(JSON.stringify(v.parcelamento||r.parcelamento||{}));r.formaPagamento=(Number(v.parcelamento?.quantidade)||1)>1?'Parcelado':(r.formaPagamento||'PIX');});}
   function salvarPacoteComercialVanSemDisparar(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));}
   function registrarPagamentoVenda(id,valorForcado=null,origem='gestao'){if(!podeGerirFinanceiroVan())return;const v=obterVendaFinanceira(id);if(!v)return;v.recebimentos=Array.isArray(v.recebimentos)?v.recebimentos:[];v.parcelamento=v.parcelamento||criarParcelamentoVan(v.total,1,v.data);v.parcelamento.parcelas=Array.isArray(v.parcelamento.parcelas)?v.parcelamento.parcelas:[];atualizarResumoFinanceiroVenda(v);if(v.saldoRestante<=0.005){alert('Esta venda já está totalmente recebida.');return;}let entrada=valorForcado;if(entrada===null){const resp=prompt(`Venda: ${v.produtoNome}\nSaldo restante: ${moedaVan(v.saldoRestante)}\nValor recebido agora (R$):`);if(resp===null)return;entrada=Number(String(resp).replace(',','.'));}const valor=moedaNumeroVan(entrada);if(!Number.isFinite(valor)||valor<=0||valor>v.saldoRestante+0.005){alert('Informe um valor válido, maior que zero e até o saldo restante.');return;}const agora=new Date().toISOString();v.recebimentos.push({id:'pg_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),valor,data:agora,origem,usuario:vanmathiUsuario?.uid||''});let restante=valor;for(const parcela of v.parcelamento.parcelas){const falta=Math.max(0,(Number(parcela.valor)||0)-(Number(parcela.pago)||0));if(falta<=0.005)continue;const alocar=Math.min(falta,restante);parcela.pago=moedaNumeroVan((Number(parcela.pago)||0)+alocar);parcela.status=parcela.pago>=Number(parcela.valor)-0.005?'Pago':'Parcial';if(parcela.status==='Pago')parcela.pagoEm=agora;restante=moedaNumeroVan(restante-alocar);if(restante<=0.005)break;}atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);salvarTudoLocal(true);salvarPacoteComercialVanSemDisparar();renderizarVendas();renderizarClientes();renderizarRecibos();atualizarRelatorios();if(document.getElementById('modalParcelasVenda')?.classList.contains('active'))abrirModalParcelasVenda(v.id);if(reciboVisualizadoId){const rv=listaRecibos.find(r=>String(r.id)===String(reciboVisualizadoId));if(rv&&String(rv.vendaId)===String(v.id))mostrarRecibo(rv.id);}mostrarToast('Pagamento registrado e informações financeiras atualizadas.');}
   function marcarParcelaComoPaga(vendaId,numero){const v=obterVendaFinanceira(vendaId);const p=v?.parcelamento?.parcelas?.find(x=>Number(x.numero)===Number(numero));if(!v||!p)return;const falta=Math.max(0,Number(p.valor)-Number(p.pago||0));if(falta<=0.005){alert('Esta parcela já está paga.');return;}registrarPagamentoVenda(vendaId,falta,'parcela_'+numero);}
   function abrirModalParcelasVenda(id){const v=obterVendaFinanceira(id);if(!v)return;v.parcelamento=v.parcelamento||criarParcelamentoVan(v.total,1,v.data);if(!Array.isArray(v.parcelamento.parcelas)||!v.parcelamento.parcelas.length)v.parcelamento=criarParcelamentoVan(v.total,1,v.data);atualizarResumoFinanceiroVenda(v);const el=document.getElementById('conteudoParcelasVenda');if(!el){setTimeout(()=>abrirModalParcelasVenda(id),100);return;}document.getElementById('tituloParcelasVenda').textContent='Parcelas — '+(v.produtoNome||'Venda');const n=Number(v.parcelamento.quantidade)||v.parcelamento.parcelas.length;const rec=Number(v.totalRecebido)||0,total=Number(v.total)||0,saldo=Number(v.saldoRestante??(total-rec)),pct=total>0?Math.min(100,rec/total*100):0;const linhas=v.parcelamento.parcelas.map(p=>`<tr><td>${p.numero}</td><td>${dataVan(p.vencimento)}</td><td>${moedaVan(p.valor)}</td><td>${moedaVan(p.pago||0)}</td><td><span class="status-pill-van" style="background:${p.status==='Pago'?'#dcfce7':p.status==='Parcial'?'#fef3c7':'#fee2e2'};color:${p.status==='Pago'?'#166534':p.status==='Parcial'?'#92400e':'#991b1b'}">${escaparHtmlVan(p.status||'Pendente')}</span></td><td>${Number(p.pago)<Number(p.valor)-0.005?`<button class="btn-secondary" onclick="marcarParcelaComoPaga('${escaparHtmlVan(v.id)}',${p.numero})">Dar baixa</button>`:'—'}</td></tr>`).join('');const hist=(v.recebimentos||[]).slice().reverse().map(p=>`<li>${dataVan(p.data)} — <strong>${moedaVan(p.valor)}</strong> <small>(${escaparHtmlVan(p.origem||'recebimento')})</small></li>`).join('')||'<li>Nenhum pagamento registrado.</li>';el.innerHTML=`<div class="metrics-grid"><div class="metric-card"><span>Valor unitário</span><h3>${moedaVan(v.valorProdutoUnidade||total/Math.max(1,Number(v.qtd)||1))}</h3></div><div class="metric-card"><span>Valor total</span><h3>${moedaVan(total)}</h3></div><div class="metric-card"><span>Valor por parcela</span><h3>${moedaVan(v.parcelamento.valorParcela||total/n)}</h3><small>${n} parcelas combinadas</small></div><div class="metric-card"><span>Saldo restante</span><h3>${moedaVan(saldo)}</h3></div><div class="metric-card"><span>Parcelas pagas</span><h3>${Number(v.parcelasPagas)||0} de ${n}</h3></div><div class="metric-card"><span>Total recebido</span><h3>${moedaVan(rec)}</h3></div></div><div class="card-box" style="margin:12px 0;padding:12px"><div style="display:flex;justify-content:space-between"><strong>Progresso dos pagamentos</strong><span>${pct.toFixed(0)}%</span></div><div style="height:8px;background:var(--border);border-radius:20px;overflow:hidden;margin:9px 0"><div style="height:100%;width:${pct}%;background:var(--success)"></div></div><button class="btn-primary" onclick="registrarPagamentoVenda('${escaparHtmlVan(v.id)}')">＋ Registrar recebimento</button> <button class="btn-secondary" onclick="gerarReciboDaVenda('${escaparHtmlVan(v.id)}')">🧾 Gerar recibo</button></div><h3>Parcelas</h3><div class="table-container"><table><thead><tr><th>Nº</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Situação</th><th>Ação</th></tr></thead><tbody>${linhas}</tbody></table></div><h3 style="margin-top:18px">Histórico de recebimentos</h3><ul>${hist}</ul>`;document.getElementById('modalParcelasVenda').classList.add('active');}
   function fecharModalParcelasVenda(){document.getElementById('modalParcelasVenda')?.classList.remove('active');}
-  function criarReciboVinculadoDaVenda(v){if(!v)return null;const existente=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));if(existente)return existente;const cliente=listaClientes.find(c=>String(c.id)===String(v.clienteId));if(!cliente)return null;const seq=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0)+1;atualizarResumoFinanceiroVenda(v);const total=Number(v.total)||0;const n=Number(v.parcelamento?.quantidade)||v.parcelasTotal||1;const r={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaId:v.id,sequencia:seq,numero:String(seq).padStart(4,'0'),data:v.data||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:[{descricao:v.produtoNome,detalhes:'',qtd:Number(v.qtd)||1,preco:Number(v.valorProdutoUnidade)||(total/Math.max(1,Number(v.qtd)||1)),total}],subtotal:total,desconto:0,total,recebido:Number(v.totalRecebido)||0,pendente:Number(v.saldoRestante??total),formaPagamento:n>1?'Parcelado':'PIX',parcelamento:JSON.parse(JSON.stringify(v.parcelamento||{quantidade:1,valorParcela:total,parcelas:[{numero:1,valor:total,pago:Number(v.totalRecebido)||0,status:(Number(v.saldoRestante)||0)<=0.005?'Pago':'Pendente'}]})),observacao:'Recibo vinculado à venda '+v.produtoNome,baixas:(v.recebimentos||[]).map(p=>({...p})),situacao:(Number(v.saldoRestante)||0)<=0.005?'Pago':(Number(v.totalRecebido)||0)>0?'Parcial':'Pendente',empresa:{...dadosEmpresa,logo:''},criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};listaRecibos.push(r);return r;}
-  function gerarReciboDaVenda(id){if(!podeGerirFinanceiroVan())return;const v=obterVendaFinanceira(id);if(!v)return;const existente=criarReciboVinculadoDaVenda(v);if(!existente){alert('Vincule um cliente à venda antes de gerar o recibo. Edite a venda e selecione o cliente.');return;}salvarPacoteComercialVan();renderizarRecibos();mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');mostrarRecibo(existente.id);mostrarToast('Recibo vinculado à venda e ao histórico de pagamentos.');}
 
   const modalParcelasMarkupVan = `<div class="modal-overlay" id="modalParcelasVenda" style="z-index:10020"><div class="modal-box" style="width:min(760px,96vw);max-height:88vh;overflow:auto"><div class="modal-header"><span id="tituloParcelasVenda">Parcelas da venda</span><span style="cursor:pointer;color:var(--text-muted)" onclick="fecharModalParcelasVenda()">✕</span></div><div id="conteudoParcelasVenda"></div><div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn-secondary" onclick="fecharModalParcelasVenda()">Fechar</button></div></div></div>`;
   document.addEventListener('DOMContentLoaded',()=>{if(!document.getElementById('modalParcelasVenda'))document.body.insertAdjacentHTML('beforeend',modalParcelasMarkupVan);});
+  // ===== Recibo A4 (layout Vanmathi) — ligado em tempo real aos Dados da Empresa =====
+  const EMPRESA_PADRAO_VAN={nome:'Vanmathi Impressão 3D',razao:'',cnpj:'',inscricao:'',email:'',telefone:'',site:'',redeSocial:'',endereco:'',mensagem:'Obrigado pela preferência!',rodape:'Produtos produzidos sob demanda, com tecnologia de impressão 3D.\nPrazo de produção pode variar conforme a complexidade da peça.\nEm caso de dúvidas ou suporte, entre em contato conosco.',cor:'#0f2d53',logo:'',marca:'Vanmathi 3',submarca:'Impressão 3D',slogan:'Ideias ganham forma.',fraseFinal:'Sua ideia, nossa impressão.',valores:'Qualidade • Precisão • Inovação'};
+  const RECIBO_CSS_VAN=`.rv-page{width:210mm;height:297mm;position:relative;overflow:hidden;background:#fff;padding:12mm 10mm 0}
+.rv-page .top{display:flex;align-items:center;height:32mm}
+.rv-page .logo{width:27mm;height:27mm;border-radius:6mm;object-fit:cover;flex:none}
+.rv-page .brand{margin-left:5mm;flex:1}
+.rv-page .brand h1{font-size:13.5mm;line-height:1;font-weight:800;letter-spacing:-.3mm;color:var(--navy)}
+.rv-page .brand h1 b{color:var(--orange)}
+.rv-page .brand .sub{color:var(--blue);font-weight:700;letter-spacing:2.2mm;font-size:4mm;margin-top:2mm}
+.rv-page .brand .tag{color:var(--muted);font-size:4mm;margin-top:1.5mm}
+.rv-page .contact{border-left:.4mm solid var(--line);padding-left:5mm;width:62mm;font-size:3.1mm;line-height:1.4;display:flex;flex-direction:column;gap:3.2mm}
+.rv-page .contact div{display:flex;gap:2.6mm;align-items:flex-start;word-break:break-word}
+.rv-page .contact svg{width:4.6mm;height:4.6mm;flex:none;fill:var(--navy)}
+.rv-page .rule{height:.9mm;background:linear-gradient(90deg,var(--blue) 82%,var(--orange) 82%);margin:3mm 0 6mm;border-radius:1mm}
+.rv-page .title{display:flex;justify-content:space-between;align-items:center}
+.rv-page .title .l{display:flex;align-items:center;gap:5mm}
+.rv-page .title .l svg{width:13mm;height:15mm}
+.rv-page .title h2{font-size:10.5mm;font-weight:800;line-height:1}
+.rv-page .title p{color:var(--muted);letter-spacing:.3mm;font-size:4.2mm;margin-top:2mm}
+.rv-page .nbox{background:var(--soft);border-radius:2.5mm;padding:4mm 5mm;width:70mm;font-size:3.5mm;line-height:1.7}
+.rv-page .nbox strong{font-size:6mm;display:block;line-height:1.3}
+.rv-page .client{background:var(--soft2);border-radius:3mm;padding:4.5mm 6mm;margin-top:7mm;display:flex}
+.rv-page .client h3{font-size:4.4mm;display:flex;align-items:center;gap:2.5mm;margin-bottom:3mm}
+.rv-page .client h3 svg{width:7mm;height:7mm;fill:var(--navy)}
+.rv-page .client .a{flex:1;font-size:3.7mm;line-height:1.65}
+.rv-page .client .a span{display:inline-block;width:20mm}
+.rv-page .client .b{flex:1;border-left:.4mm solid var(--line);padding-left:6mm;font-size:3.7mm;line-height:1.5;padding-top:6mm}
+.rv-page .client .b em{font-style:normal;color:var(--muted)}
+.rv-page table{width:100%;border-collapse:collapse;margin-top:7mm;font-size:3.4mm;border-radius:2mm;overflow:hidden}
+.rv-page thead th{background:var(--navy);color:#fff;font-weight:600;padding:3.4mm 3mm;text-align:center;border-left:.3mm solid rgba(255,255,255,.18)}
+.rv-page thead th:first-child{border-left:0}
+.rv-page tbody td{padding:3.4mm 3mm;border-bottom:.3mm solid var(--line);border-left:.3mm solid var(--line);text-align:center}
+.rv-page tbody td:first-child{border-left:.3mm solid var(--line)}
+.rv-page tbody td:last-child{border-right:.3mm solid var(--line)}
+.rv-page .tl{text-align:left!important}
+.rv-page .totals{width:96mm;margin:6mm 0 0 auto;font-size:3.6mm}
+.rv-page .totals .r{display:flex;justify-content:space-between;padding:2mm 5mm;background:var(--soft)}
+.rv-page .totals .r:nth-child(1){border-radius:2mm 2mm 0 0}
+.rv-page .totals .t{display:flex;justify-content:space-between;padding:2.8mm 5mm;background:var(--navy);color:#fff;font-size:4.6mm;border-radius:2mm;margin-top:.5mm;border-bottom:1mm solid var(--orange)}
+.rv-page .pay{margin-top:3mm;font-size:3.2mm;color:var(--muted);text-align:right}
+.rv-page .info{display:flex;margin-top:8mm;border-top:.3mm solid var(--line);padding-top:4mm}
+.rv-page .info .l{flex:1.45;font-size:2.8mm;color:var(--muted);line-height:1.7}
+.rv-page .info .l h4{color:var(--navy);font-size:3.9mm;display:flex;align-items:center;gap:2mm;margin-bottom:1.5mm}
+.rv-page .info .l h4 i{width:5.5mm;height:5.5mm;border-radius:50%;background:var(--navy);color:#fff;font-style:normal;font-size:3.3mm;display:flex;align-items:center;justify-content:center}
+.rv-page .info .l li{list-style:none;padding-left:3mm;position:relative}
+.rv-page .info .l li:before{content:'';position:absolute;left:0;top:2.4mm;width:1.1mm;height:1.1mm;border-radius:50%;background:var(--orange)}
+.rv-page .info .r{flex:1;border-left:.4mm solid var(--line);margin-left:5mm;padding-left:5mm;display:flex;gap:4mm;align-items:center}
+.rv-page .qr{width:24mm;height:24mm;flex:none;padding:1.5mm;border:.3mm solid var(--line);border-radius:1.5mm}
+.rv-page .qr svg{width:100%;height:100%;display:block}
+.rv-page .info .r p{font-size:3.2mm;line-height:1.5}
+.rv-page .info .r small{display:flex;gap:1.5mm;align-items:center;color:var(--blue);font-size:3mm;margin-top:2mm;word-break:break-all}
+.rv-page .thanks{display:flex;align-items:center;gap:5mm;margin:9mm 6mm 0;text-align:center}
+.rv-page .thanks:before, .rv-page .thanks:after{content:'';flex:1;height:.3mm;background:var(--blue);opacity:.6}
+.rv-page .thanks strong{font-size:4.6mm;display:block}
+.rv-page .thanks span{color:var(--muted);font-size:4mm}
+.rv-page .foot{position:absolute;left:0;right:0;bottom:0;height:17mm;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 10mm;border-top:1.2mm solid var(--orange)}
+.rv-page .foot .b{display:flex;align-items:center;gap:3mm;font-weight:800;font-size:5mm;letter-spacing:.2mm}
+.rv-page .foot .b img{width:10mm;height:10mm;border-radius:2mm}
+.rv-page .foot .b small{display:block;font-size:2.2mm;letter-spacing:.9mm;font-weight:600;color:#9fc0ee}
+.rv-page .foot .r{font-size:3.4mm}
+.rv-page .foot .r i{color:var(--orange);font-style:normal;margin:0 2mm}
+.rv-page{--blue:#1565d8;--orange:#f28a1e;--soft:#eef4fc;--soft2:#f4f7fc;--muted:#5b6b82;--line:#d5e0f0;font-family:'Segoe UI',Arial,sans-serif;color:var(--navy);text-align:left;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rv-page,.rv-page *{box-sizing:border-box}
+.rv-page *{margin:0;padding:0}
+.rv-page ul{list-style:none}
+.rv-page table{min-width:0}
+.rv-page td,.rv-page th{color:var(--navy)}
+.rv-page thead th{color:#fff}
+.rv-page .brand h1{text-transform:uppercase;white-space:nowrap}
+.rv-page .sub{text-transform:uppercase}
+.rv-page .thanks strong{text-transform:uppercase}
+.rv-page .foot .b>div{text-transform:uppercase}
+.rv-page .contact span{min-width:0}
+.rv-page .info .r small+small{margin-top:.8mm}
+.rv-page.rv-compact tbody td{padding-top:1.8mm;padding-bottom:1.8mm}
+.rv-page .rv-sum{display:flex;gap:6mm;align-items:flex-start;margin-top:6mm}
+.rv-page .rv-parc{flex:1;min-width:0}
+.rv-page .rv-parc h4{font-size:3.2mm;letter-spacing:.2mm;margin-bottom:1.5mm;color:var(--navy)}
+.rv-page .rv-parc table{margin-top:0;font-size:2.9mm}
+.rv-page .rv-parc thead th{padding:1.8mm 2mm}
+.rv-page .rv-parc tbody td{padding:1.5mm 2mm;border-left:0;border-right:0!important}
+.rv-page .rv-sum .totals{margin:0 0 0 auto;flex:none}
+.rv-page .rv-st{display:inline-block;padding:.4mm 2mm;border-radius:5mm;font-size:2.6mm;font-weight:700}
+.rv-page .rv-st.ok{background:#dcfce7;color:#166534}.rv-page .rv-st.parc{background:#fef3c7;color:#92400e}.rv-page .rv-st.pend{background:#fee2e2;color:#991b1b}
+.rv-page .rv-mais{text-align:center;color:var(--muted);font-size:2.7mm}
+.rv-page .rv-pay{display:flex;justify-content:space-between;padding:1.4mm 5mm;font-size:3.2mm;color:var(--muted)}
+.rv-page .rv-obs{margin-top:4mm;padding:2.5mm 4mm;background:var(--soft2);border-radius:2mm;font-size:3mm;color:var(--muted)}
+.rv-page .totals .r:nth-child(2){border-radius:0}
+.rv-page .info .l{flex:1.35}
+.rv-page .info .r{flex:1}
+.rv-page img.logo{display:block}
+`;
+  (function(){const s=document.createElement('style');s.id='estiloReciboVan';s.textContent=RECIBO_CSS_VAN;document.head.appendChild(s);})();
+
+  // ===== Gerador de QR Code embutido (byte mode, correção M) — sem dependências externas =====
+  function qrMatrizVan(texto){
+    const ECC=[-1,10,16,26,18,24,16,18,22,22,26,30,22,22,24,24,28,28,26,26,26,26,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28];
+    const BLK=[-1,1,1,1,2,2,4,4,4,5,5,5,8,9,9,10,10,11,13,14,16,17,17,18,20,21,23,25,26,28,29,31,33,35,37,38,40,43,45,47,49];
+    const bytes=Array.from(new TextEncoder().encode(String(texto)));
+    const rawModulos=v=>{let r=(16*v+128)*v+64;if(v>=2){const n=Math.floor(v/7)+2;r-=(25*n-10)*n-55;if(v>=7)r-=36;}return r;};
+    const capDados=v=>Math.floor(rawModulos(v)/8)-ECC[v]*BLK[v];
+    let ver=1;
+    for(;;ver++){
+      if(ver>40)throw new Error('Texto muito longo para o QR Code.');
+      const bitsCont=ver<=9?8:16;
+      if(4+bitsCont+bytes.length*8<=capDados(ver)*8)break;
+    }
+    const bits=[];
+    const push=(val,len)=>{for(let i=len-1;i>=0;i--)bits.push((val>>>i)&1);};
+    push(4,4);push(bytes.length,ver<=9?8:16);bytes.forEach(b=>push(b,8));
+    const capBits=capDados(ver)*8;
+    push(0,Math.min(4,capBits-bits.length));
+    push(0,(8-bits.length%8)%8);
+    for(let pad=0xEC;bits.length<capBits;pad^=0xEC^0x11)push(pad,8);
+    const dados=[];
+    for(let i=0;i<bits.length;i+=8){let b=0;for(let j=0;j<8;j++)b=(b<<1)|bits[i+j];dados.push(b);}
+    // Reed-Solomon
+    const mul=(x,y)=>{let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);z^=((y>>>i)&1)*x;}return z&255;};
+    const divisor=grau=>{const r=new Array(grau).fill(0);r[grau-1]=1;let raiz=1;for(let i=0;i<grau;i++){for(let j=0;j<r.length;j++){r[j]=mul(r[j],raiz);if(j+1<r.length)r[j]^=r[j+1];}raiz=mul(raiz,2);}return r;};
+    const resto=(d,div)=>{const r=div.map(()=>0);for(const b of d){const f=b^r.shift();r.push(0);div.forEach((c,i)=>{r[i]^=mul(c,f);});}return r;};
+    const nBlocos=BLK[ver],eccLen=ECC[ver],rawCw=Math.floor(rawModulos(ver)/8);
+    const curtos=nBlocos-rawCw%nBlocos,tamCurto=Math.floor(rawCw/nBlocos);
+    const blocos=[],div=divisor(eccLen);
+    for(let i=0,k=0;i<nBlocos;i++){
+      const len=tamCurto-eccLen+(i<curtos?0:1);
+      const dat=dados.slice(k,k+len);k+=len;
+      const ecc=resto(dat,div);
+      if(i<curtos)dat.push(0);
+      blocos.push(dat.concat(ecc));
+    }
+    const final=[];
+    for(let i=0;i<blocos[0].length;i++)blocos.forEach((b,j)=>{if(i!==tamCurto-eccLen||j>=curtos)final.push(b[i]);});
+    // Matriz
+    const n=ver*4+17;
+    const m=Array.from({length:n},()=>new Array(n).fill(false));
+    const fn=Array.from({length:n},()=>new Array(n).fill(false));
+    const setF=(x,y,v)=>{m[y][x]=v;fn[y][x]=true;};
+    for(let i=0;i<n;i++){setF(6,i,i%2===0);setF(i,6,i%2===0);}
+    const finder=(cx,cy)=>{for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const d=Math.max(Math.abs(dx),Math.abs(dy)),x=cx+dx,y=cy+dy;if(x>=0&&x<n&&y>=0&&y<n)setF(x,y,d!==2&&d!==4);}};
+    finder(3,3);finder(n-4,3);finder(3,n-4);
+    const pos=[];
+    if(ver>1){const na=Math.floor(ver/7)+2;const passo=ver===32?26:Math.ceil((ver*4+4)/(na*2-2))*2;pos.push(6);for(let p=n-7;pos.length<na;p-=passo)pos.splice(1,0,p);}
+    for(let i=0;i<pos.length;i++)for(let j=0;j<pos.length;j++){
+      if((i===0&&j===0)||(i===0&&j===pos.length-1)||(i===pos.length-1&&j===0))continue;
+      for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)setF(pos[i]+dx,pos[j]+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
+    }
+    const bit=(x,i)=>((x>>>i)&1)!==0;
+    const formato=mask=>{
+      const d=mask;let r=d;for(let i=0;i<10;i++)r=(r<<1)^((r>>>9)*0x537);
+      const b=((d<<10)|r)^0x5412;
+      for(let i=0;i<=5;i++)setF(8,i,bit(b,i));
+      setF(8,7,bit(b,6));setF(8,8,bit(b,7));setF(7,8,bit(b,8));
+      for(let i=9;i<15;i++)setF(14-i,8,bit(b,i));
+      for(let i=0;i<8;i++)setF(n-1-i,8,bit(b,i));
+      for(let i=8;i<15;i++)setF(8,n-15+i,bit(b,i));
+      setF(8,n-8,true);
+    };
+    formato(0);
+    if(ver>=7){let r=ver;for(let i=0;i<12;i++)r=(r<<1)^((r>>>11)*0x1F25);const b=(ver<<12)|r;for(let i=0;i<18;i++){const c=bit(b,i),a=n-11+i%3,bb=Math.floor(i/3);setF(a,bb,c);setF(bb,a,c);}}
+    // Dados em zigue-zague
+    let idx=0;
+    for(let dir=n-1;dir>=1;dir-=2){
+      if(dir===6)dir=5;
+      for(let vert=0;vert<n;vert++)for(let j=0;j<2;j++){
+        const x=dir-j,sobe=((dir+1)&2)===0,y=sobe?n-1-vert:vert;
+        if(!fn[y][x]&&idx<final.length*8){m[y][x]=bit(final[idx>>>3],7-(idx&7));idx++;}
+      }
+    }
+    const aplicar=mask=>{for(let y=0;y<n;y++)for(let x=0;x<n;x++){let inv;switch(mask){case 0:inv=(x+y)%2===0;break;case 1:inv=y%2===0;break;case 2:inv=x%3===0;break;case 3:inv=(x+y)%3===0;break;case 4:inv=(Math.floor(x/3)+Math.floor(y/2))%2===0;break;case 5:inv=x*y%2+x*y%3===0;break;case 6:inv=(x*y%2+x*y%3)%2===0;break;default:inv=((x+y)%2+x*y%3)%2===0;}if(!fn[y][x]&&inv)m[y][x]=!m[y][x];}};
+    const penal=()=>{let p=0;
+      for(let y=0;y<n;y++){let run=1;for(let x=1;x<n;x++){if(m[y][x]===m[y][x-1]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+      for(let x=0;x<n;x++){let run=1;for(let y=1;y<n;y++){if(m[y][x]===m[y-1][x]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+      for(let y=0;y<n-1;y++)for(let x=0;x<n-1;x++){const c=m[y][x];if(c===m[y][x+1]&&c===m[y+1][x]&&c===m[y+1][x+1])p+=3;}
+      let dark=0;for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(m[y][x])dark++;
+      p+=Math.floor(Math.abs(dark*20-n*n*10)/(n*n))*10;return p;};
+    let melhor=0,menor=Infinity;
+    for(let mk=0;mk<8;mk++){aplicar(mk);formato(mk);const p=penal();if(p<menor){menor=p;melhor=mk;}aplicar(mk);}
+    aplicar(melhor);formato(melhor);
+    return m;
+  }
+  function qrSvgVan(texto,cor){
+    try{
+      const m=qrMatrizVan(texto),n=m.length;let d='';
+      for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(m[y][x])d+=`M${x} ${y}h1v1h-1z`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${n+4} ${n+4}" shape-rendering="crispEdges"><rect x="-2" y="-2" width="${n+4}" height="${n+4}" fill="#fff"/><path d="${d}" fill="${cor||'#0f2d53'}"/></svg>`;
+    }catch(e){console.warn('QR:',e);return '';}
+  }
+
+
+  function empresaReciboVan(){const e={...EMPRESA_PADRAO_VAN};const d=dadosEmpresa||{};Object.keys(e).forEach(k=>{if(d[k]!==undefined&&d[k]!==null)e[k]=d[k];});if(!String(e.rodape||'').trim())e.rodape=EMPRESA_PADRAO_VAN.rodape;if(!String(e.nome||'').trim())e.nome=EMPRESA_PADRAO_VAN.nome;e.logo=d.logo||'';return e;}
+  function urlSiteVan(e){let s=String(e.site||'').trim();if(!s)return '';if(!/^https?:\/\//i.test(s))s='https://'+s;return s;}
+  function textoUrlVan(u){return String(u||'').replace(/^https?:\/\//i,'').replace(/\/$/,'');}
+  function numeroReciboVan(r){return String(r.sequencia||r.numero||'').padStart(6,'0');}
+  function logoReciboVan(e){if(e.logo)return e.logo;try{return new URL('icons/icon-192.png',location.href).href;}catch(_){return '';}}
+  function marcaHtmlVan(marca){return escaparHtmlVan(String(marca||'').trim()).replace(/(\s)(\d+)$/,'$1<b>$2</b>');}
+  function materialLabelVan(v){
+    const comp=Array.isArray(v?.composicaoMateriais)&&v.composicaoMateriais.length?v.composicaoMateriais:(v?.materialId?[{materialId:v.materialId}]:[]);
+    const mats=comp.map(i=>listaMateriais.find(m=>String(m.id)===String(i.materialId))).filter(Boolean);
+    if(!mats.length)return '';
+    const modelos=[...new Set(mats.map(m=>m.modelo||m.tipo||'').filter(Boolean))];
+    const cores=[...new Set(mats.map(m=>m.cor).filter(Boolean))];
+    return (modelos.join('/')||'Material')+(cores.length?' ('+cores.join(' + ')+')':'');
+  }
+  function resumoParcelasReciboVan(r){const p=r.parcelamento;const n=Number(p?.quantidade)||0;if(n<2||!Array.isArray(p.parcelas))return null;const pagas=p.parcelas.filter(x=>Number(x.pago)>=Number(x.valor)-0.005).length;return {n,valor:Number(p.valorParcela)||(Number(r.total)||0)/n,pagas,parcelas:p.parcelas};}
+
+  function reciboHtmlVan(r){
+    const e=empresaReciboVan();
+    const cor=/^#[0-9a-f]{6}$/i.test(e.cor||'')?e.cor:'#0f2d53';
+    const site=urlSiteVan(e);
+    const cli=r.cliente||{};
+    const itens=Array.isArray(r.itens)?r.itens:[];
+    const pc=resumoParcelasReciboVan(r);
+    const x=escaparHtmlVan;
+    const ic={
+      pin:'<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
+      web:'<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.9 9h-3a15 15 0 0 0-1.2-5A8 8 0 0 1 18.9 11zM12 4c.8 1 1.5 3.1 1.8 7h-3.6C10.5 7.1 11.2 5 12 4zM4.6 13h3a15 15 0 0 0 1.2 5A8 8 0 0 1 4.6 13zm3-2h-3A8 8 0 0 1 9.3 6a15 15 0 0 0-1.7 5zM12 20c-.8-1-1.5-3.1-1.8-7h3.6c-.3 3.9-1 6-1.8 7zm2.7-2a15 15 0 0 0 1.2-5h3a8 8 0 0 1-4.2 5z"/></svg>',
+      mail:'<svg viewBox="0 0 24 24"><path d="M2 5h20v14H2V5zm2 2v.5l8 5.5 8-5.5V7l-8 5.5L4 7z"/></svg>',
+      tel:'<svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z"/></svg>'
+    };
+    const contato=[`<div>${ic.pin}<span><b>${x(e.nome)}</b>${e.cnpj?'<br>CNPJ: '+x(e.cnpj):''}${e.endereco?'<br>'+x(e.endereco):''}</span></div>`];
+    if(e.telefone)contato.push(`<div>${ic.tel}<span>${x(e.telefone)}</span></div>`);
+    if(site)contato.push(`<div>${ic.web}<span>${x(textoUrlVan(site))}</span></div>`);
+    if(e.email)contato.push(`<div>${ic.mail}<span>${x(e.email)}</span></div>`);
+    const marca=String(e.marca||'').trim();
+    const tamMarca=marca.length>18?8.5:marca.length>12?11:13.5;
+    const linhasItens=itens.map((i,n)=>`<tr><td>${n+1}</td><td class="tl">${x(i.descricao)}</td><td>${x(i.material||'—')}</td><td>${Number(i.qtd)||0}</td><td>${moedaVan(i.preco)}</td><td>${moedaVan(i.total)}</td></tr>`).join('');
+    let parcHtml='';
+    if(pc){
+      const lim=6;
+      const rows=pc.parcelas.slice(0,lim).map(p=>{const pago=Number(p.pago)>=Number(p.valor)-0.005;const parc=Number(p.pago)>0&&!pago;return `<tr><td>${p.numero}/${pc.n}</td><td>${dataVan(p.vencimento)}</td><td>${moedaVan(p.valor)}</td><td><span class="rv-st ${pago?'ok':parc?'parc':'pend'}">${pago?'Paga':parc?'Parcial':'Pendente'}</span></td></tr>`;}).join('');
+      const mais=pc.parcelas.length>lim?`<tr><td colspan="4" class="rv-mais">+ ${pc.parcelas.length-lim} parcela(s) restante(s)</td></tr>`:'';
+      parcHtml=`<div class="rv-parc"><h4>PARCELAMENTO · ${pc.n}x de ${moedaVan(pc.valor)}</h4><table><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Situação</th></tr></thead><tbody>${rows}${mais}</tbody></table></div>`;
+    }
+    const info=String(e.rodape||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const valores=String(e.valores||'').split(/[•|·\n]/).map(s=>s.trim()).filter(Boolean);
+    const logo=logoReciboVan(e);
+    const qr=site?`<div class="r"><div class="qr">${qrSvgVan(site,cor)}</div><div><p>Acesse nosso site<br>e conheça mais<br>sobre nossos produtos!</p><small>🌐 ${x(textoUrlVan(site))}</small>${e.redeSocial?`<small>${x(textoUrlVan(e.redeSocial))}</small>`:''}</div></div>`:'';
+    const pend=Number(r.pendente)||0;
+    return `<div class="rv-page${itens.length>6?' rv-compact':''}" style="--navy:${cor}">
+ <div class="top">${logo?`<img class="logo" src="${x(logo)}" alt="" onerror="this.style.display='none'">`:''}
+  <div class="brand"><h1 style="font-size:${tamMarca}mm">${marcaHtmlVan(marca)}</h1>${e.submarca?`<div class="sub">${x(e.submarca)}</div>`:''}${e.slogan?`<div class="tag">${x(e.slogan)}</div>`:''}</div>
+  <div class="contact">${contato.join('')}</div></div>
+ <div class="rule"></div>
+ <div class="title"><div class="l"><svg viewBox="0 0 24 28" fill="none" stroke="#1565d8" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 2h16v22l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5V2z"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#f28a1e"/></svg><div><h2>RECIBO DE VENDA</h2><p>PRODUTOS 3D PERSONALIZADOS</p></div></div>
+  <div class="nbox"><strong>Nº ${x(numeroReciboVan(r))}</strong>Data de Emissão: ${dataVan(r.data)}<br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}<br>Situação: <b>${x(r.situacao||'Pendente')}</b></div></div>
+ <div class="client"><div class="a"><h3><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z"/></svg>DADOS DO CLIENTE</h3>
+   <div><span>Nome:</span>${x(cli.nome||'')}</div>${cli.email?`<div><span>E-mail:</span>${x(cli.email)}</div>`:''}${cli.telefone?`<div><span>Telefone:</span>${x(cli.telefone)}</div>`:''}${cli.documento?`<div><span>Documento:</span>${x(cli.documento)}</div>`:''}</div>
+  <div class="b"><b>Endereço</b> <em>(opcional)</em>:<br>${cli.endereco?x(cli.endereco):'<em>Não informado</em>'}</div></div>
+ <table><thead><tr><th style="width:9mm">#</th><th style="text-align:left">Produto</th><th>Material</th><th style="width:15mm">Qtd.</th><th style="width:30mm">Valor Unitário</th><th style="width:30mm">Valor Total</th></tr></thead><tbody>${linhasItens}</tbody></table>
+ <div class="rv-sum">${parcHtml||'<div class="rv-parc"></div>'}
+  <div class="totals"><div class="r"><span>Subtotal</span><span>${moedaVan(r.subtotal)}</span></div><div class="r"><span>Desconto</span><span>${moedaVan(r.desconto)}</span></div><div class="t"><strong>Total</strong><strong>${moedaVan(r.total)}</strong></div>
+   <div class="rv-pay"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div class="rv-pay"><span>Saldo pendente</span><strong style="color:${pend>0.005?'#d9730d':'inherit'}">${moedaVan(pend)}</strong></div></div></div>
+ ${r.observacao?`<div class="rv-obs"><b>Observações:</b> ${x(r.observacao)}</div>`:''}
+ <div class="info"><div class="l"><h4><i>i</i>INFORMAÇÕES ADICIONAIS</h4><ul>${info.map(t=>`<li>${x(t)}</li>`).join('')}</ul></div>${qr}</div>
+ <div class="thanks"><div><strong>${x(e.mensagem||'Obrigado pela preferência!')}</strong>${e.fraseFinal?`<span>${x(e.fraseFinal)}</span>`:''}</div></div>
+ <div class="foot"><div class="b">${logo?`<img src="${x(logo)}" alt="" onerror="this.style.display='none'">`:''}<div>${marcaHtmlVan(marca)}${e.submarca?`<small>${x(e.submarca)}</small>`:''}</div></div><div class="r">${valores.map(v=>x(v)).join('<i>•</i>')}</div></div>
+</div>`;
+  }
+  function documentoReciboVan(r){return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo ${escaparHtmlVan(numeroReciboVan(r))}</title><style>@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}${RECIBO_CSS_VAN}</style></head><body>${reciboHtmlVan(r)}</body></html>`;}
+  function ajustarZoomReciboVan(){const area=document.getElementById('areaImpressaoRecibo');const pg=area?.querySelector('.rv-page');if(!pg)return;pg.style.zoom=1;const larg=area.clientWidth-24;const base=pg.offsetWidth||794;pg.style.zoom=Math.max(0.3,Math.min(1,larg/base));}
+  window.addEventListener('resize',ajustarZoomReciboVan);
+  function mostrarRecibo(id){const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r)return;reciboVisualizadoId=id;const v=document.getElementById('visualizadorRecibo');document.getElementById('areaImpressaoRecibo').innerHTML=reciboHtmlVan(r);v.style.display='block';ajustarZoomReciboVan();v.scrollIntoView({behavior:'smooth',block:'start'});}
+  function imprimirReciboAtual(){
+    const r=listaRecibos.find(x=>String(x.id)===String(reciboVisualizadoId));if(!r)return;
+    document.getElementById('iframeImpressaoReciboVan')?.remove();
+    const f=document.createElement('iframe');f.id='iframeImpressaoReciboVan';f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;';document.body.appendChild(f);
+    const doc=f.contentWindow.document;doc.open();doc.write(documentoReciboVan(r));doc.close();
+    const tituloAntes=document.title;
+    document.title='Recibo_'+numeroReciboVan(r)+'_'+String(r.cliente?.nome||'').trim().replace(/[^\wÀ-ÿ]+/g,'_');
+    Promise.all(Array.from(doc.images).map(i=>i.complete?Promise.resolve():new Promise(res=>{i.onload=i.onerror=res;}))).then(()=>setTimeout(()=>{
+      try{f.contentWindow.focus();f.contentWindow.print();}catch(err){console.warn('Impressão:',err);}
+      document.title=tituloAntes;
+    },200));
+  }
+
+  // ===== Recibos x Gestão de Vendas =====
+  function atualizarSelectVendasRecibo(selecionado=''){
+    const el=document.getElementById('reciboVendaOrigem');if(!el)return;
+    const atual=selecionado||el.value;
+    el.innerHTML='<option value="">Recibo avulso — digitar os itens manualmente</option>'+[...listaVendas].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(v=>{
+      const qtd=Math.max(1,Number(v.qtd)||1);
+      const rec=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));
+      const cli=v.clienteNome||listaClientes.find(c=>String(c.id)===String(v.clienteId))?.nome||'';
+      return `<option value="${escaparHtmlVan(v.id)}">${escaparHtmlVan(v.produtoNome||'Produto')} × ${qtd} — ${moedaVan(v.total)} — ${dataVan(v.data)}${cli?' — '+escaparHtmlVan(cli):''}${rec?' — já tem recibo #'+escaparHtmlVan(rec.numero):''}</option>`;
+    }).join('');
+    if(atual)el.value=String(atual);
+  }
+  function novoRecibo(clienteId='',vendaId=''){
+    if(!podeGerirFinanceiroVan())return;
+    if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}
+    itensRascunhoRecibo=[];
+    document.getElementById('tituloFormRecibo').textContent='Novo recibo';
+    document.getElementById('reciboData').value=new Date().toISOString().slice(0,10);
+    document.getElementById('reciboForma').value='PIX';
+    document.getElementById('reciboParcelas').value='1';
+    document.getElementById('reciboPago').value='0';document.getElementById('reciboPago').readOnly=false;
+    document.getElementById('reciboDesconto').value='0';document.getElementById('reciboDesconto').readOnly=false;
+    document.getElementById('reciboObservacao').value='';
+    atualizarSelectClientesRecibo(clienteId);
+    atualizarSelectVendasRecibo('');
+    document.getElementById('reciboVendaOrigem').value='';
+    if(vendaId){document.getElementById('reciboVendaOrigem').value=String(vendaId);preencherReciboDaVenda();if(clienteId&&!document.getElementById('reciboCliente').value)document.getElementById('reciboCliente').value=String(clienteId);}
+    else adicionarItemRecibo();
+    renderizarItensRascunhoRecibo();atualizarTotaisRecibo();
+    document.getElementById('formRecibo').style.display='block';
+    document.getElementById('visualizadorRecibo').style.display='none';
+    document.getElementById('formRecibo').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function adicionarItemRecibo(item={}){itensRascunhoRecibo.push({descricao:item.descricao||'',material:item.material||'',detalhes:item.detalhes||'',qtd:Number(item.qtd)||1,preco:Number(item.preco)||0,produtoId:item.produtoId||''});renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
+  function preencherReciboDaVenda(){
+    const sel=document.getElementById('reciboVendaOrigem');const id=sel?.value;
+    const pago=document.getElementById('reciboPago'),desc=document.getElementById('reciboDesconto');
+    if(!id){pago.readOnly=false;desc.readOnly=false;if(!itensRascunhoRecibo.length)adicionarItemRecibo();else renderizarItensRascunhoRecibo();atualizarTotaisRecibo();return;}
+    const v=obterVendaFinanceira(id);if(!v)return;
+    const existente=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));
+    if(existente){sel.value='';cancelarRecibo();mostrarRecibo(existente.id);mostrarToast('Esta venda já tem o recibo #'+(existente.numero||existente.sequencia)+'. Abri o recibo existente.');return;}
+    atualizarResumoFinanceiroVenda(v);
+    if(v.clienteId&&listaClientes.some(c=>String(c.id)===String(v.clienteId)&&!c.arquivado))document.getElementById('reciboCliente').value=String(v.clienteId);
+    const n=Number(v.parcelamento?.quantidade)||v.parcelasTotal||1;
+    document.getElementById('reciboData').value=v.data||new Date().toISOString().slice(0,10);
+    document.getElementById('reciboForma').value=n>1?'Parcelado':'PIX';
+    document.getElementById('reciboParcelas').value=String(n);
+    pago.value=Number(v.totalRecebido)||0;pago.readOnly=true;
+    desc.value='0';desc.readOnly=true;
+    const qtd=Math.max(1,Number(v.qtd)||1);
+    itensRascunhoRecibo=[{descricao:v.produtoNome||'',material:materialLabelVan(v),detalhes:'',qtd,preco:Number(v.valorProdutoUnidade)||(Number(v.total)||0)/qtd,produtoId:v.produtoId||''}];
+    renderizarItensRascunhoRecibo();atualizarTotaisRecibo();
+  }
+  function renderizarItensRascunhoRecibo(){
+    const tb=document.getElementById('itensRecibo');if(!tb)return;
+    const lock=!!document.getElementById('reciboVendaOrigem')?.value;
+    tb.innerHTML=itensRascunhoRecibo.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemRecibo(${i},'descricao',this.value)" style="min-width:150px;width:100%" ${lock?'readonly':''}></td><td><input aria-label="Material" value="${escaparHtmlVan(it.material||'')}" maxlength="60" placeholder="Ex.: PLA (Preto)" onchange="atualizarItemRecibo(${i},'material',this.value)" style="min-width:130px;width:100%" ${lock?'readonly':''}></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemRecibo(${i},'qtd',this.value)" style="width:70px" ${lock?'readonly':''}></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemRecibo(${i},'preco',this.value)" style="width:100px" ${lock?'readonly':''}></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemRecibo(${i})" ${lock?'disabled':''}>×</button></td></tr>`).join('');
+    const b=document.getElementById('btnAddItemRecibo');if(b)b.style.display=lock?'none':'';
+  }
+  function criarReciboVinculadoDaVenda(v,opts={}){
+    if(!v)return null;
+    const existente=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));if(existente)return existente;
+    const cliente=listaClientes.find(c=>String(c.id)===String(v.clienteId));if(!cliente)return null;
+    const seq=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0)+1;
+    atualizarResumoFinanceiroVenda(v);
+    const total=Number(v.total)||0,n=Number(v.parcelamento?.quantidade)||v.parcelasTotal||1,qtd=Math.max(1,Number(v.qtd)||1);
+    const quitado=(Number(v.saldoRestante)||0)<=0.005;
+    const r={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaId:v.id,sequencia:seq,numero:String(seq).padStart(4,'0'),data:opts.data||v.data||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:[{descricao:v.produtoNome,material:materialLabelVan(v),detalhes:'',qtd,preco:Number(v.valorProdutoUnidade)||(total/qtd),total}],subtotal:total,desconto:0,total,recebido:Number(v.totalRecebido)||0,pendente:Number(v.saldoRestante??total),formaPagamento:opts.forma||(n>1?'Parcelado':'PIX'),parcelamento:JSON.parse(JSON.stringify(v.parcelamento||{quantidade:1,valorParcela:total,parcelas:[{numero:1,valor:total,pago:Number(v.totalRecebido)||0,status:quitado?'Pago':'Pendente'}]})),observacao:opts.observacao||'',baixas:(v.recebimentos||[]).map(p=>({...p})),situacao:quitado?'Pago':(Number(v.totalRecebido)||0)>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
+    listaRecibos.push(r);return r;
+  }
+  function sincronizarRecibosDaVenda(v){
+    if(!v)return;
+    listaRecibos.filter(r=>String(r.vendaId||'')===String(v.id)).forEach(r=>{
+      const cli=listaClientes.find(c=>String(c.id)===String(v.clienteId));
+      if(cli){r.clienteId=cli.id;r.cliente={nome:cli.nome,telefone:cli.telefone||'',email:cli.email||'',documento:cli.documento||'',endereco:cli.endereco||''};}
+      const qtd=Math.max(1,Number(v.qtd)||1),total=Number(v.total)||0;
+      r.itens=[{...(r.itens&&r.itens[0]||{}),descricao:v.produtoNome||r.itens?.[0]?.descricao||'',material:materialLabelVan(v)||r.itens?.[0]?.material||'',qtd,preco:Number(v.valorProdutoUnidade)||(total/qtd),total}];
+      r.subtotal=total;r.desconto=0;r.total=total;
+      r.recebido=Math.min(total,Number(v.totalRecebido)||0);
+      r.pendente=Math.max(0,Math.round((total-r.recebido)*100)/100);
+      r.situacao=r.pendente<=0.005?'Pago':r.recebido>0?'Parcial':'Pendente';
+      r.baixas=(v.recebimentos||[]).map(p=>({...p}));
+      r.parcelamento=JSON.parse(JSON.stringify(v.parcelamento||r.parcelamento||{}));
+      const nq=Number(v.parcelamento?.quantidade)||1;
+      if(nq===1&&r.formaPagamento==='Parcelado')r.formaPagamento='PIX';
+      else if(nq>1&&!['Parcelado','Cartão de crédito','Boleto'].includes(r.formaPagamento))r.formaPagamento='Parcelado';
+    });
+  }
+  function gerarReciboDaVenda(id){
+    if(!podeGerirFinanceiroVan())return;
+    const v=obterVendaFinanceira(id);if(!v)return;
+    let r=listaRecibos.find(x=>String(x.vendaId||'')===String(v.id));
+    if(!r&&v.clienteId&&listaClientes.some(c=>String(c.id)===String(v.clienteId)&&!c.arquivado))r=criarReciboVinculadoDaVenda(v);
+    mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');
+    if(r){salvarPacoteComercialVan();renderizarRecibos();mostrarRecibo(r.id);return;}
+    novoRecibo('',v.id);
+  }
+  function salvarRecibo(){
+    if(!podeGerirFinanceiroVan())return;
+    const vendaId=document.getElementById('reciboVendaOrigem')?.value||'';
+    const cliente=listaClientes.find(c=>String(c.id)===String(document.getElementById('reciboCliente').value));
+    if(!cliente){alert('Selecione o cliente do recibo.');return;}
+    const forma=document.getElementById('reciboForma').value;
+    const obs=document.getElementById('reciboObservacao').value.trim();
+    const dataEmissao=document.getElementById('reciboData').value||new Date().toISOString().slice(0,10);
+    if(vendaId){
+      const v=obterVendaFinanceira(vendaId);if(!v){alert('A venda selecionada não foi encontrada.');return;}
+      const existente=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));
+      if(existente){cancelarRecibo();mostrarRecibo(existente.id);mostrarToast('Esta venda já tinha o recibo #'+existente.numero+'.');return;}
+      const n=Math.max(1,Math.min(60,parseInt(document.getElementById('reciboParcelas').value)||1));
+      // O cliente e as parcelas escolhidos aqui passam a valer na Gestão de Vendas.
+      v.clienteId=cliente.id;v.clienteNome=cliente.nome;
+      if(!v.parcelamento||n!==(Number(v.parcelamento.quantidade)||1)){
+        v.parcelamento=criarParcelamentoVan(v.total,n,v.parcelamento?.parcelas?.[0]?.vencimento||v.data);
+        reconciliarParcelasComRecebimentos(v);
+      }
+      atualizarResumoFinanceiroVenda(v);
+      const rec=criarReciboVinculadoDaVenda(v,{forma,observacao:obs,data:dataEmissao});
+      salvarPacoteComercialVan();
+      cancelarRecibo();renderizarVendas();renderizarClientes();renderizarRecibos();atualizarRelatorios();
+      if(rec)mostrarRecibo(rec.id);
+      mostrarToast('Recibo emitido e cliente vinculado à venda em Gestão de Vendas.');
+      return;
+    }
+    if(!itensRascunhoRecibo.length||itensRascunhoRecibo.some(i=>!String(i.descricao||'').trim()||Number(i.qtd)<1||Number(i.preco)<0)){alert('Inclua ao menos um item válido, com descrição, quantidade e preço.');return;}
+    const t=calcularTotaisRascunho();
+    if(t.total<=0){alert('O valor total precisa ser maior que zero.');return;}
+    const seq=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0)+1;
+    const n=Math.max(0,Math.min(60,parseInt(document.getElementById('reciboParcelas').value)||0));
+    const vl=Math.round((t.total/Math.max(1,n))*100)/100;
+    const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data:dataEmissao,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao).trim(),material:String(i.material||'').trim(),detalhes:'',qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)})),subtotal:t.subtotal,desconto:t.desconto,total:t.total,recebido:t.recebido,pendente:t.pendente,formaPagamento:forma,parcelamento:n>0?{quantidade:n,valorParcela:vl,parcelas:Array.from({length:n},(_,i)=>({numero:i+1,valor:Math.round((i===n-1?(t.total-vl*(n-1)):vl)*100)/100,status:'Pendente',pago:0,vencimento:(()=>{const d=new Date(dataEmissao+'T12:00:00');d.setMonth(d.getMonth()+i);return d.toISOString().slice(0,10);})()}))}:null,observacao:obs,situacao:t.pendente<=0.005?'Pago':t.recebido>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
+    listaRecibos.push(recibo);salvarPacoteComercialVan();cancelarRecibo();renderizarRecibos();renderizarClientes();mostrarRecibo(recibo.id);mostrarToast('Recibo '+recibo.numero+' emitido com sucesso.');
+  }
+  function excluirRecibo(id){
+    if(!podeGerirFinanceiroVan())return;
+    const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r)return;
+    const v=r.vendaId?obterVendaFinanceira(r.vendaId):null;
+    const msg='Excluir o recibo '+r.numero+'?'+(v?'\n\nO cliente "'+(v.clienteNome||r.cliente?.nome||'')+'" também será desvinculado da venda "'+(v.produtoNome||'')+'" em Gestão de Vendas.':'')+'\n\nEsta ação não pode ser desfeita.';
+    if(!confirm(msg))return;
+    listaRecibos=listaRecibos.filter(x=>String(x.id)!==String(id));
+    if(v){v.clienteId='';v.clienteNome='';}
+    salvarPacoteComercialVan();
+    renderizarRecibos();renderizarClientes();renderizarVendas();atualizarRelatorios();fecharVisualizadorRecibo();
+    mostrarToast(v?'Recibo excluído e cliente desvinculado da venda.':'Recibo excluído.');
+  }
+
+  // ===== Dados da empresa (alimentam o recibo em tempo real) =====
+  function carregarFormularioEmpresa(){
+    if(!document.getElementById('empresaNome'))return;
+    const d=empresaReciboVan();
+    const map={empresaNome:'nome',empresaRazao:'razao',empresaCnpj:'cnpj',empresaInscricao:'inscricao',empresaEmail:'email',empresaTelefone:'telefone',empresaSite:'site',empresaRedeSocial:'redeSocial',empresaEndereco:'endereco',empresaMensagem:'mensagem',empresaRodape:'rodape',empresaCor:'cor',empresaMarca:'marca',empresaSubmarca:'submarca',empresaSlogan:'slogan',empresaFraseFinal:'fraseFinal',empresaValores:'valores'};
+    Object.entries(map).forEach(([id,k])=>{const el=document.getElementById(id);if(el)el.value=d[k]||'';});
+    logoEmpresaTemporaria=(dadosEmpresa&&dadosEmpresa.logo)||'';
+    const p=document.getElementById('previewLogoEmpresa');
+    if(p)p.innerHTML=logoEmpresaTemporaria?`<img src="${logoEmpresaTemporaria}" alt="Logotipo atual">`:'🖼️ Logo';
+  }
+  function salvarDadosEmpresa(){
+    if(!apenasAdminVan())return;
+    const nome=document.getElementById('empresaNome').value.trim();
+    if(!nome){alert('Informe o nome fantasia da empresa.');return;}
+    const url=document.getElementById('empresaSite').value.trim();
+    const rede=document.getElementById('empresaRedeSocial').value.trim();
+    for(const u of [url,rede])if(u&&!/^https?:\/\//i.test(u)){alert('Os links do site e das redes sociais devem começar com https:// ou http://.');return;}
+    const val=id=>document.getElementById(id).value.trim();
+    dadosEmpresa={nome,razao:val('empresaRazao'),cnpj:val('empresaCnpj'),inscricao:val('empresaInscricao'),email:val('empresaEmail'),telefone:val('empresaTelefone'),site:url,redeSocial:rede,endereco:val('empresaEndereco'),mensagem:val('empresaMensagem'),rodape:document.getElementById('empresaRodape').value.trim(),cor:document.getElementById('empresaCor').value||'#0f2d53',logo:logoEmpresaTemporaria||'',marca:val('empresaMarca'),submarca:val('empresaSubmarca'),slogan:val('empresaSlogan'),fraseFinal:val('empresaFraseFinal'),valores:val('empresaValores')};
+    salvarPacoteComercialVan();
+    if(reciboVisualizadoId&&listaRecibos.some(r=>String(r.id)===String(reciboVisualizadoId))){const a=document.getElementById('areaImpressaoRecibo');const r=listaRecibos.find(x=>String(x.id)===String(reciboVisualizadoId));if(a&&r){a.innerHTML=reciboHtmlVan(r);ajustarZoomReciboVan();}}
+    mostrarToast('Dados da empresa atualizados. Todos os recibos já usam as novas informações.');
+  }
+
   // ===== Clientes, recibos e dados comerciais da empresa =====
   function escaparHtmlVan(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function moedaVan(v){return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
@@ -3281,36 +3739,23 @@
   function salvarPacoteComercialVan(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));salvarTudoLocal(true);}
   function novoCliente(){if(!podeGerirFinanceiroVan())return;document.getElementById('clienteIdEditando').value='';['clienteNome','clienteTelefone','clienteEmail','clienteDocumento','clienteEndereco','clienteObservacoes'].forEach(id=>document.getElementById(id).value='');document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
   function cancelarEdicaoCliente(){document.getElementById('formCliente').style.display='none';}
-  function salvarCliente(){if(!podeGerirFinanceiroVan())return;const nome=document.getElementById('clienteNome').value.trim();if(!nome){alert('Informe o nome do cliente.');return;}const id=document.getElementById('clienteIdEditando').value;const dados={nome,telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),documento:document.getElementById('clienteDocumento').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),observacoes:document.getElementById('clienteObservacoes').value.trim(),atualizadoEm:new Date().toISOString()};if(id){const i=listaClientes.findIndex(c=>String(c.id)===id);if(i>=0)listaClientes[i]={...listaClientes[i],...dados};}else listaClientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),...dados,criadoEm:new Date().toISOString()});salvarPacoteComercialVan();cancelarEdicaoCliente();renderizarClientes();mostrarToast('Cliente salvo com sucesso.');}
+  function salvarCliente(){if(!podeGerirFinanceiroVan())return;const nome=document.getElementById('clienteNome').value.trim();if(!nome){alert('Informe o nome do cliente.');return;}const id=document.getElementById('clienteIdEditando').value;const dados={nome,telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),documento:document.getElementById('clienteDocumento').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),observacoes:document.getElementById('clienteObservacoes').value.trim(),atualizadoEm:new Date().toISOString()};if(id){const i=listaClientes.findIndex(c=>String(c.id)===id);if(i>=0){listaClientes[i]={...listaClientes[i],...dados};const cx=listaClientes[i];listaVendas.forEach(v=>{if(String(v.clienteId||'')===String(cx.id))v.clienteNome=cx.nome;});listaRecibos.forEach(r=>{if(String(r.clienteId||'')===String(cx.id))r.cliente={nome:cx.nome,telefone:cx.telefone||'',email:cx.email||'',documento:cx.documento||'',endereco:cx.endereco||''};});}}else listaClientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),...dados,criadoEm:new Date().toISOString()});salvarPacoteComercialVan();cancelarEdicaoCliente();renderizarClientes();mostrarToast('Cliente salvo com sucesso.');}
   function editarCliente(id){if(!podeGerirFinanceiroVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;document.getElementById('clienteIdEditando').value=c.id;document.getElementById('clienteNome').value=c.nome||'';document.getElementById('clienteTelefone').value=c.telefone||'';document.getElementById('clienteEmail').value=c.email||'';document.getElementById('clienteDocumento').value=c.documento||'';document.getElementById('clienteEndereco').value=c.endereco||'';document.getElementById('clienteObservacoes').value=c.observacoes||'';document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
   function excluirCliente(id){if(!podeGerirFinanceiroVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;const tem=listaRecibos.some(r=>String(r.clienteId)===String(id));if(tem){if(!confirm('Este cliente tem recibos vinculados. Para preservar o histórico financeiro, o cadastro será arquivado e deixará de aparecer na lista. Continuar?'))return;c.arquivado=true;}else{if(!confirm('Excluir este cliente?'))return;listaClientes=listaClientes.filter(x=>String(x.id)!==String(id));}salvarPacoteComercialVan();renderizarClientes();mostrarToast(tem?'Cliente arquivado; histórico preservado.':'Cliente excluído.');}
   function renderizarClientes(){const tbody=document.getElementById('tabelaClientes');if(!tbody)return;renderizarSelectClientesVenda(document.getElementById('vendaClienteId')?.value||'');const q=(document.getElementById('buscaClientes')?.value||'').toLowerCase().trim();const arr=listaClientes.filter(c=>!c.arquivado&&[c.nome,c.telefone,c.email,c.documento].some(v=>String(v||'').toLowerCase().includes(q)));document.getElementById('contadorClientes').textContent=arr.length+' cliente'+(arr.length===1?'':'s');if(!arr.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente encontrado.</td></tr>';return;}tbody.innerHTML=arr.map(c=>{const vs=listaVendas.filter(v=>String(v.clienteId||'')===String(c.id));const rs=listaRecibos.filter(r=>String(r.clienteId)===String(c.id)&&!r.vendaId);const total=vs.reduce((a,v)=>a+(Number(v.total)||0),0)+rs.reduce((a,r)=>a+(Number(r.total)||0),0);const recebido=vs.reduce((a,v)=>a+(Array.isArray(v.recebimentos)?v.recebimentos.reduce((b,p)=>b+(Number(p.valor)||0),0):(v.pagamentoStatus==='Recebido'?Number(v.total)||0:0)),0)+rs.reduce((a,r)=>a+(Number(r.recebido)||0),0);return `<tr><td><strong>${escaparHtmlVan(c.nome)}</strong><div style="font-size:11px;color:var(--text-muted)">${escaparHtmlVan(c.email||'')}</div></td><td>${escaparHtmlVan(c.telefone||'—')}</td><td>${vs.length+rs.length}</td><td>${moedaVan(total)}<div style="font-size:11px;color:var(--text-muted)">Recebido: ${moedaVan(recebido)} · Saldo: ${moedaVan(Math.max(0,total-recebido))}</div></td><td><button class="btn-secondary" onclick="editarCliente('${escaparHtmlVan(c.id)}')">✏️</button> <button class="btn-secondary" onclick="novoRecibo('${escaparHtmlVan(c.id)}')">🧾</button> <button class="btn-danger" onclick="excluirCliente('${escaparHtmlVan(c.id)}')">×</button></td></tr>`;}).join('');}
   function atualizarSelectClientesRecibo(selecionado=''){const el=document.getElementById('reciboCliente');if(!el)return;el.innerHTML='<option value="">Selecione um cliente</option>'+listaClientes.filter(c=>!c.arquivado).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR')).map(c=>`<option value="${escaparHtmlVan(c.id)}">${escaparHtmlVan(c.nome)}</option>`).join('');if(selecionado)el.value=String(selecionado);}
-  function atualizarSelectVendasRecibo(selecionado=''){const el=document.getElementById('reciboVendaOrigem');if(!el)return;const atual=selecionado||el.value;el.innerHTML='<option value="">Recibo avulso — selecionar produto manualmente</option>'+[...listaVendas].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(v=>{const qtd=Math.max(1,Number(v.qtd)||1);const n=Number(v.parcelamento?.quantidade)||v.parcelasTotal||1;const cliente=v.clienteNome||listaClientes.find(c=>String(c.id)===String(v.clienteId))?.nome||'Sem cliente';return `<option value="${escaparHtmlVan(v.id)}">${escaparHtmlVan(v.produtoNome||'Produto')} × ${qtd} — ${moedaVan(v.total)} — ${escaparHtmlVan(cliente)} — ${n} parcela(s)</option>`;}).join('');if(atual)el.value=String(atual);}
   function preencherDadosClienteRecibo(){const c=listaClientes.find(x=>String(x.id)===String(document.getElementById('reciboCliente').value));if(c&&!document.getElementById('reciboObservacao').value&&c.observacoes)document.getElementById('reciboObservacao').value='Observação do cliente: '+c.observacoes;}
-  function novoRecibo(clienteId=''){if(!podeGerirFinanceiroVan())return;if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo. Você também pode criar um recibo avulso depois de cadastrar o cliente.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}itensRascunhoRecibo=[];document.getElementById('tituloFormRecibo').textContent='Novo recibo';document.getElementById('reciboData').value=new Date().toISOString().slice(0,10);document.getElementById('reciboForma').value='PIX';document.getElementById('reciboParcelas').value='1';document.getElementById('reciboPago').value='0';document.getElementById('reciboPago').readOnly=false;document.getElementById('reciboDesconto').value='0';document.getElementById('reciboObservacao').value='';atualizarSelectClientesRecibo(clienteId);atualizarSelectVendasRecibo('');document.getElementById('reciboVendaOrigem').value='';adicionarItemRecibo();renderizarItensRascunhoRecibo();atualizarTotaisRecibo();document.getElementById('formRecibo').style.display='block';document.getElementById('visualizadorRecibo').style.display='none';document.getElementById('formRecibo').scrollIntoView({behavior:'smooth',block:'start'});}
   function cancelarRecibo(){document.getElementById('formRecibo').style.display='none';}
-  function adicionarItemRecibo(item={}){itensRascunhoRecibo.push({descricao:item.descricao||'',detalhes:item.detalhes||'',qtd:Number(item.qtd)||1,preco:Number(item.preco)||0,produtoId:item.produtoId||''});renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
-  function adicionarVendaRecibo(){atualizarSelectVendasRecibo();const el=document.getElementById('reciboVendaOrigem');if(!listaVendas.length){alert('Ainda não há vendas cadastradas em Gestão de Vendas.');return;}const resp=prompt('Digite o número da venda na lista abaixo:\n'+[...listaVendas].map((v,i)=>`${i+1}. ${v.produtoNome||'Produto'} × ${Number(v.qtd)||1} — ${moedaVan(v.total)} — ${v.clienteNome||'Sem cliente'}`).join('\n'));if(resp===null)return;const v=[...listaVendas][Number(resp)-1];if(!v){alert('Número inválido.');return;}el.value=String(v.id);preencherReciboDaVenda();}
-  function preencherReciboDaVenda(){const id=document.getElementById('reciboVendaOrigem')?.value;if(!id){document.getElementById('reciboPago').readOnly=false;return;}const v=obterVendaFinanceira(id);if(!v)return;const existente=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));if(existente){alert('Esta venda já possui o recibo #'+(existente.numero||existente.sequencia)+'. Vou abrir o recibo existente para evitar duplicidade.');document.getElementById('reciboVendaOrigem').value='';cancelarRecibo();mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');mostrarRecibo(existente.id);return;}if(!v.clienteId){alert('Esta venda ainda não tem cliente vinculado. Edite a venda em Gestão de Vendas e selecione o cliente.');return;}atualizarSelectClientesRecibo(v.clienteId);document.getElementById('reciboCliente').value=String(v.clienteId);document.getElementById('reciboData').value=v.data||new Date().toISOString().slice(0,10);document.getElementById('reciboForma').value=(Number(v.parcelamento?.quantidade)||1)>1?'Parcelado':'PIX';document.getElementById('reciboParcelas').value=String(Number(v.parcelamento?.quantidade)||v.parcelasTotal||1);atualizarResumoFinanceiroVenda(v);document.getElementById('reciboPago').value=Number(v.totalRecebido)||0;document.getElementById('reciboPago').readOnly=true;document.getElementById('reciboDesconto').value='0';document.getElementById('reciboObservacao').value='Recibo vinculado à venda '+(v.produtoNome||'')+'. Os recebimentos e parcelas são sincronizados com Gestão de Vendas.';itensRascunhoRecibo=[{descricao:v.produtoNome||'',detalhes:'',qtd:Math.max(1,Number(v.qtd)||1),preco:Number(v.valorProdutoUnidade)||(Number(v.total)||0)/Math.max(1,Number(v.qtd)||1),produtoId:v.produtoId||''}];renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
-  function adicionarProdutoSalvoRecibo(){adicionarVendaRecibo();}
-  function renderizarItensRascunhoRecibo(){const tb=document.getElementById('itensRecibo');if(!tb)return;tb.innerHTML=itensRascunhoRecibo.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemRecibo(${i},'descricao',this.value)" style="min-width:160px;width:100%"></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemRecibo(${i},'qtd',this.value)" style="width:70px" ${document.getElementById('reciboVendaOrigem')?.value?'readonly':''}></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemRecibo(${i},'preco',this.value)" style="width:100px" ${document.getElementById('reciboVendaOrigem')?.value?'readonly':''}></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemRecibo(${i})" ${document.getElementById('reciboVendaOrigem')?.value?'disabled':''}>×</button></td></tr>`).join('');}
   function atualizarItemRecibo(i,k,v){if(!itensRascunhoRecibo[i])return;itensRascunhoRecibo[i][k]=['qtd','preco'].includes(k)?Math.max(0,Number(v)||0):v;if(k==='qtd')itensRascunhoRecibo[i].qtd=Math.max(1,Math.floor(itensRascunhoRecibo[i].qtd));renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
   function removerItemRecibo(i){itensRascunhoRecibo.splice(i,1);renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
   function calcularTotaisRascunho(){const subtotal=itensRascunhoRecibo.reduce((s,i)=>s+(Math.max(0,Number(i.qtd)||0)*Math.max(0,Number(i.preco)||0)),0);const desconto=Math.min(subtotal,Math.max(0,Number(document.getElementById('reciboDesconto')?.value)||0));const total=Math.max(0,subtotal-desconto);const recebido=Math.min(total,Math.max(0,Number(document.getElementById('reciboPago')?.value)||0));return {subtotal,desconto,total,recebido,pendente:Math.max(0,total-recebido)};}
   function atualizarTotaisRecibo(){const t=calcularTotaisRascunho();const e=document.getElementById('reciboTotalExibido');if(e)e.value=moedaVan(t.total);const n=Math.max(0,Math.min(60,parseInt(document.getElementById('reciboParcelas')?.value)||0));const r=document.getElementById('resumoPagamentoRecibo');if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong><br>Recebido: <strong style="color:var(--success)">${moedaVan(t.recebido)}</strong> · Pendente: <strong style="color:var(--warning)">${moedaVan(t.pendente)}</strong>${n>0?`<br>Parcelamento: <strong>${n}x de ${moedaVan(t.total/n)}</strong>`:'<br>Sem parcelamento no recibo.'}`;}
-  function salvarRecibo(){if(!podeGerirFinanceiroVan())return;const vendaId=document.getElementById('reciboVendaOrigem')?.value||'';const cliente=listaClientes.find(c=>String(c.id)===String(document.getElementById('reciboCliente').value));if(!cliente){alert('Selecione um cliente.');return;}if(!itensRascunhoRecibo.length||itensRascunhoRecibo.some(i=>!String(i.descricao||'').trim()||Number(i.qtd)<1||Number(i.preco)<0)){alert('Inclua ao menos um item válido, com descrição, quantidade e preço.');return;}const t=calcularTotaisRascunho();if(t.total<=0){alert('O valor total precisa ser maior que zero.');return;}if(vendaId){const v=obterVendaFinanceira(vendaId);if(!v){alert('A venda selecionada não foi encontrada.');return;}if(String(v.clienteId)!==String(cliente.id)){alert('O cliente precisa ser o mesmo que está vinculado à venda.');return;}const existente=listaRecibos.find(r=>String(r.vendaId||'')===String(v.id));if(existente){alert('Esta venda já possui um recibo. O recibo existente será aberto.');cancelarRecibo();mostrarRecibo(existente.id);return;}criarReciboVinculadoDaVenda(v);salvarPacoteComercialVan();cancelarRecibo();renderizarRecibos();renderizarClientes();atualizarRelatorios();const r=listaRecibos.find(x=>String(x.vendaId)===String(v.id));if(r)mostrarRecibo(r.id);mostrarToast('Recibo criado com os dados e parcelas da Gestão de Vendas.');return;}const maior=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0);const seq=maior+1;const n=Math.max(0,Math.min(60,parseInt(document.getElementById('reciboParcelas')?.value)||0));const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data:document.getElementById('reciboData').value||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao).trim(),detalhes:'',qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)})),subtotal:t.subtotal,desconto:t.desconto,total:t.total,recebido:t.recebido,pendente:t.pendente,formaPagamento:document.getElementById('reciboForma').value,parcelamento:n>0?{quantidade:n,valorParcela:Math.round((t.total/n)*100)/100,parcelas:Array.from({length:n},(_,i)=>({numero:i+1,valor:Math.round((i===n-1?(t.total-(Math.round((t.total/n)*100)/100)*(n-1)):Math.round((t.total/n)*100)/100)*100)/100,status:'Pendente',pago:0}))}:null,observacao:document.getElementById('reciboObservacao').value.trim(),situacao:t.pendente<=0.005?'Pago':t.recebido>0?'Parcial':'Pendente',empresa:{...dadosEmpresa,logo:''},criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};listaRecibos.push(recibo);salvarPacoteComercialVan();cancelarRecibo();renderizarRecibos();mostrarRecibo(recibo.id);mostrarToast('Recibo '+recibo.numero+' emitido com sucesso.');}
   function renderizarRecibos(){const tb=document.getElementById('tabelaRecibos');if(!tb)return;const q=(document.getElementById('buscaRecibos')?.value||'').toLowerCase().trim();const arr=[...listaRecibos].sort((a,b)=>(Number(b.sequencia)||0)-(Number(a.sequencia)||0)).filter(r=>[r.numero,r.cliente?.nome,r.data].some(v=>String(v||'').toLowerCase().includes(q)));tb.innerHTML=arr.length?arr.map(r=>`<tr><td><strong>#${escaparHtmlVan(r.numero||r.sequencia)}</strong></td><td>${dataVan(r.data)}</td><td>${escaparHtmlVan(r.cliente?.nome||'Cliente removido')}</td><td>${moedaVan(r.total)}</td><td>${moedaVan(r.recebido)}</td><td><span class="status-pill-van" style="background:${r.situacao==='Pago'?'#dcfce7':r.situacao==='Parcial'?'#fef3c7':'#fee2e2'};color:${r.situacao==='Pago'?'#166534':r.situacao==='Parcial'?'#92400e':'#991b1b'}">${escaparHtmlVan(r.situacao||'Pendente')}</span></td><td><button class="btn-secondary" onclick="mostrarRecibo('${escaparHtmlVan(r.id)}')">Ver</button> <button class="btn-secondary" onclick="registrarBaixaRecibo('${escaparHtmlVan(r.id)}')">Receber</button> <button class="btn-danger" onclick="excluirRecibo('${escaparHtmlVan(r.id)}')">×</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum recibo encontrado.</td></tr>';document.getElementById('totalRecibosVan').textContent=listaRecibos.length;document.getElementById('valorRecibosVan').textContent=moedaVan(listaRecibos.reduce((s,r)=>s+(Number(r.total)||0),0));document.getElementById('pendenteRecibosVan').textContent=moedaVan(listaRecibos.reduce((s,r)=>s+(Number(r.pendente)||0),0));}
-  function excluirRecibo(id){if(!podeGerirFinanceiroVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||!confirm('Excluir o recibo '+r.numero+'? Esta ação não pode ser desfeita.'))return;listaRecibos=listaRecibos.filter(x=>String(x.id)!==String(id));salvarPacoteComercialVan();renderizarRecibos();fecharVisualizadorRecibo();mostrarToast('Recibo excluído.');}
   function registrarBaixaRecibo(id){if(!podeGerirFinanceiroVan())return;const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r||Number(r.pendente)<=0){alert('Este recibo não tem saldo pendente.');return;}if(r.vendaId){registrarPagamentoVenda(r.vendaId,null,'recibo');return;}const resp=prompt(`Saldo pendente: ${moedaVan(r.pendente)}\nInforme o valor recebido agora (R$):`);if(resp===null)return;const n=Number(String(resp).replace(',','.'));if(!Number.isFinite(n)||n<=0||n>r.pendente+0.001){alert('Informe um valor válido, até o saldo pendente.');return;}r.recebido=Math.min(r.total,(Number(r.recebido)||0)+n);r.pendente=Math.max(0,Number(r.total)-r.recebido);r.situacao=r.pendente<=0.005?'Pago':'Parcial';r.baixas=Array.isArray(r.baixas)?r.baixas:[];r.baixas.push({valor:n,data:new Date().toISOString(),usuario:vanmathiUsuario?.uid||''});salvarPacoteComercialVan();renderizarRecibos();renderizarClientes();atualizarRelatorios();if(reciboVisualizadoId===id)mostrarRecibo(id);mostrarToast('Recebimento registrado.');}
-  function mostrarRecibo(id){const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r)return;reciboVisualizadoId=id;const e=r.empresa||dadosEmpresa;const cor=e.cor||'#0f2d53';const nParcelas=Number(r.parcelamento?.quantidade)||0;const pagasParcelas=(r.parcelamento?.parcelas||[]).filter(p=>String(p.status||'').toLowerCase()==='pago'||Number(p.pago)>=Number(p.valor)-0.005).length;const resumoParcelas=nParcelas>0?`${nParcelas} parcela(s)${Number(r.parcelamento?.valorParcela)>0?' de '+moedaVan(r.parcelamento.valorParcela):''}`:'';const itens=(r.itens||[]).map(i=>`<tr><td>${escaparHtmlVan(i.descricao)}</td><td style="text-align:center">${nParcelas>0?escaparHtmlVan(resumoParcelas)+(pagasParcelas>0?' ('+pagasParcelas+' paga(s))':''):'—'}</td><td style="text-align:center">${i.qtd}</td><td style="text-align:right">${moedaVan(i.preco)}</td><td style="text-align:right">${moedaVan(i.total)}</td></tr>`).join('');const logo=(e.logo||dadosEmpresa.logo)?`<img src="${e.logo||dadosEmpresa.logo}" alt="Logotipo da empresa">`:'';const html=`<div class="receipt-brand-van" style="border-color:${escaparHtmlVan(cor)}">${logo}<div><h1 style="margin:0;color:${escaparHtmlVan(cor)};font-size:24px">${escaparHtmlVan(e.nome||'Vanmathi Impressão 3D')}</h1>${e.razao?`<div>${escaparHtmlVan(e.razao)}</div>`:''}<div style="font-size:11px;color:#475569;margin-top:5px">${e.cnpj?'CNPJ: '+escaparHtmlVan(e.cnpj)+' · ':''}${escaparHtmlVan(e.email||'')}${e.telefone?' · '+escaparHtmlVan(e.telefone):''}</div>${e.endereco?`<div style="font-size:11px;color:#475569">${escaparHtmlVan(e.endereco)}</div>`:''}${e.site?`<div style="font-size:11px;color:#475569">${escaparHtmlVan(e.site)}</div>`:''}</div><div style="margin-left:auto;text-align:right"><strong style="font-size:18px">RECIBO DE VENDA</strong><div style="font-size:12px;margin-top:5px">Nº ${escaparHtmlVan(r.numero)}</div><div style="font-size:12px">Data: ${dataVan(r.data)}</div></div></div><div style="margin-bottom:20px"><h3 style="margin:0 0 8px;color:${escaparHtmlVan(cor)}">DADOS DO CLIENTE</h3><div><strong>${escaparHtmlVan(r.cliente?.nome||'')}</strong></div>${r.cliente?.documento?`<div>Documento: ${escaparHtmlVan(r.cliente.documento)}</div>`:''}${r.cliente?.telefone?`<div>Telefone: ${escaparHtmlVan(r.cliente.telefone)}</div>`:''}${r.cliente?.email?`<div>E-mail: ${escaparHtmlVan(r.cliente.email)}</div>`:''}${r.cliente?.endereco?`<div>Endereço: ${escaparHtmlVan(r.cliente.endereco)}</div>`:''}</div><h3 style="color:${escaparHtmlVan(cor)}">PRODUTOS</h3><table><thead><tr><th>Produto</th><th>Parcelas</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead><tbody>${itens}</tbody></table><div style="width:min(330px,100%);margin:20px 0 0 auto;font-size:13px"><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Subtotal</span><strong>${moedaVan(r.subtotal)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Desconto</span><strong>${moedaVan(r.desconto)}</strong></div><div style="display:flex;justify-content:space-between;padding:12px 0;border-top:2px solid ${escaparHtmlVan(cor)};font-size:18px;color:${escaparHtmlVan(cor)}"><strong>VALOR TOTAL</strong><strong>${moedaVan(r.total)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div style="display:flex;justify-content:space-between;padding:5px 0"><span>Saldo pendente</span><strong>${moedaVan(r.pendente)}</strong></div><div style="display:flex;justify-content:space-between;padding:8px 0"><span>Pagamento</span><strong>${escaparHtmlVan(r.formaPagamento||'—')} · ${escaparHtmlVan(r.situacao||'Pendente')}</strong></div>${nParcelas>0?`<div style="display:flex;justify-content:space-between;padding:5px 0"><span>Parcelas</span><strong>${escaparHtmlVan(resumoParcelas)}${Number(r.parcelamento?.quantidade)>0&&Number(r.parcelamento?.parcelasPagas)>0?' · '+Number(r.parcelamento.parcelasPagas)+' paga(s)':''}</strong></div>`:''}</div>${r.observacao?`<div style="margin-top:18px;padding:12px;background:#f8fafc;border-radius:6px;font-size:12px"><strong>Observações:</strong> ${escaparHtmlVan(r.observacao)}</div>`:''}<div style="border-top:1px solid #e5e7eb;margin-top:28px;padding-top:14px;text-align:center;font-size:12px;color:#475569">${escaparHtmlVan(e.mensagem||'Obrigado pela preferência!')}<br>${escaparHtmlVan(e.rodape||'')}${e.redeSocial?`<br>${escaparHtmlVan(e.redeSocial)}`:''}</div>`;document.getElementById('areaImpressaoRecibo').innerHTML=html;document.getElementById('visualizadorRecibo').style.display='block';document.getElementById('visualizadorRecibo').scrollIntoView({behavior:'smooth',block:'start'});}
   function fecharVisualizadorRecibo(){document.getElementById('visualizadorRecibo').style.display='none';reciboVisualizadoId=null;}
-  function imprimirReciboAtual(){if(!reciboVisualizadoId)return;window.print();}
-  function compartilharReciboWhatsApp(){const r=listaRecibos.find(x=>String(x.id)===String(reciboVisualizadoId));if(!r)return;const texto=`${r.empresa?.nome||dadosEmpresa.nome||'Vanmathi'} — Recibo nº ${r.numero}\nCliente: ${r.cliente?.nome||''}\nData: ${dataVan(r.data)}\nTotal: ${moedaVan(r.total)}\nRecebido: ${moedaVan(r.recebido)}\nPendente: ${moedaVan(r.pendente)}\nPagamento: ${r.situacao}${Number(r.parcelamento?.quantidade)>0?'\nParcelas: '+r.parcelamento.quantidade+(Number(r.parcelamento.valorParcela)>0?' de '+moedaVan(r.parcelamento.valorParcela):''):''}\nObrigado pela preferência!`;window.open('https://wa.me/?text='+encodeURIComponent(texto),'_blank','noopener');}
-  function carregarFormularioEmpresa(){if(!document.getElementById('empresaNome'))return;const d=dadosEmpresa||{};const map={empresaNome:'nome',empresaRazao:'razao',empresaCnpj:'cnpj',empresaInscricao:'inscricao',empresaEmail:'email',empresaTelefone:'telefone',empresaSite:'site',empresaRedeSocial:'redeSocial',empresaEndereco:'endereco',empresaMensagem:'mensagem',empresaRodape:'rodape',empresaCor:'cor'};Object.entries(map).forEach(([id,k])=>{const el=document.getElementById(id);if(el)el.value=d[k]||({'nome':'Vanmathi Impressão 3D','mensagem':'Obrigado pela preferência!','cor':'#0f2d53'}[k]||'');});logoEmpresaTemporaria=d.logo||'';const p=document.getElementById('previewLogoEmpresa');if(p)p.innerHTML=d.logo?`<img src="${d.logo}" alt="Logotipo atual">`:'🖼️ Logo';}
+  function compartilharReciboWhatsApp(){const r=listaRecibos.find(x=>String(x.id)===String(reciboVisualizadoId));if(!r)return;const texto=`${dadosEmpresa.nome||'Vanmathi'} — Recibo nº ${r.numero}\nCliente: ${r.cliente?.nome||''}\nData: ${dataVan(r.data)}\nTotal: ${moedaVan(r.total)}\nRecebido: ${moedaVan(r.recebido)}\nPendente: ${moedaVan(r.pendente)}\nPagamento: ${r.situacao}${Number(r.parcelamento?.quantidade)>0?'\nParcelas: '+r.parcelamento.quantidade+(Number(r.parcelamento.valorParcela)>0?' de '+moedaVan(r.parcelamento.valorParcela):''):''}\nObrigado pela preferência!`;window.open('https://wa.me/?text='+encodeURIComponent(texto),'_blank','noopener');}
   async function processarLogoEmpresa(ev){if(!apenasAdminVan())return;const f=ev.target.files?.[0];if(!f)return;if(!/^image\/(png|jpeg|webp)$/.test(f.type)){alert('Use um arquivo PNG, JPG ou WebP.');ev.target.value='';return;}if(f.size>8*1024*1024){alert('A imagem deve ter até 8 MB antes da otimização.');ev.target.value='';return;}try{const img=new Image();const url=URL.createObjectURL(f);img.onload=()=>{const scale=Math.min(1,900/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);let data=c.toDataURL('image/jpeg',0.82);if(data.length>230000)data=c.toDataURL('image/jpeg',0.65);logoEmpresaTemporaria=data;document.getElementById('previewLogoEmpresa').innerHTML=`<img src="${data}" alt="Prévia do logotipo">`;URL.revokeObjectURL(url);};img.onerror=()=>{URL.revokeObjectURL(url);alert('Não foi possível ler esta imagem.');};img.src=url;}catch(e){alert('Erro ao carregar o logotipo: '+e.message);}}
   function removerLogoEmpresa(){if(!apenasAdminVan())return;logoEmpresaTemporaria='';document.getElementById('previewLogoEmpresa').textContent='🖼️ Logo';document.getElementById('empresaLogoArquivo').value='';}
-  function salvarDadosEmpresa(){if(!apenasAdminVan())return;const nome=document.getElementById('empresaNome').value.trim();if(!nome){alert('Informe o nome fantasia da empresa.');return;}const url=document.getElementById('empresaSite').value.trim();const rede=document.getElementById('empresaRedeSocial').value.trim();for(const u of [url,rede])if(u&&!/^https?:\/\//i.test(u)){alert('Os links do site e das redes sociais devem começar com https:// ou http://.');return;}dadosEmpresa={nome,razao:document.getElementById('empresaRazao').value.trim(),cnpj:document.getElementById('empresaCnpj').value.trim(),inscricao:document.getElementById('empresaInscricao').value.trim(),email:document.getElementById('empresaEmail').value.trim(),telefone:document.getElementById('empresaTelefone').value.trim(),site:url,redeSocial:rede,endereco:document.getElementById('empresaEndereco').value.trim(),mensagem:document.getElementById('empresaMensagem').value.trim(),rodape:document.getElementById('empresaRodape').value.trim(),cor:document.getElementById('empresaCor').value||'#0f2d53',logo:logoEmpresaTemporaria||''};salvarPacoteComercialVan();mostrarToast('Dados da empresa atualizados. Os próximos recibos usarão essas informações.');}
   // Atualiza o conteúdo comercial em qualquer dispositivo pelo documento central já utilizado pelo app.
   document.addEventListener('DOMContentLoaded',()=>{renderizarClientes();renderizarRecibos();carregarFormularioEmpresa();});
 
