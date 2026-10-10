@@ -834,7 +834,7 @@
             <div class="form-group"><label>Valor já recebido (R$)</label><input id="reciboPago" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div>
             <div class="form-group full"><label>Observações</label><input id="reciboObservacao" maxlength="500" placeholder="Prazo de entrega ou outras informações do pedido"></div>
           </div>
-          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Material</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
+          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Cores</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button id="btnAddItemRecibo" class="btn-secondary" onclick="adicionarItemRecibo()">＋ Adicionar item</button></div>
           <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="reciboDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div><div class="form-group"><label>Valor total</label><input id="reciboTotalExibido" readonly value="R$ 0,00"></div></div>
           <div id="resumoPagamentoRecibo" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
@@ -3543,9 +3543,13 @@
     const comp=Array.isArray(v?.composicaoMateriais)&&v.composicaoMateriais.length?v.composicaoMateriais:(v?.materialId?[{materialId:v.materialId}]:[]);
     const mats=comp.map(i=>listaMateriais.find(m=>String(m.id)===String(i.materialId))).filter(Boolean);
     if(!mats.length)return '';
-    const modelos=[...new Set(mats.map(m=>m.modelo||m.tipo||'').filter(Boolean))];
-    const cores=[...new Set(mats.map(m=>m.cor).filter(Boolean))];
-    return (modelos.join('/')||'Material')+(cores.length?' ('+cores.join(' + ')+')':'');
+    return [...new Set(mats.map(m=>String(m.cor||'').trim()).filter(Boolean))].join(' + ');
+  }
+  // Recibos antigos guardam "PETG (Bege + Preto)": exibe só as cores.
+  function soCoresVan(t){
+    const s=String(t||'').trim();if(!s)return '';
+    const m=s.match(/\(([^()]*)\)\s*$/);if(m)return m[1].trim();
+    return /^(?:PLA|PETG|ABS|TPU|ASA|PA|PC|PP|NYLON|SILK|RESINA|MATERIAL)(?:[\s\/+]+(?:PLA|PETG|ABS|TPU|ASA|PA|PC|PP|NYLON|SILK|RESINA|MATERIAL))*$/i.test(s)?'':s;
   }
   function resumoParcelasReciboVan(r){const p=r.parcelamento;const n=Number(p?.quantidade)||0;if(n<2||!Array.isArray(p.parcelas))return null;const pagas=p.parcelas.filter(x=>Number(x.pago)>=Number(x.valor)-0.005).length;return {n,valor:Number(p.valorParcela)||(Number(r.total)||0)/n,pagas,parcelas:p.parcelas};}
 
@@ -3570,7 +3574,7 @@
     if(e.email)contato.push(`<div>${ic.mail}<span>${x(e.email)}</span></div>`);
     const marca=String(e.marca||'').trim();
     const tamMarca=marca.length>18?8.5:marca.length>12?11:13.5;
-    const linhasItens=itens.map((i,n)=>`<tr><td>${n+1}</td><td class="tl">${x(i.descricao)}</td><td>${x(orc?(i.cores||'—'):(i.material||'—'))}</td><td>${Number(i.qtd)||0}</td><td>${moedaVan(i.preco)}</td><td>${moedaVan(i.total)}</td></tr>`).join('');
+    const linhasItens=itens.map((i,n)=>`<tr><td>${n+1}</td><td class="tl">${x(i.descricao)}</td><td>${x(orc?(i.cores||'—'):(soCoresVan(i.material)||'—'))}</td><td>${Number(i.qtd)||0}</td><td>${moedaVan(i.preco)}</td><td>${moedaVan(i.total)}</td></tr>`).join('');
     let parcHtml='';
     if(pc){
       const lim=6;
@@ -3593,7 +3597,7 @@
  <div class="client"><div class="a"><h3><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z"/></svg>DADOS DO CLIENTE</h3>
    <div><span>Nome:</span>${x(cli.nome||'')}</div>${cli.email?`<div><span>E-mail:</span>${x(cli.email)}</div>`:''}${cli.telefone?`<div><span>Telefone:</span>${x(cli.telefone)}</div>`:''}${cli.documento?`<div><span>Documento:</span>${x(cli.documento)}</div>`:''}</div>
   <div class="b"><b>Endereço</b> <em>(opcional)</em>:<br>${cli.endereco?x(cli.endereco):'<em>Não informado</em>'}</div></div>
- <table><thead><tr><th style="width:9mm">#</th><th style="text-align:left">Produto</th><th>${orc?'Cores':'Material'}</th><th style="width:15mm">Qtd.</th><th style="width:30mm">Valor Unitário</th><th style="width:30mm">Valor Total</th></tr></thead><tbody>${linhasItens}</tbody></table>
+ <table><thead><tr><th style="width:9mm">#</th><th style="text-align:left">Produto</th><th>Cores</th><th style="width:15mm">Qtd.</th><th style="width:30mm">Valor Unitário</th><th style="width:30mm">Valor Total</th></tr></thead><tbody>${linhasItens}</tbody></table>
  <div class="rv-sum">${parcHtml||'<div class="rv-parc"></div>'}
   <div class="totals"><div class="r"><span>Subtotal</span><span>${moedaVan(r.subtotal)}</span></div><div class="r"><span>Desconto</span><span>${moedaVan(r.desconto)}</span></div>${orc&&Number(r.frete)>0?`<div class="r"><span>Frete</span><span>${moedaVan(r.frete)}</span></div>`:''}<div class="t"><strong>Total</strong><strong>${moedaVan(r.total)}</strong></div>
    ${orc?'':`<div class="rv-pay"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div class="rv-pay"><span>Saldo pendente</span><strong style="color:${pend>0.005?'#d9730d':'inherit'}">${moedaVan(pend)}</strong></div>`}</div></div>
@@ -3676,7 +3680,7 @@
   function renderizarItensRascunhoRecibo(){
     const tb=document.getElementById('itensRecibo');if(!tb)return;
     const lock=!!document.getElementById('reciboVendaOrigem')?.value;
-    tb.innerHTML=itensRascunhoRecibo.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemRecibo(${i},'descricao',this.value)" style="min-width:150px;width:100%" ${lock?'readonly':''}></td><td><input aria-label="Material" value="${escaparHtmlVan(it.material||'')}" maxlength="60" placeholder="Ex.: PLA (Preto)" onchange="atualizarItemRecibo(${i},'material',this.value)" style="min-width:130px;width:100%" ${lock?'readonly':''}></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemRecibo(${i},'qtd',this.value)" style="width:70px" ${lock?'readonly':''}></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemRecibo(${i},'preco',this.value)" style="width:100px" ${lock?'readonly':''}></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemRecibo(${i})" ${lock?'disabled':''}>×</button></td></tr>`).join('');
+    tb.innerHTML=itensRascunhoRecibo.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemRecibo(${i},'descricao',this.value)" style="min-width:150px;width:100%" ${lock?'readonly':''}></td><td><input aria-label="Cores" value="${escaparHtmlVan(soCoresVan(it.material))}" maxlength="60" placeholder="Ex.: Bege + Preto" onchange="atualizarItemRecibo(${i},'material',this.value)" style="min-width:130px;width:100%" ${lock?'readonly':''}></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemRecibo(${i},'qtd',this.value)" style="width:70px" ${lock?'readonly':''}></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemRecibo(${i},'preco',this.value)" style="width:100px" ${lock?'readonly':''}></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemRecibo(${i})" ${lock?'disabled':''}>×</button></td></tr>`).join('');
     const b=document.getElementById('btnAddItemRecibo');if(b)b.style.display=lock?'none':'';
   }
   function criarReciboVinculadoDaVenda(v,opts={}){
