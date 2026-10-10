@@ -3583,7 +3583,6 @@
     const qr=site?`<div class="r"><div class="qr">${qrSvgVan(site,cor)}</div><div><p>Acesse nosso site<br>e conheça mais<br>sobre nossos produtos!</p><small>🌐 ${x(textoUrlVan(site))}</small>${e.redeSocial?`<small>${x(textoUrlVan(e.redeSocial))}</small>`:''}</div></div>`:'';
     const pend=Number(r.pendente)||0;
     const freteInc=orc?freteInclusoOrcamentoVan(r.itens):0;
-    const freteIncHtml=freteInc>0.005?`<div class="rv-pay"><span>Frete incluso nos produtos</span><strong>${moedaVan(freteInc)}</strong></div>`:'';
     return `<div class="rv-page${itens.length>6?' rv-compact':''}" style="--navy:${cor}">
  <div class="top">${logo?`<img class="logo" src="${x(logo)}" alt="" onerror="this.style.display='none'">`:''}
   <div class="brand"><h1 style="font-size:${tamMarca}mm">${marcaHtmlVan(marca)}</h1>${e.submarca?`<div class="sub">${x(e.submarca)}</div>`:''}${e.slogan?`<div class="tag">${x(e.slogan)}</div>`:''}</div>
@@ -3596,8 +3595,8 @@
   <div class="b"><b>Endereço</b> <em>(opcional)</em>:<br>${cli.endereco?x(cli.endereco):'<em>Não informado</em>'}</div></div>
  <table><thead><tr><th style="width:9mm">#</th><th style="text-align:left">Produto</th><th>${orc?'Cores':'Material'}</th><th style="width:15mm">Qtd.</th><th style="width:30mm">Valor Unitário</th><th style="width:30mm">Valor Total</th></tr></thead><tbody>${linhasItens}</tbody></table>
  <div class="rv-sum">${parcHtml||'<div class="rv-parc"></div>'}
-  <div class="totals"><div class="r"><span>Subtotal</span><span>${moedaVan(r.subtotal)}</span></div><div class="r"><span>Desconto</span><span>${moedaVan(r.desconto)}</span></div>${orc&&Number(r.frete)>0?`<div class="r"><span>Frete</span><span>${moedaVan(r.frete)}</span></div>`:''}<div class="t"><strong>Total</strong><strong>${moedaVan(r.total)}</strong></div>
-   ${orc?freteIncHtml:`<div class="rv-pay"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div class="rv-pay"><span>Saldo pendente</span><strong style="color:${pend>0.005?'#d9730d':'inherit'}">${moedaVan(pend)}</strong></div>`}</div></div>
+  <div class="totals"><div class="r"><span>Subtotal</span><span>${moedaVan(r.subtotal)}</span></div><div class="r"><span>Desconto</span><span>${moedaVan(r.desconto)}</span></div>${freteInc>0.005?`<div class="r"><span>Frete (incluso)</span><span>${moedaVan(freteInc)}</span></div>`:''}${orc&&Number(r.frete)>0?`<div class="r"><span>Frete</span><span>${moedaVan(r.frete)}</span></div>`:''}<div class="t"><strong>Total</strong><strong>${moedaVan(r.total)}</strong></div>
+   ${orc?'':`<div class="rv-pay"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div class="rv-pay"><span>Saldo pendente</span><strong style="color:${pend>0.005?'#d9730d':'inherit'}">${moedaVan(pend)}</strong></div>`}</div></div>
  ${r.observacao?`<div class="rv-obs"><b>Observações:</b> ${x(r.observacao)}</div>`:''}
  <div class="info"><div class="l"><h4><i>i</i>INFORMAÇÕES ADICIONAIS</h4><ul>${info.map(t=>`<li>${x(t)}</li>`).join('')}</ul></div>${qr}</div>
  <div class="thanks"><div><strong>${x(e.mensagem||'Obrigado pela preferência!')}</strong>${e.fraseFinal?`<span>${x(e.fraseFinal)}</span>`:''}</div></div>
@@ -3769,7 +3768,7 @@
 
   // ===== Orçamentos (mesmo layout A4 do recibo; só valores e cores, sem parcelas) =====
   function freteProdutoVan(p){return Math.max(0,parseFloat(String(p?.frete??'0').replace(',','.'))||0);}
-  function freteInclusoOrcamentoVan(itens){return (Array.isArray(itens)?itens:[]).reduce((s,i)=>s+(Number(i.frete)||0)*(Number(i.qtd)||0),0);}
+  function freteInclusoOrcamentoVan(itens){return (Array.isArray(itens)?itens:[]).reduce((s,i)=>s+(Number(i.frete)||0),0);}
   function coresLabelVan(comp){
     const mats=(Array.isArray(comp)?comp:[]).map(i=>listaMateriais.find(m=>String(m.id)===String(i.materialId))).filter(Boolean);
     return [...new Set(mats.map(m=>String(m.cor||'').trim()).filter(Boolean))].join(' + ');
@@ -3815,7 +3814,7 @@
   function renderizarItensOrcamento(){
     const tb=document.getElementById('itensOrcamento');if(!tb)return;
     if(!itensRascunhoOrcamento.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px">Nenhum item. Escolha um produto cadastrado ou adicione um item avulso.</td></tr>';return;}
-    tb.innerHTML=itensRascunhoOrcamento.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemOrcamento(${i},'descricao',this.value)" style="min-width:150px;width:100%">${Number(it.frete)>0?`<small style="display:block;color:var(--success);margin-top:4px">✓ Frete de ${moedaVan(it.frete)}/un já incluso no preço</small>`:''}</td><td><input aria-label="Cores" value="${escaparHtmlVan(it.cores||'')}" maxlength="60" placeholder="Ex.: Bege + Preto" onchange="atualizarItemOrcamento(${i},'cores',this.value)" style="min-width:130px;width:100%"></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemOrcamento(${i},'qtd',this.value)" style="width:70px"></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemOrcamento(${i},'preco',this.value)" style="width:100px"></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemOrcamento(${i})">×</button></td></tr>`).join('');
+    tb.innerHTML=itensRascunhoOrcamento.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemOrcamento(${i},'descricao',this.value)" style="min-width:150px;width:100%">${Number(it.frete)>0?`<small style="display:block;color:var(--success);margin-top:4px">✓ Frete de ${moedaVan(it.frete)} já incluso no preço</small>`:''}</td><td><input aria-label="Cores" value="${escaparHtmlVan(it.cores||'')}" maxlength="60" placeholder="Ex.: Bege + Preto" onchange="atualizarItemOrcamento(${i},'cores',this.value)" style="min-width:130px;width:100%"></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemOrcamento(${i},'qtd',this.value)" style="width:70px"></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemOrcamento(${i},'preco',this.value)" style="width:100px"></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemOrcamento(${i})">×</button></td></tr>`).join('');
   }
   function atualizarItemOrcamento(i,k,v){
     if(!itensRascunhoOrcamento[i])return;
