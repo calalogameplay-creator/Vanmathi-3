@@ -317,6 +317,7 @@
         <li><a onclick="mudarAbaMenu(event, 'produtos')">🏷️ Meus Produtos Salvos</a></li>
         <li id="menuPintura" style="display:none;"><a onclick="mudarAbaMenu(event, 'pintura')">🎨 Pintura</a></li>
         <li id="menuClientes" style="display:none;"><a onclick="mudarAbaMenu(event, 'clientes')">👤 Clientes</a></li>
+        <li id="menuOrcamentos" style="display:none;"><a onclick="mudarAbaMenu(event, 'orcamentos')">📄 Orçamentos</a></li>
         <li id="menuRecibos" style="display:none;"><a onclick="mudarAbaMenu(event, 'recibos')">🧾 Recibos</a></li>
         <li id="menuEmpresa" style="display:none;"><a onclick="mudarAbaMenu(event, 'empresa')">🏢 Dados da Empresa</a></li>
         <li id="menuUsuarios" style="display:none;"><a onclick="mudarAbaMenu(event, 'usuarios')">👥 Usuários</a></li>
@@ -793,6 +794,31 @@
       </div>
     </div>
 
+    <div id="secao-orcamentos" class="content-section">
+      <div class="header-painel"><div class="header-title"><small>Documentos comerciais</small><h1>📄 Orçamentos</h1><p>Monte o orçamento com o valor do produto, imprima em PDF ou envie a imagem ao cliente. Parcelas e pagamento ficam para o recibo.</p></div><button class="btn-primary" onclick="novoOrcamento()">＋ Novo orçamento</button></div>
+      <div class="metrics-grid"><div class="metric-card"><span>Orçamentos emitidos</span><h3 id="totalOrcamentosVan">0</h3></div><div class="metric-card"><span>Valor total orçado</span><h3 id="valorOrcamentosVan">R$ 0,00</h3></div><div class="metric-card"><span>Ainda válidos</span><h3 id="validosOrcamentosVan">0</h3></div></div>
+      <div class="card-box">
+        <div id="formOrcamento" style="display:none;border:1px solid var(--border);padding:18px;border-radius:10px;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><h3>Novo orçamento</h3><button class="btn-secondary" onclick="cancelarOrcamento()">Fechar</button></div>
+          <div class="form-grid-van">
+            <div class="form-group"><label>Cliente *</label><select id="orcCliente"><option value="">Selecione um cliente</option></select></div>
+            <div class="form-group"><label>Data de emissão</label><input id="orcData" type="date"></div>
+            <div class="form-group"><label>Validade (dias)</label><input id="orcValidade" type="number" min="1" max="365" step="1" value="7"><small style="color:var(--text-muted)">O orçamento mostra "Válido até" a partir da data de emissão.</small></div>
+            <div class="form-group"><label>Adicionar produto cadastrado</label><select id="orcProdutoCatalogo" onchange="adicionarProdutoCatalogoOrcamento()"><option value="">＋ Adicionar produto cadastrado…</option></select><small style="color:var(--text-muted)">Traz nome, cores (pela composição de materiais) e preço de venda do cadastro.</small></div>
+            <div class="form-group full"><label>Observações</label><input id="orcObservacao" maxlength="500" placeholder="Prazo de entrega, condições ou outras informações do pedido"></div>
+          </div>
+          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Cores</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensOrcamento"></tbody></table></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn-secondary" onclick="adicionarItemOrcamento()">＋ Adicionar item avulso</button></div>
+          <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="orcDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisOrcamento()"></div><div class="form-group"><label>Valor total</label><input id="orcTotalExibido" readonly value="R$ 0,00"></div></div>
+          <div id="resumoOrcamento" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarOrcamento()">Cancelar</button><button class="btn-primary" onclick="salvarOrcamento()">💾 Salvar e gerar orçamento</button></div>
+        </div>
+        <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaOrcamentos" placeholder="Buscar por número ou cliente" oninput="renderizarOrcamentos()"></div></div>
+        <div class="table-container"><table><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Validade</th><th>Total</th><th>Ações</th></tr></thead><tbody id="tabelaOrcamentos"><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum orçamento emitido.</td></tr></tbody></table></div>
+      </div>
+      <div id="visualizadorOrcamento" style="display:none;margin-top:20px" class="card-box"><div class="table-toolbar no-print-van"><h3>Orçamento (A4 · retrato)</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="imprimirOrcamentoAtual()">🖨️ Imprimir / Salvar PDF (A4)</button><button class="btn-secondary" onclick="baixarImagemOrcamentoAtual()">🖼️ Imagem (PNG)</button><button class="btn-secondary" onclick="compartilharOrcamentoWhatsApp()">💬 WhatsApp</button><button class="btn-secondary" onclick="converterOrcamentoEmRecibo(orcamentoVisualizadoId)">🧾 Gerar recibo</button><button class="btn-secondary" onclick="fecharVisualizadorOrcamento()">Fechar</button></div></div><div id="areaImpressaoOrcamento" class="rv-area"></div></div>
+    </div>
+
     <div id="secao-recibos" class="content-section">
       <div class="header-painel"><div class="header-title"><small>Documentos comerciais</small><h1>🧾 Recibos</h1><p>Emita, consulte, imprima ou compartilhe recibos de venda.</p></div><button class="btn-primary" onclick="novoRecibo()">＋ Novo recibo</button></div>
       <div class="metrics-grid"><div class="metric-card"><span>Recibos emitidos</span><h3 id="totalRecibosVan">0</h3></div><div class="metric-card"><span>Total documentado</span><h3 id="valorRecibosVan">R$ 0,00</h3></div><div class="metric-card"><span>Saldo pendente</span><h3 id="pendenteRecibosVan">R$ 0,00</h3></div></div>
@@ -1041,6 +1067,9 @@
   let listaClientes = JSON.parse(localStorage.getItem('Vanmathi_Dados_Clientes')) || [];
   let listaRecibos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Recibos')) || [];
   let dadosEmpresa = JSON.parse(localStorage.getItem('Vanmathi_Dados_Empresa')) || {nome:'Vanmathi Impressão 3D', razao:'', cnpj:'', inscricao:'', email:'', telefone:'', site:'', redeSocial:'', endereco:'', mensagem:'Obrigado pela preferência!', rodape:'', cor:'#0f2d53', logo:'', marca:'Vanmathi 3', submarca:'Impressão 3D', slogan:'Ideias ganham forma.', fraseFinal:'Sua ideia, nossa impressão.', valores:'Qualidade • Precisão • Inovação'};
+  let listaOrcamentos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Orcamentos')) || [];
+  let itensRascunhoOrcamento = [];
+  let orcamentoVisualizadoId = null;
   let itensRascunhoRecibo = [];
   let reciboVisualizadoId = null;
   let logoEmpresaTemporaria = null;
@@ -1175,17 +1204,19 @@
     const menuPintura = document.getElementById('menuPintura');
     const menuClientes = document.getElementById('menuClientes');
     const menuRecibos = document.getElementById('menuRecibos');
+    const menuOrcamentos = document.getElementById('menuOrcamentos');
     const menuEmpresa = document.getElementById('menuEmpresa');
     const menuVendas = document.getElementById('menuVendas');
     if (menuUsuarios) menuUsuarios.style.display = role === 'admin' ? '' : 'none';
     if (menuClientes) menuClientes.style.display = ['admin','funcionario'].includes(role) ? '' : 'none';
     if (menuRecibos) menuRecibos.style.display = ['admin','funcionario'].includes(role) ? '' : 'none';
+    if (menuOrcamentos) menuOrcamentos.style.display = ['admin','funcionario'].includes(role) ? '' : 'none';
     if (menuEmpresa) menuEmpresa.style.display = role === 'admin' ? '' : 'none';
     // O perfil Pintura usa exclusivamente a aba Gestão de Vendas, em modo de produção.
     if (menuPintura) menuPintura.style.display = 'none';
     document.querySelectorAll('.nav-links > li').forEach(li => {
       if (role === 'pintura') li.style.display = li.id === 'menuVendas' ? '' : 'none';
-      else if (!['menuUsuarios','menuPintura','menuClientes','menuRecibos','menuEmpresa'].includes(li.id)) li.style.display = '';
+      else if (!['menuUsuarios','menuPintura','menuClientes','menuRecibos','menuOrcamentos','menuEmpresa'].includes(li.id)) li.style.display = '';
     });
     if (role === 'pintura') {
       if (menuVendas) {
@@ -1281,6 +1312,7 @@
       marcas: listaMarcas,
       clientes: listaClientes,
       recibos: listaRecibos,
+      orcamentos: listaOrcamentos,
       dadosEmpresa: dadosEmpresa
     };
   }
@@ -1294,6 +1326,7 @@
     if (Array.isArray(pacote.marcas)) listaMarcas = pacote.marcas;
     if (Array.isArray(pacote.clientes)) listaClientes = pacote.clientes;
     if (Array.isArray(pacote.recibos)) listaRecibos = pacote.recibos;
+    if (Array.isArray(pacote.orcamentos)) listaOrcamentos = pacote.orcamentos;
     if (pacote.dadosEmpresa && typeof pacote.dadosEmpresa === 'object') dadosEmpresa = {...dadosEmpresa, ...pacote.dadosEmpresa};
     listaVendas.forEach(v=>{if(!v.parcelamento){v.parcelamento=criarParcelamentoVan(v.total,1,v.data);if(v.pagamentoStatus==='Recebido'){v.recebimentos=[{id:'pg_migrado_'+v.id,valor:Number(v.total)||0,data:v.data||new Date().toISOString(),origem:'migração',usuario:''}];v.parcelamento.parcelas[0].pago=Number(v.total)||0;v.parcelamento.parcelas[0].status='Pago';v.parcelamento.parcelas[0].pagoEm=v.data||null;}}if(!Array.isArray(v.recebimentos))v.recebimentos=[];atualizarResumoFinanceiroVenda(v);});
     // Recalcula campos derivados das vendas sempre que chega um pacote novo do Firestore.
@@ -1303,9 +1336,11 @@
     salvarTudoLocal(false);
     localStorage.setItem('Vanmathi_Dados_Clientes', JSON.stringify(listaClientes));
     localStorage.setItem('Vanmathi_Dados_Recibos', JSON.stringify(listaRecibos));
+    localStorage.setItem('Vanmathi_Dados_Orcamentos', JSON.stringify(listaOrcamentos));
     localStorage.setItem('Vanmathi_Dados_Empresa', JSON.stringify(dadosEmpresa));
     if (document.getElementById('tabelaClientes')) renderizarClientes();
     if (document.getElementById('tabelaRecibos')) renderizarRecibos();
+    if (document.getElementById('tabelaOrcamentos')) renderizarOrcamentos();
     if (document.getElementById('empresaNome')) carregarFormularioEmpresa();
     renderizarSelectLojas();
     renderizarSelectMaterialCalculadora();
@@ -1325,6 +1360,7 @@
     localStorage.setItem('Vanmathi_Dados_Marcas', JSON.stringify(listaMarcas));
     localStorage.setItem('Vanmathi_Dados_Clientes', JSON.stringify(listaClientes));
     localStorage.setItem('Vanmathi_Dados_Recibos', JSON.stringify(listaRecibos));
+    localStorage.setItem('Vanmathi_Dados_Orcamentos', JSON.stringify(listaOrcamentos));
     localStorage.setItem('Vanmathi_Dados_Empresa', JSON.stringify(dadosEmpresa));
     if (dispararNuvem && !vanmathiCarregandoNuvem) {
       vanmathiUltimaAlteracaoLocal = Date.now();
@@ -1594,12 +1630,13 @@
     document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
     document.getElementById('secao-' + secaoId).classList.add('active');
     
-    document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
+    document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
     if (['empresa','usuarios'].includes(secaoId) && vanmathiPerfilAtual?.role !== 'admin') { alert('Esta área é exclusiva para administradores.'); return; }
-    if (['clientes','recibos'].includes(secaoId) && !['admin','funcionario'].includes(vanmathiPerfilAtual?.role)) { alert('Esta área está disponível para os perfis administrativo e financeiro.'); return; }
+    if (['clientes','recibos','orcamentos'].includes(secaoId) && !['admin','funcionario'].includes(vanmathiPerfilAtual?.role)) { alert('Esta área está disponível para os perfis administrativo e financeiro.'); return; }
     if (secaoId === 'usuarios') carregarUsuariosAdmin();
     if (secaoId === 'clientes') renderizarClientes();
     if (secaoId === 'recibos') { renderizarRecibos(); atualizarSelectClientesRecibo(); }
+    if (secaoId === 'orcamentos') { renderizarOrcamentos(); atualizarSelectClientesOrcamento(); atualizarSelectProdutosOrcamento(); }
     if (secaoId === 'empresa') carregarFormularioEmpresa();
     if (secaoId === 'pintura') carregarTarefasPintura();
 
@@ -3298,7 +3335,7 @@
   function ajustarPlanoVendaAoTotal(v){if(!v)return;const total=moedaNumeroVan(v.total);const plano=v.parcelamento;if(Number(plano?.quantidade)===0){v.parcelamento=criarParcelamentoVan(total,0,'');atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);return;}if(!plano||!Array.isArray(plano.parcelas)||!plano.parcelas.length){v.parcelamento=criarParcelamentoVan(total,1,v.data);atualizarResumoFinanceiroVenda(v);return;}const soma=moedaNumeroVan(plano.parcelas.reduce((a,p)=>a+(Number(p.valor)||0),0));if(Math.abs(soma-total)>0.005){const n=Number(plano.quantidade)||plano.parcelas.length;const inicio=plano.parcelas[0]?.vencimento||v.data;v.parcelamento=criarParcelamentoVan(total,n,inicio);let recebido=moedaNumeroVan((v.recebimentos||[]).reduce((a,p)=>a+(Number(p.valor)||0),0));for(const p of v.parcelamento.parcelas){const aplicar=Math.min(Number(p.valor)||0,recebido);p.pago=moedaNumeroVan(aplicar);p.status=p.pago>=Number(p.valor)-0.005?'Pago':p.pago>0?'Parcial':'Pendente';if(p.status==='Pago')p.pagoEm=(v.recebimentos||[]).slice(-1)[0]?.data||null;recebido=moedaNumeroVan(recebido-aplicar);}}atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);}
   function atualizarResumoFinanceiroVenda(v){const total=moedaNumeroVan(v.total);const recebido=moedaNumeroVan((v.recebimentos||[]).reduce((s,p)=>s+(Number(p.valor)||0),0));v.totalRecebido=recebido;v.saldoRestante=Math.max(0,moedaNumeroVan(total-recebido));const ps=Array.isArray(v.parcelamento?.parcelas)?v.parcelamento.parcelas:[];v.parcelasPagas=ps.filter(p=>Number(p.pago)>=Number(p.valor)-0.005).length;v.parcelasTotal=Number(v.parcelamento?.quantidade ?? 0);v.valorParcela=v.parcelasTotal>0?(Number(v.parcelamento?.valorParcela)||total/v.parcelasTotal):0;v.pagamentoStatus=v.saldoRestante<=0.005?'Recebido':(recebido>0?'Parcial':'Pendente');return v;}
   function obterVendaFinanceira(id){return listaVendas.find(v=>String(v.id)===String(id));}
-  function salvarPacoteComercialVanSemDisparar(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));}
+  function salvarPacoteComercialVanSemDisparar(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Orcamentos',JSON.stringify(listaOrcamentos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));}
   function registrarPagamentoVenda(id,valorForcado=null,origem='gestao'){if(!podeGerirFinanceiroVan())return;const v=obterVendaFinanceira(id);if(!v)return;v.recebimentos=Array.isArray(v.recebimentos)?v.recebimentos:[];v.parcelamento=v.parcelamento||criarParcelamentoVan(v.total,1,v.data);v.parcelamento.parcelas=Array.isArray(v.parcelamento.parcelas)?v.parcelamento.parcelas:[];atualizarResumoFinanceiroVenda(v);if(v.saldoRestante<=0.005){alert('Esta venda já está totalmente recebida.');return;}let entrada=valorForcado;if(entrada===null){const resp=prompt(`Venda: ${v.produtoNome}\nSaldo restante: ${moedaVan(v.saldoRestante)}\nValor recebido agora (R$):`);if(resp===null)return;entrada=Number(String(resp).replace(',','.'));}const valor=moedaNumeroVan(entrada);if(!Number.isFinite(valor)||valor<=0||valor>v.saldoRestante+0.005){alert('Informe um valor válido, maior que zero e até o saldo restante.');return;}const agora=new Date().toISOString();v.recebimentos.push({id:'pg_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),valor,data:agora,origem,usuario:vanmathiUsuario?.uid||''});let restante=valor;for(const parcela of v.parcelamento.parcelas){const falta=Math.max(0,(Number(parcela.valor)||0)-(Number(parcela.pago)||0));if(falta<=0.005)continue;const alocar=Math.min(falta,restante);parcela.pago=moedaNumeroVan((Number(parcela.pago)||0)+alocar);parcela.status=parcela.pago>=Number(parcela.valor)-0.005?'Pago':'Parcial';if(parcela.status==='Pago')parcela.pagoEm=agora;restante=moedaNumeroVan(restante-alocar);if(restante<=0.005)break;}atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);salvarTudoLocal(true);salvarPacoteComercialVanSemDisparar();renderizarVendas();renderizarClientes();renderizarRecibos();atualizarRelatorios();if(document.getElementById('modalParcelasVenda')?.classList.contains('active'))abrirModalParcelasVenda(v.id);if(reciboVisualizadoId){const rv=listaRecibos.find(r=>String(r.id)===String(reciboVisualizadoId));if(rv&&String(rv.vendaId)===String(v.id))mostrarRecibo(rv.id);}mostrarToast('Pagamento registrado e informações financeiras atualizadas.');}
   function marcarParcelaComoPaga(vendaId,numero){const v=obterVendaFinanceira(vendaId);const p=v?.parcelamento?.parcelas?.find(x=>Number(x.numero)===Number(numero));if(!v||!p)return;const falta=Math.max(0,Number(p.valor)-Number(p.pago||0));if(falta<=0.005){alert('Esta parcela já está paga.');return;}registrarPagamentoVenda(vendaId,falta,'parcela_'+numero);}
   function abrirModalParcelasVenda(id){const v=obterVendaFinanceira(id);if(!v)return;v.parcelamento=v.parcelamento||criarParcelamentoVan(v.total,Number(v.parcelasTotal ?? 0),v.data);if(!Array.isArray(v.parcelamento.parcelas))v.parcelamento=criarParcelamentoVan(v.total,Number(v.parcelamento.quantidade ?? 0),v.data);if(Number(v.parcelamento.quantidade ?? 0)>0&&!v.parcelamento.parcelas.length)v.parcelamento=criarParcelamentoVan(v.total,v.parcelamento.quantidade,v.data);atualizarResumoFinanceiroVenda(v);const el=document.getElementById('conteudoParcelasVenda');if(!el){setTimeout(()=>abrirModalParcelasVenda(id),100);return;}document.getElementById('tituloParcelasVenda').textContent='Parcelas — '+(v.produtoNome||'Venda');const n=Number(v.parcelamento.quantidade)||v.parcelamento.parcelas.length;const rec=Number(v.totalRecebido)||0,total=Number(v.total)||0,saldo=Number(v.saldoRestante??(total-rec)),pct=total>0?Math.min(100,rec/total*100):0;const linhas=v.parcelamento.parcelas.map(p=>`<tr><td>${p.numero}</td><td>${dataVan(p.vencimento)}</td><td>${moedaVan(p.valor)}</td><td>${moedaVan(p.pago||0)}</td><td><span class="status-pill-van" style="background:${p.status==='Pago'?'#dcfce7':p.status==='Parcial'?'#fef3c7':'#fee2e2'};color:${p.status==='Pago'?'#166534':p.status==='Parcial'?'#92400e':'#991b1b'}">${escaparHtmlVan(p.status||'Pendente')}</span></td><td>${Number(p.pago)<Number(p.valor)-0.005?`<button class="btn-secondary" onclick="marcarParcelaComoPaga('${escaparHtmlVan(v.id)}',${p.numero})">Dar baixa</button>`:'—'}</td></tr>`).join('');const hist=(v.recebimentos||[]).slice().reverse().map(p=>`<li>${dataVan(p.data)} — <strong>${moedaVan(p.valor)}</strong> <small>(${escaparHtmlVan(p.origem||'recebimento')})</small></li>`).join('')||'<li>Nenhum pagamento registrado.</li>';el.innerHTML=`<div class="metrics-grid"><div class="metric-card"><span>Valor unitário</span><h3>${moedaVan(v.valorProdutoUnidade||total/Math.max(1,Number(v.qtd)||1))}</h3></div><div class="metric-card"><span>Valor total</span><h3>${moedaVan(total)}</h3></div><div class="metric-card"><span>Valor por parcela</span><h3>${moedaVan(n>0?(v.parcelamento.valorParcela||total/n):0)}</h3><small>${n===0?'Sem parcelamento':n+' parcelas combinadas'}</small></div><div class="metric-card"><span>Saldo restante</span><h3>${moedaVan(saldo)}</h3></div><div class="metric-card"><span>Parcelas pagas</span><h3>${Number(v.parcelasPagas)||0} de ${n}</h3></div><div class="metric-card"><span>Total recebido</span><h3>${moedaVan(rec)}</h3></div></div><div class="card-box" style="margin:12px 0;padding:12px"><div style="display:flex;justify-content:space-between"><strong>Progresso dos pagamentos</strong><span>${pct.toFixed(0)}%</span></div><div style="height:8px;background:var(--border);border-radius:20px;overflow:hidden;margin:9px 0"><div style="height:100%;width:${pct}%;background:var(--success)"></div></div><button class="btn-primary" onclick="registrarPagamentoVenda('${escaparHtmlVan(v.id)}')">＋ Registrar recebimento</button> <button class="btn-secondary" onclick="gerarReciboDaVenda('${escaparHtmlVan(v.id)}')">🧾 Gerar recibo</button></div><h3>Parcelas</h3><div class="table-container"><table><thead><tr><th>Nº</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Situação</th><th>Ação</th></tr></thead><tbody>${linhas||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px">Esta venda não possui parcelas cadastradas.</td></tr>'}</tbody></table></div><h3 style="margin-top:18px">Histórico de recebimentos</h3><ul>${hist}</ul>`;document.getElementById('modalParcelasVenda').classList.add('active');}
@@ -3511,13 +3548,14 @@
   }
   function resumoParcelasReciboVan(r){const p=r.parcelamento;const n=Number(p?.quantidade)||0;if(n<2||!Array.isArray(p.parcelas))return null;const pagas=p.parcelas.filter(x=>Number(x.pago)>=Number(x.valor)-0.005).length;return {n,valor:Number(p.valorParcela)||(Number(r.total)||0)/n,pagas,parcelas:p.parcelas};}
 
-  function reciboHtmlVan(r){
+  function reciboHtmlVan(r,tipo){
+    const orc=tipo==='orcamento';
     const e=empresaReciboVan();
     const cor=/^#[0-9a-f]{6}$/i.test(e.cor||'')?e.cor:'#0f2d53';
     const site=urlSiteVan(e);
     const cli=r.cliente||{};
     const itens=Array.isArray(r.itens)?r.itens:[];
-    const pc=resumoParcelasReciboVan(r);
+    const pc=orc?null:resumoParcelasReciboVan(r);
     const x=escaparHtmlVan;
     const ic={
       pin:'<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
@@ -3531,7 +3569,7 @@
     if(e.email)contato.push(`<div>${ic.mail}<span>${x(e.email)}</span></div>`);
     const marca=String(e.marca||'').trim();
     const tamMarca=marca.length>18?8.5:marca.length>12?11:13.5;
-    const linhasItens=itens.map((i,n)=>`<tr><td>${n+1}</td><td class="tl">${x(i.descricao)}</td><td>${x(i.material||'—')}</td><td>${Number(i.qtd)||0}</td><td>${moedaVan(i.preco)}</td><td>${moedaVan(i.total)}</td></tr>`).join('');
+    const linhasItens=itens.map((i,n)=>`<tr><td>${n+1}</td><td class="tl">${x(i.descricao)}</td><td>${x(orc?(i.cores||'—'):(i.material||'—'))}</td><td>${Number(i.qtd)||0}</td><td>${moedaVan(i.preco)}</td><td>${moedaVan(i.total)}</td></tr>`).join('');
     let parcHtml='';
     if(pc){
       const lim=6;
@@ -3549,22 +3587,22 @@
   <div class="brand"><h1 style="font-size:${tamMarca}mm">${marcaHtmlVan(marca)}</h1>${e.submarca?`<div class="sub">${x(e.submarca)}</div>`:''}${e.slogan?`<div class="tag">${x(e.slogan)}</div>`:''}</div>
   <div class="contact">${contato.join('')}</div></div>
  <div class="rule"></div>
- <div class="title"><div class="l"><svg viewBox="0 0 24 28" fill="none" stroke="#1565d8" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 2h16v22l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5V2z"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#f28a1e"/></svg><div><h2>RECIBO</h2><p>PRODUTOS 3D PERSONALIZADOS</p></div></div>
-  <div class="nbox"><strong>Nº ${x(numeroReciboVan(r))}</strong>Data de Emissão: ${dataVan(r.data)}<br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}<br>Situação: <b>${x(r.situacao||'Pendente')}</b></div></div>
+ <div class="title"><div class="l"><svg viewBox="0 0 24 28" fill="none" stroke="#1565d8" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 2h16v22l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5V2z"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#f28a1e"/></svg><div><h2>${orc?'ORÇAMENTO':'RECIBO'}</h2><p>PRODUTOS 3D PERSONALIZADOS</p></div></div>
+  <div class="nbox"><strong>Nº ${x(numeroReciboVan(r))}</strong>Data de Emissão: ${dataVan(r.data)}${orc?`<br>Validade: ${Number(r.validadeDias)||0} dia(s)<br>Válido até: <b>${dataVan(r.validade)}</b>`:`<br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}<br>Situação: <b>${x(r.situacao||'Pendente')}</b>`}</div></div>
  <div class="client"><div class="a"><h3><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z"/></svg>DADOS DO CLIENTE</h3>
    <div><span>Nome:</span>${x(cli.nome||'')}</div>${cli.email?`<div><span>E-mail:</span>${x(cli.email)}</div>`:''}${cli.telefone?`<div><span>Telefone:</span>${x(cli.telefone)}</div>`:''}${cli.documento?`<div><span>Documento:</span>${x(cli.documento)}</div>`:''}</div>
   <div class="b"><b>Endereço</b> <em>(opcional)</em>:<br>${cli.endereco?x(cli.endereco):'<em>Não informado</em>'}</div></div>
- <table><thead><tr><th style="width:9mm">#</th><th style="text-align:left">Produto</th><th>Material</th><th style="width:15mm">Qtd.</th><th style="width:30mm">Valor Unitário</th><th style="width:30mm">Valor Total</th></tr></thead><tbody>${linhasItens}</tbody></table>
+ <table><thead><tr><th style="width:9mm">#</th><th style="text-align:left">Produto</th><th>${orc?'Cores':'Material'}</th><th style="width:15mm">Qtd.</th><th style="width:30mm">Valor Unitário</th><th style="width:30mm">Valor Total</th></tr></thead><tbody>${linhasItens}</tbody></table>
  <div class="rv-sum">${parcHtml||'<div class="rv-parc"></div>'}
   <div class="totals"><div class="r"><span>Subtotal</span><span>${moedaVan(r.subtotal)}</span></div><div class="r"><span>Desconto</span><span>${moedaVan(r.desconto)}</span></div><div class="t"><strong>Total</strong><strong>${moedaVan(r.total)}</strong></div>
-   <div class="rv-pay"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div class="rv-pay"><span>Saldo pendente</span><strong style="color:${pend>0.005?'#d9730d':'inherit'}">${moedaVan(pend)}</strong></div></div></div>
+   ${orc?'':`<div class="rv-pay"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div class="rv-pay"><span>Saldo pendente</span><strong style="color:${pend>0.005?'#d9730d':'inherit'}">${moedaVan(pend)}</strong></div>`}</div></div>
  ${r.observacao?`<div class="rv-obs"><b>Observações:</b> ${x(r.observacao)}</div>`:''}
  <div class="info"><div class="l"><h4><i>i</i>INFORMAÇÕES ADICIONAIS</h4><ul>${info.map(t=>`<li>${x(t)}</li>`).join('')}</ul></div>${qr}</div>
  <div class="thanks"><div><strong>${x(e.mensagem||'Obrigado pela preferência!')}</strong>${e.fraseFinal?`<span>${x(e.fraseFinal)}</span>`:''}</div></div>
  <div class="foot"><div class="b">${logo?`<img src="${x(logo)}" alt="" onerror="this.style.display='none'">`:''}<div>${marcaHtmlVan(marca)}${e.submarca?`<small>${x(e.submarca)}</small>`:''}</div></div><div class="r">${valores.map(v=>x(v)).join('<i>•</i>')}</div></div>
 </div>`;
   }
-  function documentoReciboVan(r){return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo ${escaparHtmlVan(numeroReciboVan(r))}</title><style>@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}${RECIBO_CSS_VAN}</style></head><body>${reciboHtmlVan(r)}</body></html>`;}
+  function documentoReciboVan(r,tipo){return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${tipo==='orcamento'?'Orçamento':'Recibo'} ${escaparHtmlVan(numeroReciboVan(r))}</title><style>@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}${RECIBO_CSS_VAN}</style></head><body>${reciboHtmlVan(r,tipo)}</body></html>`;}
   function ajustarZoomReciboVan(){const area=document.getElementById('areaImpressaoRecibo');const pg=area?.querySelector('.rv-page');if(!pg)return;pg.style.zoom=1;const larg=area.clientWidth-24;const base=pg.offsetWidth||794;pg.style.zoom=Math.max(0.3,Math.min(1,larg/base));}
   window.addEventListener('resize',ajustarZoomReciboVan);
   function mostrarRecibo(id){const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r)return;reciboVisualizadoId=id;const v=document.getElementById('visualizadorRecibo');document.getElementById('areaImpressaoRecibo').innerHTML=reciboHtmlVan(r);v.style.display='block';ajustarZoomReciboVan();v.scrollIntoView({behavior:'smooth',block:'start'});}
@@ -3727,6 +3765,179 @@
     mostrarToast(v?'Recibo excluído e cliente desvinculado da venda.':'Recibo excluído.');
   }
 
+  // ===== Orçamentos (mesmo layout A4 do recibo; só valores e cores, sem parcelas) =====
+  function coresLabelVan(comp){
+    const mats=(Array.isArray(comp)?comp:[]).map(i=>listaMateriais.find(m=>String(m.id)===String(i.materialId))).filter(Boolean);
+    return [...new Set(mats.map(m=>String(m.cor||'').trim()).filter(Boolean))].join(' + ');
+  }
+  function atualizarSelectClientesOrcamento(selecionado=''){
+    const el=document.getElementById('orcCliente');if(!el)return;
+    const atual=selecionado||el.value;
+    el.innerHTML='<option value="">Selecione um cliente</option>'+listaClientes.filter(c=>!c.arquivado).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR')).map(c=>`<option value="${escaparHtmlVan(c.id)}">${escaparHtmlVan(c.nome)}</option>`).join('');
+    if(atual)el.value=String(atual);
+  }
+  function atualizarSelectProdutosOrcamento(){
+    const el=document.getElementById('orcProdutoCatalogo');if(!el)return;
+    el.innerHTML='<option value="">＋ Adicionar produto cadastrado…</option>'+[...listaProdutosSalvos].sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR')).map(p=>`<option value="${escaparHtmlVan(p.id)}">${escaparHtmlVan(p.nome)} — ${moedaVan(obterNumeroMoeda(p.precoVenda||p.precoSugerido))}</option>`).join('');
+  }
+  function novoOrcamento(clienteId=''){
+    if(!podeGerirFinanceiroVan())return;
+    if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um orçamento.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}
+    itensRascunhoOrcamento=[];
+    document.getElementById('orcData').value=new Date().toISOString().slice(0,10);
+    document.getElementById('orcValidade').value='7';
+    document.getElementById('orcDesconto').value='0';
+    document.getElementById('orcObservacao').value='';
+    atualizarSelectClientesOrcamento(clienteId);
+    atualizarSelectProdutosOrcamento();
+    renderizarItensOrcamento();atualizarTotaisOrcamento();
+    document.getElementById('formOrcamento').style.display='block';
+    document.getElementById('visualizadorOrcamento').style.display='none';
+    document.getElementById('formOrcamento').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function cancelarOrcamento(){document.getElementById('formOrcamento').style.display='none';}
+  function adicionarItemOrcamento(item={}){
+    itensRascunhoOrcamento.push({descricao:item.descricao||'',cores:item.cores||'',qtd:Math.max(1,Number(item.qtd)||1),preco:Number(item.preco)||0,produtoId:item.produtoId||''});
+    renderizarItensOrcamento();atualizarTotaisOrcamento();
+  }
+  function adicionarProdutoCatalogoOrcamento(){
+    const sel=document.getElementById('orcProdutoCatalogo');const id=sel?.value;if(!id)return;
+    const p=listaProdutosSalvos.find(x=>String(x.id)===String(id));
+    sel.value='';
+    if(!p)return;
+    adicionarItemOrcamento({descricao:p.nome||'',cores:coresLabelVan(obterComposicaoProduto(p)),qtd:1,preco:obterNumeroMoeda(p.precoVenda||p.precoSugerido),produtoId:p.id});
+  }
+  function renderizarItensOrcamento(){
+    const tb=document.getElementById('itensOrcamento');if(!tb)return;
+    if(!itensRascunhoOrcamento.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px">Nenhum item. Escolha um produto cadastrado ou adicione um item avulso.</td></tr>';return;}
+    tb.innerHTML=itensRascunhoOrcamento.map((it,i)=>`<tr><td><input aria-label="Produto" value="${escaparHtmlVan(it.descricao)}" maxlength="160" onchange="atualizarItemOrcamento(${i},'descricao',this.value)" style="min-width:150px;width:100%"></td><td><input aria-label="Cores" value="${escaparHtmlVan(it.cores||'')}" maxlength="60" placeholder="Ex.: Bege + Preto" onchange="atualizarItemOrcamento(${i},'cores',this.value)" style="min-width:130px;width:100%"></td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="${it.qtd}" onchange="atualizarItemOrcamento(${i},'qtd',this.value)" style="width:70px"></td><td><input aria-label="Preço unitário" type="number" min="0" step="0.01" value="${it.preco}" onchange="atualizarItemOrcamento(${i},'preco',this.value)" style="width:100px"></td><td>${moedaVan(it.qtd*it.preco)}</td><td><button class="btn-danger" onclick="removerItemOrcamento(${i})">×</button></td></tr>`).join('');
+  }
+  function atualizarItemOrcamento(i,k,v){
+    if(!itensRascunhoOrcamento[i])return;
+    itensRascunhoOrcamento[i][k]=['qtd','preco'].includes(k)?Math.max(0,Number(v)||0):v;
+    if(k==='qtd')itensRascunhoOrcamento[i].qtd=Math.max(1,Math.floor(itensRascunhoOrcamento[i].qtd));
+    renderizarItensOrcamento();atualizarTotaisOrcamento();
+  }
+  function removerItemOrcamento(i){itensRascunhoOrcamento.splice(i,1);renderizarItensOrcamento();atualizarTotaisOrcamento();}
+  function calcularTotaisOrcamento(){
+    const subtotal=itensRascunhoOrcamento.reduce((s,i)=>s+(Math.max(0,Number(i.qtd)||0)*Math.max(0,Number(i.preco)||0)),0);
+    const desconto=Math.min(subtotal,Math.max(0,Number(document.getElementById('orcDesconto')?.value)||0));
+    return {subtotal,desconto,total:Math.max(0,subtotal-desconto)};
+  }
+  function atualizarTotaisOrcamento(){
+    const t=calcularTotaisOrcamento();
+    const e=document.getElementById('orcTotalExibido');if(e)e.value=moedaVan(t.total);
+    const r=document.getElementById('resumoOrcamento');
+    if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong> · Total: <strong style="color:var(--success)">${moedaVan(t.total)}</strong>`;
+  }
+  function salvarOrcamento(){
+    if(!podeGerirFinanceiroVan())return;
+    const cliente=listaClientes.find(c=>String(c.id)===String(document.getElementById('orcCliente').value));
+    if(!cliente){alert('Selecione o cliente do orçamento.');return;}
+    if(!itensRascunhoOrcamento.length||itensRascunhoOrcamento.some(i=>!String(i.descricao||'').trim()||Number(i.qtd)<1||Number(i.preco)<0)){alert('Inclua ao menos um item válido, com descrição, quantidade e preço.');return;}
+    const t=calcularTotaisOrcamento();
+    if(t.total<=0){alert('O valor total precisa ser maior que zero.');return;}
+    const data=document.getElementById('orcData').value||new Date().toISOString().slice(0,10);
+    const dias=Math.max(1,Math.min(365,parseInt(document.getElementById('orcValidade').value)||7));
+    const dv=new Date(data+'T12:00:00');dv.setDate(dv.getDate()+dias);
+    const seq=listaOrcamentos.reduce((m,o)=>Math.max(m,Number(o.sequencia)||0),0)+1;
+    const orc={id:'orc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data,validadeDias:dias,validade:dv.toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoOrcamento.map(i=>({descricao:String(i.descricao).trim(),cores:String(i.cores||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco),produtoId:i.produtoId||''})),subtotal:t.subtotal,desconto:t.desconto,total:t.total,observacao:document.getElementById('orcObservacao').value.trim(),criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
+    listaOrcamentos.push(orc);
+    salvarPacoteComercialVan();cancelarOrcamento();renderizarOrcamentos();mostrarOrcamento(orc.id);
+    mostrarToast('Orçamento '+orc.numero+' emitido com sucesso.');
+  }
+  function renderizarOrcamentos(){
+    const tb=document.getElementById('tabelaOrcamentos');if(!tb)return;
+    const q=(document.getElementById('buscaOrcamentos')?.value||'').toLowerCase().trim();
+    const hoje=new Date().toISOString().slice(0,10);
+    const arr=[...listaOrcamentos].sort((a,b)=>(Number(b.sequencia)||0)-(Number(a.sequencia)||0)).filter(o=>[o.numero,o.cliente?.nome,o.data].some(v=>String(v||'').toLowerCase().includes(q)));
+    tb.innerHTML=arr.length?arr.map(o=>{const ok=String(o.validade||'')>=hoje;return `<tr><td><strong>#${escaparHtmlVan(o.numero||o.sequencia)}</strong></td><td>${dataVan(o.data)}</td><td>${escaparHtmlVan(o.cliente?.nome||'Cliente removido')}</td><td>${dataVan(o.validade)} <span class="status-pill-van" style="background:${ok?'#dcfce7':'#fee2e2'};color:${ok?'#166534':'#991b1b'}">${ok?'Válido':'Vencido'}</span></td><td>${moedaVan(o.total)}</td><td><button class="btn-secondary" onclick="mostrarOrcamento('${escaparHtmlVan(o.id)}')">Ver</button> <button class="btn-secondary" onclick="converterOrcamentoEmRecibo('${escaparHtmlVan(o.id)}')" title="Gerar recibo com estes itens">🧾</button> <button class="btn-danger" onclick="excluirOrcamento('${escaparHtmlVan(o.id)}')">×</button></td></tr>`;}).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum orçamento encontrado.</td></tr>';
+    const tot=document.getElementById('totalOrcamentosVan');if(tot)tot.textContent=listaOrcamentos.length;
+    const val=document.getElementById('valorOrcamentosVan');if(val)val.textContent=moedaVan(listaOrcamentos.reduce((s,o)=>s+(Number(o.total)||0),0));
+    const vl=document.getElementById('validosOrcamentosVan');if(vl)vl.textContent=listaOrcamentos.filter(o=>String(o.validade||'')>=hoje).length;
+  }
+  function ajustarZoomOrcamentoVan(){const area=document.getElementById('areaImpressaoOrcamento');const pg=area?.querySelector('.rv-page');if(!pg)return;pg.style.zoom=1;const larg=area.clientWidth-24;const base=pg.offsetWidth||794;pg.style.zoom=Math.max(0.3,Math.min(1,larg/base));}
+  window.addEventListener('resize',ajustarZoomOrcamentoVan);
+  function mostrarOrcamento(id){
+    const o=listaOrcamentos.find(x=>String(x.id)===String(id));if(!o)return;
+    orcamentoVisualizadoId=id;
+    const v=document.getElementById('visualizadorOrcamento');
+    document.getElementById('areaImpressaoOrcamento').innerHTML=reciboHtmlVan(o,'orcamento');
+    v.style.display='block';ajustarZoomOrcamentoVan();v.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function fecharVisualizadorOrcamento(){document.getElementById('visualizadorOrcamento').style.display='none';orcamentoVisualizadoId=null;}
+  function nomeArquivoOrcamentoVan(o,ext){return 'Orcamento_'+numeroReciboVan(o)+'_'+String(o.cliente?.nome||'').trim().replace(/[^\wÀ-ÿ]+/g,'_')+(ext||'');}
+  function imprimirOrcamentoAtual(){
+    const o=listaOrcamentos.find(x=>String(x.id)===String(orcamentoVisualizadoId));if(!o)return;
+    document.getElementById('iframeImpressaoOrcamentoVan')?.remove();
+    const f=document.createElement('iframe');f.id='iframeImpressaoOrcamentoVan';f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;';document.body.appendChild(f);
+    const doc=f.contentWindow.document;doc.open();doc.write(documentoReciboVan(o,'orcamento'));doc.close();
+    const tituloAntes=document.title;
+    document.title=nomeArquivoOrcamentoVan(o);
+    Promise.all(Array.from(doc.images).map(i=>i.complete?Promise.resolve():new Promise(res=>{i.onload=i.onerror=res;}))).then(()=>setTimeout(()=>{
+      try{f.contentWindow.focus();f.contentWindow.print();}catch(err){console.warn('Impressão:',err);}
+      document.title=tituloAntes;
+    },200));
+  }
+  async function baixarImagemOrcamentoAtual(){
+    const o=listaOrcamentos.find(x=>String(x.id)===String(orcamentoVisualizadoId));if(!o)return;
+    let holder=null;
+    try{
+      mostrarToast('Gerando imagem do orçamento…');
+      if(!window.html2canvas){
+        await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';s.onload=res;s.onerror=()=>rej(new Error('Não foi possível carregar o gerador de imagem.'));document.head.appendChild(s);});
+      }
+      holder=document.createElement('div');
+      holder.style.cssText='position:fixed;left:-10000px;top:0;background:#fff;pointer-events:none;';
+      holder.innerHTML=reciboHtmlVan(o,'orcamento');
+      document.body.appendChild(holder);
+      const pg=holder.querySelector('.rv-page');
+      await Promise.all(Array.from(holder.querySelectorAll('img')).map(i=>i.complete?Promise.resolve():new Promise(r=>{i.onload=i.onerror=r;})));
+      const canvas=await window.html2canvas(pg,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+      holder.remove();holder=null;
+      const nome=nomeArquivoOrcamentoVan(o,'.png');
+      const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+      if(!blob)throw new Error('Falha ao criar a imagem.');
+      const arq=new File([blob],nome,{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[arq]})){
+        try{await navigator.share({files:[arq],title:'Orçamento '+numeroReciboVan(o)});return;}catch(err){if(err&&err.name==='AbortError')return;}
+      }
+      const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),4000);
+      mostrarToast('Imagem do orçamento baixada.');
+    }catch(err){
+      console.warn('Imagem do orçamento:',err);
+      if(holder)holder.remove();
+      mostrarToast('Não consegui gerar a imagem. Use "Imprimir / Salvar PDF".');
+    }
+  }
+  function compartilharOrcamentoWhatsApp(){
+    const o=listaOrcamentos.find(x=>String(x.id)===String(orcamentoVisualizadoId));if(!o)return;
+    const itens=(o.itens||[]).map(i=>`• ${i.qtd}x ${i.descricao}${i.cores?' ('+i.cores+')':''} — ${moedaVan(i.total)}`).join('\n');
+    const texto=`${dadosEmpresa.nome||'Vanmathi'} — Orçamento nº ${o.numero}\nCliente: ${o.cliente?.nome||''}\nData: ${dataVan(o.data)}\n\n${itens}\n\n${Number(o.desconto)>0?'Desconto: '+moedaVan(o.desconto)+'\n':''}Total: ${moedaVan(o.total)}\nVálido até: ${dataVan(o.validade)}`;
+    window.open('https://wa.me/?text='+encodeURIComponent(texto),'_blank','noopener');
+  }
+  function excluirOrcamento(id){
+    if(!podeGerirFinanceiroVan())return;
+    const o=listaOrcamentos.find(x=>String(x.id)===String(id));if(!o)return;
+    if(!confirm('Excluir o orçamento '+o.numero+'?\n\nEsta ação não pode ser desfeita.'))return;
+    listaOrcamentos=listaOrcamentos.filter(x=>String(x.id)!==String(id));
+    salvarPacoteComercialVan();renderizarOrcamentos();
+    if(orcamentoVisualizadoId===id)fecharVisualizadorOrcamento();
+    mostrarToast('Orçamento excluído.');
+  }
+  function converterOrcamentoEmRecibo(id){
+    if(!podeGerirFinanceiroVan())return;
+    const o=listaOrcamentos.find(x=>String(x.id)===String(id));if(!o)return;
+    mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');
+    novoRecibo(o.clienteId||'');
+    itensRascunhoRecibo=(o.itens||[]).map(i=>({descricao:i.descricao,material:i.cores||'',detalhes:'',qtd:i.qtd,preco:i.preco,produtoId:i.produtoId||''}));
+    document.getElementById('reciboDesconto').value=Number(o.desconto)||0;
+    document.getElementById('reciboObservacao').value=o.observacao||'';
+    renderizarItensRascunhoRecibo();atualizarTotaisRecibo();
+    mostrarToast('Recibo preenchido a partir do orçamento '+o.numero+'. Defina forma de pagamento e parcelas.');
+  }
+
   // ===== Dados da empresa (alimentam o recibo em tempo real) =====
   function carregarFormularioEmpresa(){
     if(!document.getElementById('empresaNome'))return;
@@ -3748,7 +3959,8 @@
     dadosEmpresa={nome,razao:val('empresaRazao'),cnpj:val('empresaCnpj'),inscricao:val('empresaInscricao'),email:val('empresaEmail'),telefone:val('empresaTelefone'),site:url,redeSocial:rede,endereco:val('empresaEndereco'),mensagem:val('empresaMensagem'),rodape:document.getElementById('empresaRodape').value.trim(),cor:document.getElementById('empresaCor').value||'#0f2d53',logo:logoEmpresaTemporaria||'',marca:val('empresaMarca'),submarca:val('empresaSubmarca'),slogan:val('empresaSlogan'),fraseFinal:val('empresaFraseFinal'),valores:val('empresaValores')};
     salvarPacoteComercialVan();
     if(reciboVisualizadoId&&listaRecibos.some(r=>String(r.id)===String(reciboVisualizadoId))){const a=document.getElementById('areaImpressaoRecibo');const r=listaRecibos.find(x=>String(x.id)===String(reciboVisualizadoId));if(a&&r){a.innerHTML=reciboHtmlVan(r);ajustarZoomReciboVan();}}
-    mostrarToast('Dados da empresa atualizados. Todos os recibos já usam as novas informações.');
+    if(orcamentoVisualizadoId&&listaOrcamentos.some(o=>String(o.id)===String(orcamentoVisualizadoId))){const a=document.getElementById('areaImpressaoOrcamento');const o=listaOrcamentos.find(x=>String(x.id)===String(orcamentoVisualizadoId));if(a&&o){a.innerHTML=reciboHtmlVan(o,'orcamento');ajustarZoomOrcamentoVan();}}
+    mostrarToast('Dados da empresa atualizados. Todos os recibos e orçamentos já usam as novas informações.');
   }
 
   // ===== Clientes, recibos e dados comerciais da empresa =====
@@ -3756,7 +3968,7 @@
   function moedaVan(v){return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
   function dataVan(v){if(!v)return '—';const d=new Date(String(v).length===10?String(v)+'T12:00:00':v);return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('pt-BR');}
   function apenasAdminVan(){if(vanmathiPerfilAtual?.role!=='admin'){alert('Esta função é exclusiva para administradores.');return false;}return true;}
-  function salvarPacoteComercialVan(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));salvarTudoLocal(true);}
+  function salvarPacoteComercialVan(){localStorage.setItem('Vanmathi_Dados_Clientes',JSON.stringify(listaClientes));localStorage.setItem('Vanmathi_Dados_Recibos',JSON.stringify(listaRecibos));localStorage.setItem('Vanmathi_Dados_Orcamentos',JSON.stringify(listaOrcamentos));localStorage.setItem('Vanmathi_Dados_Empresa',JSON.stringify(dadosEmpresa));salvarTudoLocal(true);}
   function novoCliente(){if(!podeGerirFinanceiroVan())return;document.getElementById('clienteIdEditando').value='';['clienteNome','clienteTelefone','clienteEmail','clienteDocumento','clienteEndereco','clienteObservacoes'].forEach(id=>document.getElementById(id).value='');document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
   function cancelarEdicaoCliente(){document.getElementById('formCliente').style.display='none';}
   function salvarCliente(){if(!podeGerirFinanceiroVan())return;const nome=document.getElementById('clienteNome').value.trim();if(!nome){alert('Informe o nome do cliente.');return;}const id=document.getElementById('clienteIdEditando').value;const dados={nome,telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),documento:document.getElementById('clienteDocumento').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),observacoes:document.getElementById('clienteObservacoes').value.trim(),atualizadoEm:new Date().toISOString()};if(id){const i=listaClientes.findIndex(c=>String(c.id)===id);if(i>=0){listaClientes[i]={...listaClientes[i],...dados};const cx=listaClientes[i];listaVendas.forEach(v=>{if(String(v.clienteId||'')===String(cx.id))v.clienteNome=cx.nome;});listaRecibos.forEach(r=>{if(String(r.clienteId||'')===String(cx.id))r.cliente={nome:cx.nome,telefone:cx.telefone||'',email:cx.email||'',documento:cx.documento||'',endereco:cx.endereco||''};});}}else listaClientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),...dados,criadoEm:new Date().toISOString()});salvarPacoteComercialVan();cancelarEdicaoCliente();renderizarClientes();mostrarToast('Cliente salvo com sucesso.');}
@@ -3777,7 +3989,7 @@
   async function processarLogoEmpresa(ev){if(!apenasAdminVan())return;const f=ev.target.files?.[0];if(!f)return;if(!/^image\/(png|jpeg|webp)$/.test(f.type)){alert('Use um arquivo PNG, JPG ou WebP.');ev.target.value='';return;}if(f.size>8*1024*1024){alert('A imagem deve ter até 8 MB antes da otimização.');ev.target.value='';return;}try{const img=new Image();const url=URL.createObjectURL(f);img.onload=()=>{const scale=Math.min(1,900/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);let data=c.toDataURL('image/jpeg',0.82);if(data.length>230000)data=c.toDataURL('image/jpeg',0.65);logoEmpresaTemporaria=data;document.getElementById('previewLogoEmpresa').innerHTML=`<img src="${data}" alt="Prévia do logotipo">`;URL.revokeObjectURL(url);};img.onerror=()=>{URL.revokeObjectURL(url);alert('Não foi possível ler esta imagem.');};img.src=url;}catch(e){alert('Erro ao carregar o logotipo: '+e.message);}}
   function removerLogoEmpresa(){if(!apenasAdminVan())return;logoEmpresaTemporaria='';document.getElementById('previewLogoEmpresa').textContent='🖼️ Logo';document.getElementById('empresaLogoArquivo').value='';}
   // Atualiza o conteúdo comercial em qualquer dispositivo pelo documento central já utilizado pelo app.
-  document.addEventListener('DOMContentLoaded',()=>{renderizarClientes();renderizarRecibos();carregarFormularioEmpresa();});
+  document.addEventListener('DOMContentLoaded',()=>{renderizarClientes();renderizarRecibos();renderizarOrcamentos();carregarFormularioEmpresa();});
 
 
 
@@ -3794,6 +4006,7 @@
   atualizarRelatorios();
   renderizarClientes();
   renderizarRecibos();
+  renderizarOrcamentos();
   carregarFormularioEmpresa();
 </script>
 </body>
