@@ -803,13 +803,13 @@
           <div class="form-grid-van">
             <div class="form-group"><label>Cliente *</label><select id="orcCliente"><option value="">Selecione um cliente</option></select></div>
             <div class="form-group"><label>Data de emissão</label><input id="orcData" type="date"></div>
-            <div class="form-group"><label>Validade (dias)</label><input id="orcValidade" type="number" min="1" max="365" step="1" value="7"><small style="color:var(--text-muted)">O orçamento mostra "Válido até" a partir da data de emissão.</small></div>
+            <div class="form-group"><label>Válido até</label><input id="orcValidade" type="date"><small style="color:var(--text-muted)">Sugerido: 7 dias após a emissão. Pode alterar.</small></div>
             <div class="form-group"><label>Adicionar produto cadastrado</label><select id="orcProdutoCatalogo" onchange="adicionarProdutoCatalogoOrcamento()"><option value="">＋ Adicionar produto cadastrado…</option></select><small style="color:var(--text-muted)">Traz nome, cores (pela composição de materiais) e preço de venda do cadastro.</small></div>
             <div class="form-group full"><label>Observações</label><input id="orcObservacao" maxlength="500" placeholder="Prazo de entrega, condições ou outras informações do pedido"></div>
           </div>
           <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Cores</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensOrcamento"></tbody></table></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn-secondary" onclick="adicionarItemOrcamento()">＋ Adicionar item avulso</button></div>
-          <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="orcDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisOrcamento()"></div><div class="form-group"><label>Valor total</label><input id="orcTotalExibido" readonly value="R$ 0,00"></div></div>
+          <div class="form-grid-van"><div class="form-group"><label>Frete (R$)</label><input id="orcFrete" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisOrcamento()"><small style="color:var(--text-muted)">Deixe 0 se não houver frete. Só aparece no orçamento se tiver valor.</small></div><div class="form-group"><label>Desconto (R$)</label><input id="orcDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisOrcamento()"></div><div class="form-group"><label>Valor total</label><input id="orcTotalExibido" readonly value="R$ 0,00"></div></div>
           <div id="resumoOrcamento" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
           <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarOrcamento()">Cancelar</button><button class="btn-primary" onclick="salvarOrcamento()">💾 Salvar e gerar orçamento</button></div>
         </div>
@@ -3588,13 +3588,13 @@
   <div class="contact">${contato.join('')}</div></div>
  <div class="rule"></div>
  <div class="title"><div class="l"><svg viewBox="0 0 24 28" fill="none" stroke="#1565d8" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 2h16v22l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5V2z"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#f28a1e"/></svg><div><h2>${orc?'ORÇAMENTO':'RECIBO'}</h2><p>PRODUTOS 3D PERSONALIZADOS</p></div></div>
-  <div class="nbox"><strong>Nº ${x(numeroReciboVan(r))}</strong>Data de Emissão: ${dataVan(r.data)}${orc?`<br>Validade: ${Number(r.validadeDias)||0} dia(s)<br>Válido até: <b>${dataVan(r.validade)}</b>`:`<br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}<br>Situação: <b>${x(r.situacao||'Pendente')}</b>`}</div></div>
+  <div class="nbox"><strong>Nº ${x(numeroReciboVan(r))}</strong>Data de Emissão: ${dataVan(r.data)}${orc?`<br>Válido até: <b>${dataVan(r.validade)}</b>`:`<br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}<br>Situação: <b>${x(r.situacao||'Pendente')}</b>`}</div></div>
  <div class="client"><div class="a"><h3><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z"/></svg>DADOS DO CLIENTE</h3>
    <div><span>Nome:</span>${x(cli.nome||'')}</div>${cli.email?`<div><span>E-mail:</span>${x(cli.email)}</div>`:''}${cli.telefone?`<div><span>Telefone:</span>${x(cli.telefone)}</div>`:''}${cli.documento?`<div><span>Documento:</span>${x(cli.documento)}</div>`:''}</div>
   <div class="b"><b>Endereço</b> <em>(opcional)</em>:<br>${cli.endereco?x(cli.endereco):'<em>Não informado</em>'}</div></div>
  <table><thead><tr><th style="width:9mm">#</th><th style="text-align:left">Produto</th><th>${orc?'Cores':'Material'}</th><th style="width:15mm">Qtd.</th><th style="width:30mm">Valor Unitário</th><th style="width:30mm">Valor Total</th></tr></thead><tbody>${linhasItens}</tbody></table>
  <div class="rv-sum">${parcHtml||'<div class="rv-parc"></div>'}
-  <div class="totals"><div class="r"><span>Subtotal</span><span>${moedaVan(r.subtotal)}</span></div><div class="r"><span>Desconto</span><span>${moedaVan(r.desconto)}</span></div><div class="t"><strong>Total</strong><strong>${moedaVan(r.total)}</strong></div>
+  <div class="totals"><div class="r"><span>Subtotal</span><span>${moedaVan(r.subtotal)}</span></div><div class="r"><span>Desconto</span><span>${moedaVan(r.desconto)}</span></div>${orc&&Number(r.frete)>0?`<div class="r"><span>Frete</span><span>${moedaVan(r.frete)}</span></div>`:''}<div class="t"><strong>Total</strong><strong>${moedaVan(r.total)}</strong></div>
    ${orc?'':`<div class="rv-pay"><span>Recebido</span><strong>${moedaVan(r.recebido)}</strong></div><div class="rv-pay"><span>Saldo pendente</span><strong style="color:${pend>0.005?'#d9730d':'inherit'}">${moedaVan(pend)}</strong></div>`}</div></div>
  ${r.observacao?`<div class="rv-obs"><b>Observações:</b> ${x(r.observacao)}</div>`:''}
  <div class="info"><div class="l"><h4><i>i</i>INFORMAÇÕES ADICIONAIS</h4><ul>${info.map(t=>`<li>${x(t)}</li>`).join('')}</ul></div>${qr}</div>
@@ -3785,8 +3785,9 @@
     if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um orçamento.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}
     itensRascunhoOrcamento=[];
     document.getElementById('orcData').value=new Date().toISOString().slice(0,10);
-    document.getElementById('orcValidade').value='7';
+    {const dv=new Date();dv.setDate(dv.getDate()+7);document.getElementById('orcValidade').value=dv.toISOString().slice(0,10);}
     document.getElementById('orcDesconto').value='0';
+    document.getElementById('orcFrete').value='0';
     document.getElementById('orcObservacao').value='';
     atualizarSelectClientesOrcamento(clienteId);
     atualizarSelectProdutosOrcamento();
@@ -3822,13 +3823,14 @@
   function calcularTotaisOrcamento(){
     const subtotal=itensRascunhoOrcamento.reduce((s,i)=>s+(Math.max(0,Number(i.qtd)||0)*Math.max(0,Number(i.preco)||0)),0);
     const desconto=Math.min(subtotal,Math.max(0,Number(document.getElementById('orcDesconto')?.value)||0));
-    return {subtotal,desconto,total:Math.max(0,subtotal-desconto)};
+    const frete=Math.max(0,Number(document.getElementById('orcFrete')?.value)||0);
+    return {subtotal,desconto,frete,total:Math.max(0,subtotal-desconto)+frete};
   }
   function atualizarTotaisOrcamento(){
     const t=calcularTotaisOrcamento();
     const e=document.getElementById('orcTotalExibido');if(e)e.value=moedaVan(t.total);
     const r=document.getElementById('resumoOrcamento');
-    if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong> · Total: <strong style="color:var(--success)">${moedaVan(t.total)}</strong>`;
+    if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong>${t.frete>0?' · Frete: <strong>'+moedaVan(t.frete)+'</strong>':''} · Total: <strong style="color:var(--success)">${moedaVan(t.total)}</strong>`;
   }
   function salvarOrcamento(){
     if(!podeGerirFinanceiroVan())return;
@@ -3838,10 +3840,11 @@
     const t=calcularTotaisOrcamento();
     if(t.total<=0){alert('O valor total precisa ser maior que zero.');return;}
     const data=document.getElementById('orcData').value||new Date().toISOString().slice(0,10);
-    const dias=Math.max(1,Math.min(365,parseInt(document.getElementById('orcValidade').value)||7));
-    const dv=new Date(data+'T12:00:00');dv.setDate(dv.getDate()+dias);
+    let validade=document.getElementById('orcValidade').value;
+    if(!validade){const dv=new Date(data+'T12:00:00');dv.setDate(dv.getDate()+7);validade=dv.toISOString().slice(0,10);}
+    if(validade<data){alert('A data "Válido até" não pode ser anterior à data de emissão.');return;}
     const seq=listaOrcamentos.reduce((m,o)=>Math.max(m,Number(o.sequencia)||0),0)+1;
-    const orc={id:'orc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data,validadeDias:dias,validade:dv.toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoOrcamento.map(i=>({descricao:String(i.descricao).trim(),cores:String(i.cores||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco),produtoId:i.produtoId||''})),subtotal:t.subtotal,desconto:t.desconto,total:t.total,observacao:document.getElementById('orcObservacao').value.trim(),criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
+    const orc={id:'orc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data,validade,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoOrcamento.map(i=>({descricao:String(i.descricao).trim(),cores:String(i.cores||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco),produtoId:i.produtoId||''})),subtotal:t.subtotal,desconto:t.desconto,frete:t.frete,total:t.total,observacao:document.getElementById('orcObservacao').value.trim(),criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
     listaOrcamentos.push(orc);
     salvarPacoteComercialVan();cancelarOrcamento();renderizarOrcamentos();mostrarOrcamento(orc.id);
     mostrarToast('Orçamento '+orc.numero+' emitido com sucesso.');
@@ -3914,7 +3917,7 @@
   function compartilharOrcamentoWhatsApp(){
     const o=listaOrcamentos.find(x=>String(x.id)===String(orcamentoVisualizadoId));if(!o)return;
     const itens=(o.itens||[]).map(i=>`• ${i.qtd}x ${i.descricao}${i.cores?' ('+i.cores+')':''} — ${moedaVan(i.total)}`).join('\n');
-    const texto=`${dadosEmpresa.nome||'Vanmathi'} — Orçamento nº ${o.numero}\nCliente: ${o.cliente?.nome||''}\nData: ${dataVan(o.data)}\n\n${itens}\n\n${Number(o.desconto)>0?'Desconto: '+moedaVan(o.desconto)+'\n':''}Total: ${moedaVan(o.total)}\nVálido até: ${dataVan(o.validade)}`;
+    const texto=`${dadosEmpresa.nome||'Vanmathi'} — Orçamento nº ${o.numero}\nCliente: ${o.cliente?.nome||''}\nData: ${dataVan(o.data)}\n\n${itens}\n\n${Number(o.desconto)>0?'Desconto: '+moedaVan(o.desconto)+'\n':''}${Number(o.frete)>0?'Frete: '+moedaVan(o.frete)+'\n':''}Total: ${moedaVan(o.total)}\nVálido até: ${dataVan(o.validade)}`;
     window.open('https://wa.me/?text='+encodeURIComponent(texto),'_blank','noopener');
   }
   function excluirOrcamento(id){
@@ -3932,6 +3935,7 @@
     mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');
     novoRecibo(o.clienteId||'');
     itensRascunhoRecibo=(o.itens||[]).map(i=>({descricao:i.descricao,material:i.cores||'',detalhes:'',qtd:i.qtd,preco:i.preco,produtoId:i.produtoId||''}));
+    if(Number(o.frete)>0)itensRascunhoRecibo.push({descricao:'Frete',material:'',detalhes:'',qtd:1,preco:Number(o.frete),produtoId:''});
     document.getElementById('reciboDesconto').value=Number(o.desconto)||0;
     document.getElementById('reciboObservacao').value=o.observacao||'';
     renderizarItensRascunhoRecibo();atualizarTotaisRecibo();
