@@ -268,7 +268,7 @@
     #btnEntrarAcessoVanmathi { width: 100%; }
 
     /* ===== BARRA DE ROLAGEM FIXA (sempre visível) em todas as abas ===== */
-    html { overflow-y: scroll; scrollbar-width: auto; scrollbar-color: #3b82f6 #0f172a; }
+    html { overflow: hidden; height: 100%; }
     main { overflow-y: scroll !important; scrollbar-gutter: stable; scrollbar-width: auto; scrollbar-color: #3b82f6 #0f172a; min-height: 0; }
     .content-section { min-height: 100%; }
     .tab-menu, .table-container, .nav-links, .modal-box, .rv-area { scrollbar-width: auto; scrollbar-color: #3b82f6 #0f172a; }
@@ -281,8 +281,8 @@
     .tab-menu::-webkit-scrollbar-thumb, .table-container::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 8px; border: 2px solid #0f172a; }
     .tab-menu, .table-container { overflow-x: scroll; }
     @media (max-width: 900px) {
+      html { overflow: auto; height: auto; }
       main { overflow-y: visible !important; }
-      body { overflow-y: scroll; }
     }
   </style>
 </head>
