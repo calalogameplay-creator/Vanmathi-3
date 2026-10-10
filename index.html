@@ -330,7 +330,61 @@
     .acesso-vanmathi-card p { margin: 0 auto 22px; color: var(--text-muted, #9aa4b2); line-height: 1.55; font-size: 14px; max-width: 360px; }
     #mensagemAcessoVanmathi { margin-top: 14px; min-height: 20px; color: var(--text-muted, #9aa4b2); font-size: 12px; line-height: 1.45; }
     #btnEntrarAcessoVanmathi { width: 100%; }
-  </style>
+  
+    /* ROLAGEM GLOBAL: vale para todas as abas atuais e futuras adicionadas dentro de <main> */
+    html {
+      min-height: 100%;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary) var(--bg-sidebar);
+    }
+    body {
+      min-height: 100vh;
+    }
+    main {
+      min-height: 0;
+      min-width: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary) var(--bg-sidebar);
+      -webkit-overflow-scrolling: touch;
+    }
+    /* Conteúdo das abas pode crescer; a rolagem fica disponível no contêiner principal */
+    .tab-content,
+    .tab-content.active,
+    .content-section,
+    .content-section.active,
+    [role="tabpanel"] {
+      min-height: 0;
+      min-width: 0;
+      max-width: 100%;
+    }
+    /* Barra visível e consistente nos contêineres principais e em novas abas */
+    main::-webkit-scrollbar,
+    html::-webkit-scrollbar,
+    .tab-content::-webkit-scrollbar,
+    .content-section::-webkit-scrollbar,
+    [role="tabpanel"]::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    main::-webkit-scrollbar-thumb,
+    html::-webkit-scrollbar-thumb,
+    .tab-content::-webkit-scrollbar-thumb,
+    .content-section::-webkit-scrollbar-thumb,
+    [role="tabpanel"]::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 8px;
+      border: 2px solid var(--bg-sidebar);
+    }
+    main::-webkit-scrollbar-track,
+    html::-webkit-scrollbar-track,
+    .tab-content::-webkit-scrollbar-track,
+    .content-section::-webkit-scrollbar-track,
+    [role="tabpanel"]::-webkit-scrollbar-track {
+      background: var(--bg-sidebar);
+    }
+</style>
 </head>
 <body class="vanmathi-bloqueado">
 
