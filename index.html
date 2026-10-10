@@ -111,42 +111,7 @@
       background: #f1f5f9;
     }
 
-    main {
-      flex: 1 1 auto;
-      min-width: 0;
-      min-height: 0;
-      padding: 30px;
-      overflow-y: scroll;
-      overflow-x: hidden;
-      position: relative;
-      scrollbar-width: thin;
-      scrollbar-color: var(--primary) var(--bg-sidebar);
-    }
-    /* Garante que as áreas principais possam rolar mesmo dentro do layout flex */
-    .content-section,
-    .content-section.active,
-    .tab-content,
-    .tab-content.active {
-      min-width: 0;
-      min-height: 0;
-    }
-    main::-webkit-scrollbar,
-    .modal-overlay::-webkit-scrollbar,
-    .modal-box::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-    main::-webkit-scrollbar-thumb,
-    .modal-overlay::-webkit-scrollbar-thumb,
-    .modal-box::-webkit-scrollbar-thumb {
-      background: var(--primary);
-      border-radius: 8px;
-    }
-    main::-webkit-scrollbar-track,
-    .modal-overlay::-webkit-scrollbar-track,
-    .modal-box::-webkit-scrollbar-track {
-      background: var(--bg-sidebar);
-    }
+    main { flex-grow: 1; padding: 30px; overflow-y: auto; position: relative; }
     .content-section { display: none; }
     .content-section.active { display: block; }
 
@@ -230,38 +195,9 @@
     .resultado-box { background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary); border-radius: 10px; padding: 16px; margin-top: 15px; text-align: center; }
     .resultado-box h3 { margin: 0 0 5px 0; color: var(--primary); font-size: 20px; }
 
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: none;
-      align-items: flex-start;
-      justify-content: center;
-      z-index: 200;
-      padding: 15px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: thin;
-      scrollbar-color: var(--primary) var(--bg-sidebar);
-      -webkit-overflow-scrolling: touch;
-    }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; padding: 15px; }
     .modal-overlay.active { display: flex; }
-    .modal-box {
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
-      width: 100%;
-      max-width: 480px;
-      border-radius: 12px;
-      padding: 24px;
-      max-height: calc(100vh - 30px);
-      max-height: calc(100dvh - 30px);
-      overflow-y: scroll;
-      overflow-x: hidden;
-      margin: auto 0;
-      scrollbar-width: thin;
-      scrollbar-color: var(--primary) var(--bg-sidebar);
-      -webkit-overflow-scrolling: touch;
-    }
+    .modal-box { background: var(--bg-sidebar); border: 1px solid var(--border); width: 100%; max-width: 480px; border-radius: 12px; padding: 24px; max-height: 90vh; overflow-y: auto; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 16px; font-weight: 600; }
     .form-row { display: flex; gap: 15px; margin-bottom: 16px; flex-wrap: wrap; }
     .form-row .form-group { flex: 1; min-width: 140px; }
@@ -305,7 +241,7 @@
     .receipt-brand-van img{max-width:100px;max-height:75px;object-fit:contain;}
     .status-pill-van{display:inline-block;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;}
     @media(max-width:700px){.form-grid-van{grid-template-columns:1fr}.form-grid-van .full{grid-column:auto}.receipt-preview-van{padding:16px}.receipt-preview-van table{font-size:10px}}
-    .rv-area{background:#e9eef6;padding:12px;border-radius:10px;overflow-y:scroll;overflow-x:auto}
+    .rv-area{background:#e9eef6;padding:12px;border-radius:10px;overflow:auto}
     .rv-area .rv-page{margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.25)}
 
     /* Bloqueio visual e de interação até autenticação/autorização Firebase */
@@ -330,86 +266,25 @@
     .acesso-vanmathi-card p { margin: 0 auto 22px; color: var(--text-muted, #9aa4b2); line-height: 1.55; font-size: 14px; max-width: 360px; }
     #mensagemAcessoVanmathi { margin-top: 14px; min-height: 20px; color: var(--text-muted, #9aa4b2); font-size: 12px; line-height: 1.45; }
     #btnEntrarAcessoVanmathi { width: 100%; }
-  
-    /* ROLAGEM PRINCIPAL — uma única barra vertical no canto direito da área de conteúdo.
-       Não criar barras nos painéis internos: isso desloca a barra para o meio da tela. */
-    html { height: 100%; scrollbar-width: thin; scrollbar-color: var(--primary) var(--bg-sidebar); }
-    body {
-      height: 100vh;
-      min-height: 0;
-      overflow: hidden;
-    }
-    main {
-      flex: 1 1 0%;
-      width: 0;
-      height: 100vh;
-      min-height: 0;
-      min-width: 0;
-      overflow-y: scroll;
-      overflow-x: hidden;
-      scrollbar-gutter: stable;
-      scrollbar-width: thin;
-      scrollbar-color: var(--primary) var(--bg-sidebar);
-      -webkit-overflow-scrolling: touch;
-    }
-    /* As abas crescem naturalmente; quem rola é somente o <main>. */
-    .content-section,
-    .content-section.active,
-    .tab-content,
-    .tab-content.active,
-    [role="tabpanel"] {
-      min-height: auto;
-      min-width: 0;
-      max-width: 100%;
-      overflow: visible;
-    }
-    main::-webkit-scrollbar { width: 10px; }
-    main::-webkit-scrollbar-thumb {
-      background: var(--primary);
-      border-radius: 8px;
-      border: 2px solid var(--bg-sidebar);
-    }
-    main::-webkit-scrollbar-track { background: var(--bg-sidebar); }
-    /* Modais: rolagem dentro da própria caixa, alinhada à borda direita dela. */
-    .modal-overlay {
-      overflow-y: auto;
-      overflow-x: hidden;
-      align-items: flex-start;
-      scrollbar-width: thin;
-      scrollbar-color: var(--primary) var(--bg-sidebar);
-    }
-    .modal-box {
-      flex: 0 0 auto;
-      max-height: calc(100vh - 30px);
-      max-height: calc(100dvh - 30px);
-      overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: thin;
-      scrollbar-color: var(--primary) var(--bg-sidebar);
-    }
-    .modal-box::-webkit-scrollbar,
-    .modal-overlay::-webkit-scrollbar { width: 10px; }
-    .modal-box::-webkit-scrollbar-thumb,
-    .modal-overlay::-webkit-scrollbar-thumb {
-      background: var(--primary);
-      border-radius: 8px;
-      border: 2px solid var(--bg-sidebar);
-    }
-    .modal-box::-webkit-scrollbar-track,
-    .modal-overlay::-webkit-scrollbar-track { background: var(--bg-sidebar); }
+
+    /* ===== BARRA DE ROLAGEM FIXA (sempre visível) em todas as abas ===== */
+    html { overflow-y: scroll; scrollbar-width: auto; scrollbar-color: #3b82f6 #0f172a; }
+    main { overflow-y: scroll !important; scrollbar-gutter: stable; scrollbar-width: auto; scrollbar-color: #3b82f6 #0f172a; min-height: 0; }
+    .content-section { min-height: 100%; }
+    .tab-menu, .table-container, .nav-links, .modal-box, .rv-area { scrollbar-width: auto; scrollbar-color: #3b82f6 #0f172a; }
+    main::-webkit-scrollbar, .nav-links::-webkit-scrollbar, .modal-box::-webkit-scrollbar, .rv-area::-webkit-scrollbar { width: 14px; height: 14px; }
+    main::-webkit-scrollbar-track, .nav-links::-webkit-scrollbar-track, .modal-box::-webkit-scrollbar-track, .rv-area::-webkit-scrollbar-track { background: #0f172a; border-left: 1px solid var(--border); }
+    main::-webkit-scrollbar-thumb, .nav-links::-webkit-scrollbar-thumb, .modal-box::-webkit-scrollbar-thumb, .rv-area::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 8px; border: 3px solid #0f172a; min-height: 40px; }
+    main::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+    .tab-menu::-webkit-scrollbar, .table-container::-webkit-scrollbar { height: 12px; width: 12px; }
+    .tab-menu::-webkit-scrollbar-track, .table-container::-webkit-scrollbar-track { background: #0f172a; }
+    .tab-menu::-webkit-scrollbar-thumb, .table-container::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 8px; border: 2px solid #0f172a; }
+    .tab-menu, .table-container { overflow-x: scroll; }
     @media (max-width: 900px) {
-      body { flex-direction: column; height: auto; min-height: 100vh; overflow: auto; }
-      main {
-        width: 100%;
-        height: auto;
-        min-height: 0;
-        flex: 1 1 auto;
-        overflow-y: visible;
-        overflow-x: hidden;
-        scrollbar-gutter: auto;
-      }
+      main { overflow-y: visible !important; }
+      body { overflow-y: scroll; }
     }
-</style>
+  </style>
 </head>
 <body class="vanmathi-bloqueado">
 
@@ -898,6 +773,119 @@
         </table>
       </div>
     </div>
+    <div id="secao-clientes" class="content-section">
+      <div class="header-painel"><div class="header-title"><small>Relacionamento</small><h1>👤 Clientes</h1><p>Cadastre clientes uma única vez e consulte seu histórico de compras e recibos.</p></div><button class="btn-primary" onclick="novoCliente()">＋ Novo cliente</button></div>
+      <div class="card-box">
+        <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaClientes" placeholder="Buscar por nome, telefone ou e-mail" oninput="renderizarClientes()"></div><span class="badge-count" id="contadorClientes">0 clientes</span></div>
+        <div id="formCliente" style="display:none;border:1px solid var(--border);padding:16px;border-radius:10px;margin-bottom:18px;">
+          <input type="hidden" id="clienteIdEditando">
+          <div class="form-grid-van">
+            <div class="form-group"><label>Nome completo *</label><input id="clienteNome" maxlength="120" placeholder="Nome do cliente"></div>
+            <div class="form-group"><label>Telefone / WhatsApp</label><input id="clienteTelefone" maxlength="30" placeholder="(21) 99999-9999"></div>
+            <div class="form-group"><label>E-mail</label><input id="clienteEmail" type="email" maxlength="150" placeholder="cliente@email.com"></div>
+            <div class="form-group"><label>CPF/CNPJ (opcional)</label><input id="clienteDocumento" maxlength="24" placeholder="Documento do cliente"></div>
+            <div class="form-group full"><label>Endereço de entrega / cobrança</label><input id="clienteEndereco" maxlength="250" placeholder="Rua, número, bairro, cidade e CEP"></div>
+            <div class="form-group full"><label>Observações</label><input id="clienteObservacoes" maxlength="500" placeholder="Preferências, cores ou informações úteis"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarEdicaoCliente()">Cancelar</button><button class="btn-primary" onclick="salvarCliente()">💾 Salvar cliente</button></div>
+        </div>
+        <div class="table-container"><table><thead><tr><th>Cliente</th><th>Contato</th><th>Compras</th><th>Total registrado</th><th>Ações</th></tr></thead><tbody id="tabelaClientes"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente cadastrado.</td></tr></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="secao-recibos" class="content-section">
+      <div class="header-painel"><div class="header-title"><small>Documentos comerciais</small><h1>🧾 Recibos</h1><p>Emita, consulte, imprima ou compartilhe recibos de venda.</p></div><button class="btn-primary" onclick="novoRecibo()">＋ Novo recibo</button></div>
+      <div class="metrics-grid"><div class="metric-card"><span>Recibos emitidos</span><h3 id="totalRecibosVan">0</h3></div><div class="metric-card"><span>Total documentado</span><h3 id="valorRecibosVan">R$ 0,00</h3></div><div class="metric-card"><span>Saldo pendente</span><h3 id="pendenteRecibosVan">R$ 0,00</h3></div></div>
+      <div class="card-box">
+        <div id="formRecibo" style="display:none;border:1px solid var(--border);padding:18px;border-radius:10px;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><h3 id="tituloFormRecibo">Novo recibo</h3><button class="btn-secondary" onclick="cancelarRecibo()">Fechar</button></div>
+          <div class="form-grid-van">
+            <div class="form-group full"><label>Produto vendido (Gestão de Vendas)</label><select id="reciboVendaOrigem" onchange="preencherReciboDaVenda()"><option value="">Recibo avulso — digitar os itens manualmente</option></select><small style="color:var(--text-muted)">Escolha o produto: quantidade, valor, parcelas e recebimentos vêm da venda. Ao salvar, o cliente e as parcelas definidos aqui também passam a valer em Gestão de Vendas.</small></div>
+            <div class="form-group"><label>Cliente *</label><select id="reciboCliente" onchange="preencherDadosClienteRecibo()"><option value="">Selecione um cliente</option></select></div>
+            <div class="form-group"><label>Data de emissão</label><input id="reciboData" type="date"></div>
+            <div class="form-group"><label>Forma de pagamento</label><select id="reciboForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Parcelado</option><option>Outro</option></select></div>
+            <div class="form-group"><label>Quantidade de parcelas</label><input id="reciboParcelas" type="number" min="0" max="60" step="1" value="1" oninput="atualizarTotaisRecibo()"><small style="color:var(--text-muted)">De 1 a 60 (em recibo avulso, 0 não exibe parcelas).</small></div>
+            <div class="form-group"><label>Valor já recebido (R$)</label><input id="reciboPago" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div>
+            <div class="form-group full"><label>Observações</label><input id="reciboObservacao" maxlength="500" placeholder="Prazo de entrega ou outras informações do pedido"></div>
+          </div>
+          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Material</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button id="btnAddItemRecibo" class="btn-secondary" onclick="adicionarItemRecibo()">＋ Adicionar item</button></div>
+          <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="reciboDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div><div class="form-group"><label>Valor total</label><input id="reciboTotalExibido" readonly value="R$ 0,00"></div></div>
+          <div id="resumoPagamentoRecibo" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarRecibo()">Cancelar</button><button class="btn-primary" onclick="salvarRecibo()">💾 Salvar e gerar recibo</button></div>
+        </div>
+        <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaRecibos" placeholder="Buscar por número ou cliente" oninput="renderizarRecibos()"></div></div>
+        <div class="table-container"><table><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Total</th><th>Recebido</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="tabelaRecibos"><tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum recibo emitido.</td></tr></tbody></table></div>
+      </div>
+      <div id="visualizadorRecibo" style="display:none;margin-top:20px" class="card-box"><div class="table-toolbar no-print-van"><h3>Recibo (A4 · retrato)</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="imprimirReciboAtual()">🖨️ Imprimir / Salvar PDF (A4)</button><button class="btn-secondary" onclick="compartilharReciboWhatsApp()">💬 WhatsApp</button><button class="btn-secondary" onclick="fecharVisualizadorRecibo()">Fechar</button></div></div><div id="areaImpressaoRecibo" class="rv-area"></div></div>
+    </div>
+
+    <div id="secao-empresa" class="content-section">
+      <div class="header-painel"><div class="header-title"><small>Configuração comercial</small><h1>🏢 Dados da Empresa</h1><p>Edite a identidade da empresa aqui. Os recibos usam essas informações automaticamente, em tempo real.</p></div></div>
+      <div class="card-box">
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:20px"><div class="logo-preview-van" id="previewLogoEmpresa">🖼️ Logo</div><div style="flex:1;min-width:220px"><h3>Logotipo</h3><p class="subtitle">Prefira PNG com fundo transparente. A imagem será otimizada antes de ser salva.</p><input id="empresaLogoArquivo" type="file" accept="image/png,image/jpeg,image/webp" onchange="processarLogoEmpresa(event)"><button class="btn-secondary" style="margin-top:8px" onclick="removerLogoEmpresa()">Remover logotipo</button></div></div>
+        <div class="form-grid-van">
+          <div class="form-group"><label>Nome fantasia *</label><input id="empresaNome" maxlength="120" placeholder="Vanmathi Impressão 3D"></div>
+          <div class="form-group"><label>Razão social</label><input id="empresaRazao" maxlength="180" placeholder="Razão social, se aplicável"></div>
+          <div class="form-group"><label>CNPJ</label><input id="empresaCnpj" maxlength="24" placeholder="00.000.000/0000-00"></div>
+          <div class="form-group"><label>Inscrição estadual / municipal (opcional)</label><input id="empresaInscricao" maxlength="60" placeholder="Número, se aplicável"></div>
+          <div class="form-group"><label>E-mail comercial</label><input id="empresaEmail" type="email" maxlength="150" placeholder="contato@empresa.com.br"></div>
+          <div class="form-group"><label>Telefone / WhatsApp</label><input id="empresaTelefone" maxlength="30" placeholder="(21) 99999-9999"></div>
+          <div class="form-group"><label>Site oficial</label><input id="empresaSite" maxlength="200" placeholder="https://..." type="url"><small style="color:var(--text-muted)">O QR Code do recibo é gerado automaticamente a partir deste link.</small></div>
+          <div class="form-group"><label>Instagram / rede social</label><input id="empresaRedeSocial" maxlength="200" placeholder="https://instagram.com/..." type="url"></div>
+          <div class="form-group full"><label>Endereço comercial</label><input id="empresaEndereco" maxlength="250" placeholder="Rua, número, complemento, bairro, cidade - UF, CEP"></div>
+          <div class="form-group full"><label>Mensagem de agradecimento no recibo</label><input id="empresaMensagem" maxlength="180" placeholder="Obrigado pela preferência!"></div>
+          <div class="form-group"><label>Marca no recibo (título grande)</label><input id="empresaMarca" maxlength="40" placeholder="Vanmathi 3"><small style="color:var(--text-muted)">Número no final fica destacado em laranja.</small></div>
+          <div class="form-group"><label>Segmento (abaixo da marca)</label><input id="empresaSubmarca" maxlength="40" placeholder="Impressão 3D"></div>
+          <div class="form-group full"><label>Slogan</label><input id="empresaSlogan" maxlength="80" placeholder="Ideias ganham forma."></div>
+          <div class="form-group full"><label>Frase final do recibo</label><input id="empresaFraseFinal" maxlength="80" placeholder="Sua ideia, nossa impressão."></div>
+          <div class="form-group full"><label>Valores do rodapé (separe com •)</label><input id="empresaValores" maxlength="120" placeholder="Qualidade • Precisão • Inovação"></div>
+          <div class="form-group full"><label>Informações adicionais do recibo (uma por linha)</label><textarea id="empresaRodape" rows="3" maxlength="400" style="width:100%;background:var(--bg-sidebar);border:1px solid var(--border);color:var(--text-color);padding:10px;border-radius:8px;font-size:13px;font-family:inherit"></textarea></div>
+          <div class="form-group full"><label>Cor principal dos documentos</label><input id="empresaCor" type="color" value="#0f2d53" style="height:44px;max-width:160px"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="carregarFormularioEmpresa()">Descartar alterações</button><button class="btn-primary" onclick="salvarDadosEmpresa()">💾 Salvar dados da empresa</button></div>
+        <p class="subtitle" style="margin-top:14px">Apenas administradores podem alterar estes dados. Todos os recibos (novos e antigos) usam sempre os dados atuais da empresa.</p>
+      </div>
+    </div>
+
+    <div id="secao-pintura" class="content-section">
+      <div class="header-painel">
+        <div class="header-title"><small>Produção</small><h1>🎨 Pintura</h1><p>Veja somente as peças de pintura atribuídas a você.</p></div>
+      </div>
+      <div class="pintura-status-grid">
+        <button class="pintura-status-card" onclick="filtrarPintura('Pendente')"><span>🎨</span><strong id="pinturaCountPendente">0</strong><small>Pintura pendente</small></button>
+        <button class="pintura-status-card" onclick="filtrarPintura('Em andamento')"><span>🖌️</span><strong id="pinturaCountAndamento">0</strong><small>Em andamento</small></button>
+        <button class="pintura-status-card" onclick="filtrarPintura('Parado')"><span>⏸️</span><strong id="pinturaCountParado">0</strong><small>Parado</small></button>
+        <button class="pintura-status-card" onclick="filtrarPintura('Concluído')"><span>✅</span><strong id="pinturaCountFinalizada">0</strong><small>Concluído</small></button>
+      </div>
+      <div class="card-box">
+        <div class="table-toolbar"><div><h3 style="margin:0;">Minhas pinturas</h3><p class="subtitle" style="margin-top:4px;">Abra uma peça para visualizar e baixar o 3MF ou GLB enviado pelo administrador.</p></div><button class="btn-secondary" onclick="carregarTarefasPintura()">🔄 Atualizar</button></div>
+        <div class="table-container"><table><thead><tr><th>Data</th><th>Produto</th><th>Qtd</th><th>Status da pintura</th><th>Ação</th></tr></thead><tbody id="tabelaTarefasPintura"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma pintura atribuída.</td></tr></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="secao-usuarios" class="content-section">
+      <div class="card-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div><h3>Usuários e Permissões</h3><p class="subtitle">Cadastre e altere os perfis diretamente pelo Vanmathi. As alterações são salvas no Firebase.</p></div>
+          <button class="btn-primary" onclick="abrirFormularioUsuario()">＋ Novo usuário</button>
+        </div>
+        <div id="formUsuarioVanmathi" style="display:none;margin-top:18px;padding:16px;border:1px solid var(--border);border-radius:10px;">
+          <input type="hidden" id="usuarioEditandoUid">
+          <div class="form-row">
+            <div class="form-group"><label>Nome</label><input id="usuarioNomeAdmin" type="text" placeholder="Nome do usuário"></div>
+            <div class="form-group"><label>E-mail Google</label><input id="usuarioEmailAdmin" type="email" placeholder="email@gmail.com"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Perfil</label><select id="usuarioRoleAdmin"><option value="admin">Administrador</option><option value="funcionario">Funcionário</option><option value="pintura">Pintura</option></select></div>
+            <div class="form-group"><label>Status</label><select id="usuarioAtivoAdmin"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn-secondary" onclick="fecharFormularioUsuario()">Cancelar</button><button class="btn-primary" onclick="salvarUsuarioAdmin()">💾 Salvar usuário</button></div>
+          <small style="display:block;margin-top:10px;color:var(--text-muted);">O usuário precisa entrar com o Google dele para o Firebase criar/identificar a conta. Depois disso, o perfil cadastrado aqui será aplicado.</small>
+        </div>
+        <div class="table-container" style="margin-top:18px;"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tabelaUsuariosVanmathi"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px;">Carregando usuários...</td></tr></tbody></table></div>
+      </div>
+    </div>
   </main>
 
   <!-- MODAIS -->
@@ -1040,119 +1028,6 @@
 
 
 
-    <div id="secao-clientes" class="content-section">
-      <div class="header-painel"><div class="header-title"><small>Relacionamento</small><h1>👤 Clientes</h1><p>Cadastre clientes uma única vez e consulte seu histórico de compras e recibos.</p></div><button class="btn-primary" onclick="novoCliente()">＋ Novo cliente</button></div>
-      <div class="card-box">
-        <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaClientes" placeholder="Buscar por nome, telefone ou e-mail" oninput="renderizarClientes()"></div><span class="badge-count" id="contadorClientes">0 clientes</span></div>
-        <div id="formCliente" style="display:none;border:1px solid var(--border);padding:16px;border-radius:10px;margin-bottom:18px;">
-          <input type="hidden" id="clienteIdEditando">
-          <div class="form-grid-van">
-            <div class="form-group"><label>Nome completo *</label><input id="clienteNome" maxlength="120" placeholder="Nome do cliente"></div>
-            <div class="form-group"><label>Telefone / WhatsApp</label><input id="clienteTelefone" maxlength="30" placeholder="(21) 99999-9999"></div>
-            <div class="form-group"><label>E-mail</label><input id="clienteEmail" type="email" maxlength="150" placeholder="cliente@email.com"></div>
-            <div class="form-group"><label>CPF/CNPJ (opcional)</label><input id="clienteDocumento" maxlength="24" placeholder="Documento do cliente"></div>
-            <div class="form-group full"><label>Endereço de entrega / cobrança</label><input id="clienteEndereco" maxlength="250" placeholder="Rua, número, bairro, cidade e CEP"></div>
-            <div class="form-group full"><label>Observações</label><input id="clienteObservacoes" maxlength="500" placeholder="Preferências, cores ou informações úteis"></div>
-          </div>
-          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarEdicaoCliente()">Cancelar</button><button class="btn-primary" onclick="salvarCliente()">💾 Salvar cliente</button></div>
-        </div>
-        <div class="table-container"><table><thead><tr><th>Cliente</th><th>Contato</th><th>Compras</th><th>Total registrado</th><th>Ações</th></tr></thead><tbody id="tabelaClientes"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente cadastrado.</td></tr></tbody></table></div>
-      </div>
-    </div>
-
-    <div id="secao-recibos" class="content-section">
-      <div class="header-painel"><div class="header-title"><small>Documentos comerciais</small><h1>🧾 Recibos</h1><p>Emita, consulte, imprima ou compartilhe recibos de venda.</p></div><button class="btn-primary" onclick="novoRecibo()">＋ Novo recibo</button></div>
-      <div class="metrics-grid"><div class="metric-card"><span>Recibos emitidos</span><h3 id="totalRecibosVan">0</h3></div><div class="metric-card"><span>Total documentado</span><h3 id="valorRecibosVan">R$ 0,00</h3></div><div class="metric-card"><span>Saldo pendente</span><h3 id="pendenteRecibosVan">R$ 0,00</h3></div></div>
-      <div class="card-box">
-        <div id="formRecibo" style="display:none;border:1px solid var(--border);padding:18px;border-radius:10px;margin-bottom:20px;">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><h3 id="tituloFormRecibo">Novo recibo</h3><button class="btn-secondary" onclick="cancelarRecibo()">Fechar</button></div>
-          <div class="form-grid-van">
-            <div class="form-group full"><label>Produto vendido (Gestão de Vendas)</label><select id="reciboVendaOrigem" onchange="preencherReciboDaVenda()"><option value="">Recibo avulso — digitar os itens manualmente</option></select><small style="color:var(--text-muted)">Escolha o produto: quantidade, valor, parcelas e recebimentos vêm da venda. Ao salvar, o cliente e as parcelas definidos aqui também passam a valer em Gestão de Vendas.</small></div>
-            <div class="form-group"><label>Cliente *</label><select id="reciboCliente" onchange="preencherDadosClienteRecibo()"><option value="">Selecione um cliente</option></select></div>
-            <div class="form-group"><label>Data de emissão</label><input id="reciboData" type="date"></div>
-            <div class="form-group"><label>Forma de pagamento</label><select id="reciboForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Parcelado</option><option>Outro</option></select></div>
-            <div class="form-group"><label>Quantidade de parcelas</label><input id="reciboParcelas" type="number" min="0" max="60" step="1" value="1" oninput="atualizarTotaisRecibo()"><small style="color:var(--text-muted)">De 1 a 60 (em recibo avulso, 0 não exibe parcelas).</small></div>
-            <div class="form-group"><label>Valor já recebido (R$)</label><input id="reciboPago" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div>
-            <div class="form-group full"><label>Observações</label><input id="reciboObservacao" maxlength="500" placeholder="Prazo de entrega ou outras informações do pedido"></div>
-          </div>
-          <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Material</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button id="btnAddItemRecibo" class="btn-secondary" onclick="adicionarItemRecibo()">＋ Adicionar item</button></div>
-          <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="reciboDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div><div class="form-group"><label>Valor total</label><input id="reciboTotalExibido" readonly value="R$ 0,00"></div></div>
-          <div id="resumoPagamentoRecibo" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
-          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarRecibo()">Cancelar</button><button class="btn-primary" onclick="salvarRecibo()">💾 Salvar e gerar recibo</button></div>
-        </div>
-        <div class="table-toolbar"><div class="search-box"><span>⌕</span><input id="buscaRecibos" placeholder="Buscar por número ou cliente" oninput="renderizarRecibos()"></div></div>
-        <div class="table-container"><table><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Total</th><th>Recebido</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="tabelaRecibos"><tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum recibo emitido.</td></tr></tbody></table></div>
-      </div>
-      <div id="visualizadorRecibo" style="display:none;margin-top:20px" class="card-box"><div class="table-toolbar no-print-van"><h3>Recibo (A4 · retrato)</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="imprimirReciboAtual()">🖨️ Imprimir / Salvar PDF (A4)</button><button class="btn-secondary" onclick="compartilharReciboWhatsApp()">💬 WhatsApp</button><button class="btn-secondary" onclick="fecharVisualizadorRecibo()">Fechar</button></div></div><div id="areaImpressaoRecibo" class="rv-area"></div></div>
-    </div>
-
-    <div id="secao-empresa" class="content-section">
-      <div class="header-painel"><div class="header-title"><small>Configuração comercial</small><h1>🏢 Dados da Empresa</h1><p>Edite a identidade da empresa aqui. Os recibos usam essas informações automaticamente, em tempo real.</p></div></div>
-      <div class="card-box">
-        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:20px"><div class="logo-preview-van" id="previewLogoEmpresa">🖼️ Logo</div><div style="flex:1;min-width:220px"><h3>Logotipo</h3><p class="subtitle">Prefira PNG com fundo transparente. A imagem será otimizada antes de ser salva.</p><input id="empresaLogoArquivo" type="file" accept="image/png,image/jpeg,image/webp" onchange="processarLogoEmpresa(event)"><button class="btn-secondary" style="margin-top:8px" onclick="removerLogoEmpresa()">Remover logotipo</button></div></div>
-        <div class="form-grid-van">
-          <div class="form-group"><label>Nome fantasia *</label><input id="empresaNome" maxlength="120" placeholder="Vanmathi Impressão 3D"></div>
-          <div class="form-group"><label>Razão social</label><input id="empresaRazao" maxlength="180" placeholder="Razão social, se aplicável"></div>
-          <div class="form-group"><label>CNPJ</label><input id="empresaCnpj" maxlength="24" placeholder="00.000.000/0000-00"></div>
-          <div class="form-group"><label>Inscrição estadual / municipal (opcional)</label><input id="empresaInscricao" maxlength="60" placeholder="Número, se aplicável"></div>
-          <div class="form-group"><label>E-mail comercial</label><input id="empresaEmail" type="email" maxlength="150" placeholder="contato@empresa.com.br"></div>
-          <div class="form-group"><label>Telefone / WhatsApp</label><input id="empresaTelefone" maxlength="30" placeholder="(21) 99999-9999"></div>
-          <div class="form-group"><label>Site oficial</label><input id="empresaSite" maxlength="200" placeholder="https://..." type="url"><small style="color:var(--text-muted)">O QR Code do recibo é gerado automaticamente a partir deste link.</small></div>
-          <div class="form-group"><label>Instagram / rede social</label><input id="empresaRedeSocial" maxlength="200" placeholder="https://instagram.com/..." type="url"></div>
-          <div class="form-group full"><label>Endereço comercial</label><input id="empresaEndereco" maxlength="250" placeholder="Rua, número, complemento, bairro, cidade - UF, CEP"></div>
-          <div class="form-group full"><label>Mensagem de agradecimento no recibo</label><input id="empresaMensagem" maxlength="180" placeholder="Obrigado pela preferência!"></div>
-          <div class="form-group"><label>Marca no recibo (título grande)</label><input id="empresaMarca" maxlength="40" placeholder="Vanmathi 3"><small style="color:var(--text-muted)">Número no final fica destacado em laranja.</small></div>
-          <div class="form-group"><label>Segmento (abaixo da marca)</label><input id="empresaSubmarca" maxlength="40" placeholder="Impressão 3D"></div>
-          <div class="form-group full"><label>Slogan</label><input id="empresaSlogan" maxlength="80" placeholder="Ideias ganham forma."></div>
-          <div class="form-group full"><label>Frase final do recibo</label><input id="empresaFraseFinal" maxlength="80" placeholder="Sua ideia, nossa impressão."></div>
-          <div class="form-group full"><label>Valores do rodapé (separe com •)</label><input id="empresaValores" maxlength="120" placeholder="Qualidade • Precisão • Inovação"></div>
-          <div class="form-group full"><label>Informações adicionais do recibo (uma por linha)</label><textarea id="empresaRodape" rows="3" maxlength="400" style="width:100%;background:var(--bg-sidebar);border:1px solid var(--border);color:var(--text-color);padding:10px;border-radius:8px;font-size:13px;font-family:inherit"></textarea></div>
-          <div class="form-group full"><label>Cor principal dos documentos</label><input id="empresaCor" type="color" value="#0f2d53" style="height:44px;max-width:160px"></div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="carregarFormularioEmpresa()">Descartar alterações</button><button class="btn-primary" onclick="salvarDadosEmpresa()">💾 Salvar dados da empresa</button></div>
-        <p class="subtitle" style="margin-top:14px">Apenas administradores podem alterar estes dados. Todos os recibos (novos e antigos) usam sempre os dados atuais da empresa.</p>
-      </div>
-    </div>
-
-    <div id="secao-pintura" class="content-section">
-      <div class="header-painel">
-        <div class="header-title"><small>Produção</small><h1>🎨 Pintura</h1><p>Veja somente as peças de pintura atribuídas a você.</p></div>
-      </div>
-      <div class="pintura-status-grid">
-        <button class="pintura-status-card" onclick="filtrarPintura('Pendente')"><span>🎨</span><strong id="pinturaCountPendente">0</strong><small>Pintura pendente</small></button>
-        <button class="pintura-status-card" onclick="filtrarPintura('Em andamento')"><span>🖌️</span><strong id="pinturaCountAndamento">0</strong><small>Em andamento</small></button>
-        <button class="pintura-status-card" onclick="filtrarPintura('Parado')"><span>⏸️</span><strong id="pinturaCountParado">0</strong><small>Parado</small></button>
-        <button class="pintura-status-card" onclick="filtrarPintura('Concluído')"><span>✅</span><strong id="pinturaCountFinalizada">0</strong><small>Concluído</small></button>
-      </div>
-      <div class="card-box">
-        <div class="table-toolbar"><div><h3 style="margin:0;">Minhas pinturas</h3><p class="subtitle" style="margin-top:4px;">Abra uma peça para visualizar e baixar o 3MF ou GLB enviado pelo administrador.</p></div><button class="btn-secondary" onclick="carregarTarefasPintura()">🔄 Atualizar</button></div>
-        <div class="table-container"><table><thead><tr><th>Data</th><th>Produto</th><th>Qtd</th><th>Status da pintura</th><th>Ação</th></tr></thead><tbody id="tabelaTarefasPintura"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma pintura atribuída.</td></tr></tbody></table></div>
-      </div>
-    </div>
-
-    <div id="secao-usuarios" class="content-section">
-      <div class="card-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div><h3>Usuários e Permissões</h3><p class="subtitle">Cadastre e altere os perfis diretamente pelo Vanmathi. As alterações são salvas no Firebase.</p></div>
-          <button class="btn-primary" onclick="abrirFormularioUsuario()">＋ Novo usuário</button>
-        </div>
-        <div id="formUsuarioVanmathi" style="display:none;margin-top:18px;padding:16px;border:1px solid var(--border);border-radius:10px;">
-          <input type="hidden" id="usuarioEditandoUid">
-          <div class="form-row">
-            <div class="form-group"><label>Nome</label><input id="usuarioNomeAdmin" type="text" placeholder="Nome do usuário"></div>
-            <div class="form-group"><label>E-mail Google</label><input id="usuarioEmailAdmin" type="email" placeholder="email@gmail.com"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Perfil</label><select id="usuarioRoleAdmin"><option value="admin">Administrador</option><option value="funcionario">Funcionário</option><option value="pintura">Pintura</option></select></div>
-            <div class="form-group"><label>Status</label><select id="usuarioAtivoAdmin"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn-secondary" onclick="fecharFormularioUsuario()">Cancelar</button><button class="btn-primary" onclick="salvarUsuarioAdmin()">💾 Salvar usuário</button></div>
-          <small style="display:block;margin-top:10px;color:var(--text-muted);">O usuário precisa entrar com o Google dele para o Firebase criar/identificar a conta. Depois disso, o perfil cadastrado aqui será aplicado.</small>
-        </div>
-        <div class="table-container" style="margin-top:18px;"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tabelaUsuariosVanmathi"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px;">Carregando usuários...</td></tr></tbody></table></div>
-      </div>
-    </div>
 
 <script>
   let listaMateriais = JSON.parse(localStorage.getItem('Vanmathi_Dados_Estoque')) || [
