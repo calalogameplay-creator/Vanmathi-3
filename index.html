@@ -111,7 +111,42 @@
       background: #f1f5f9;
     }
 
-    main { flex-grow: 1; padding: 30px; overflow-y: auto; position: relative; }
+    main {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      padding: 30px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary) var(--bg-sidebar);
+    }
+    /* Garante que as áreas principais possam rolar mesmo dentro do layout flex */
+    .content-section,
+    .content-section.active,
+    .tab-content,
+    .tab-content.active {
+      min-width: 0;
+      min-height: 0;
+    }
+    main::-webkit-scrollbar,
+    .modal-overlay::-webkit-scrollbar,
+    .modal-box::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    main::-webkit-scrollbar-thumb,
+    .modal-overlay::-webkit-scrollbar-thumb,
+    .modal-box::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 8px;
+    }
+    main::-webkit-scrollbar-track,
+    .modal-overlay::-webkit-scrollbar-track,
+    .modal-box::-webkit-scrollbar-track {
+      background: var(--bg-sidebar);
+    }
     .content-section { display: none; }
     .content-section.active { display: block; }
 
@@ -195,9 +230,38 @@
     .resultado-box { background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary); border-radius: 10px; padding: 16px; margin-top: 15px; text-align: center; }
     .resultado-box h3 { margin: 0 0 5px 0; color: var(--primary); font-size: 20px; }
 
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; padding: 15px; }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      z-index: 200;
+      padding: 15px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary) var(--bg-sidebar);
+      -webkit-overflow-scrolling: touch;
+    }
     .modal-overlay.active { display: flex; }
-    .modal-box { background: var(--bg-sidebar); border: 1px solid var(--border); width: 100%; max-width: 480px; border-radius: 12px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+    .modal-box {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border);
+      width: 100%;
+      max-width: 480px;
+      border-radius: 12px;
+      padding: 24px;
+      max-height: calc(100vh - 30px);
+      max-height: calc(100dvh - 30px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin: auto 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary) var(--bg-sidebar);
+      -webkit-overflow-scrolling: touch;
+    }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 16px; font-weight: 600; }
     .form-row { display: flex; gap: 15px; margin-bottom: 16px; flex-wrap: wrap; }
     .form-row .form-group { flex: 1; min-width: 140px; }
