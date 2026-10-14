@@ -2001,7 +2001,8 @@
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
     const idVendaAtual = idVendaAnterior || listaVendas[listaVendas.length - 1]?.id;
-    const podeLiberarParaPintura = precisaPintura && status === 'Em Produção' && pagamentoStatus === 'Recebido';
+    // A peça vai para o pintor em qualquer status/pagamento. Só vendas devolvidas/canceladas saem da fila.
+    const podeLiberarParaPintura = precisaPintura && status !== 'Devolvido';
     const vendaArmazenada = idVendaAtual ? listaVendas.find(v => String(v.id) === String(idVendaAtual)) : null;
 
     // 1) A tarefa do pintor é criada PRIMEIRO, sem depender do envio dos arquivos ao Drive.
@@ -2016,10 +2017,9 @@
         }
       }
     } else if (idVendaAtual) {
-      // A venda pode ter pintura cadastrada, mas só entra na fila do pintor
-      // quando o pedido estiver em produção e o pagamento estiver recebido.
+      // Venda devolvida/cancelada (ou sem pintura): remove a tarefa da fila do pintor.
       await excluirTarefaPintura(idVendaAtual);
-      if (precisaPintura) mostrarToast('Venda salva. A pintura só aparece para o pintor quando a venda estiver "Em Produção" e "Recebido".');
+      if (precisaPintura) mostrarToast('Venda devolvida/cancelada: a pintura foi retirada da fila do pintor.');
     }
 
     // 2) Os arquivos sobem para o Drive em QUALQUER status/pagamento e ficam guardados na venda.
@@ -2361,12 +2361,12 @@
   }
   async function sincronizarTarefaPintura(venda, arquivos, vendaId){
     if(!vanmathiDb||!venda.precisaPintura||!venda.responsavelPinturaEmail)return;
-    if(venda.status !== 'Em Produção' || venda.pagamentoStatus !== 'Recebido') return;
+    if(venda.status === 'Devolvido') return;
     const id=String(vendaId); const ref=vanmathiDb.collection('tarefasPintura').doc(id);
     const qtd=Number.parseInt(venda.qtd,10)||1;
     const valorPinturaUnidade=obterNumeroMoeda(venda.valorPintura);
     const valorPinturaTotal=valorPinturaUnidade*qtd;
-    const dados={vendaId:id,produtoId:String(venda.produtoId),produtoNome:venda.produtoNome,qtd:qtd,data:venda.data,statusPedido:venda.status,pagamentoStatus:venda.pagamentoStatus,precisaPintura:true,responsavelPinturaEmail:String(venda.responsavelPinturaEmail).toLowerCase(),responsavelPinturaNome:venda.responsavelPinturaNome||'',statusPintura:venda.statusPintura||'Pendente',valorPintura:valorPinturaTotal,valorPinturaUnidade:valorPinturaUnidade,observacaoPintura:venda.observacaoPintura||'',prazoEntregaPintura:venda.prazoEntregaPintura||'',atualizadoEm:firebase.firestore.FieldValue.serverTimestamp(),criadoPor:vanmathiUsuario?.uid||''};
+    const dados={vendaId:id,produtoId:String(venda.produtoId),produtoNome:venda.produtoNome,qtd:qtd,data:venda.data,statusPedido:venda.status,pagamentoStatus:venda.pagamentoStatus,precisaPintura:true,responsavelPinturaEmail:String(venda.responsavelPinturaEmail).trim().toLowerCase(),responsavelPinturaNome:venda.responsavelPinturaNome||'',statusPintura:venda.statusPintura||'Pendente',valorPintura:valorPinturaTotal,valorPinturaUnidade:valorPinturaUnidade,observacaoPintura:venda.observacaoPintura||'',prazoEntregaPintura:venda.prazoEntregaPintura||'',atualizadoEm:firebase.firestore.FieldValue.serverTimestamp(),criadoPor:vanmathiUsuario?.uid||''};
     const old=await ref.get();
     let tarefaExistia=old.exists;
     if(old.exists){
