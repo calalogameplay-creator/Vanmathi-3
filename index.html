@@ -2002,21 +2002,42 @@
     atualizarRelatorios();
     const idVendaAtual = idVendaAnterior || listaVendas[listaVendas.length - 1]?.id;
     const podeLiberarParaPintura = precisaPintura && status === 'Em Produção' && pagamentoStatus === 'Recebido';
-    // Os arquivos sobem para o Drive em QUALQUER status/pagamento e ficam guardados na venda.
     const vendaArmazenada = idVendaAtual ? listaVendas.find(v => String(v.id) === String(idVendaAtual)) : null;
+
+    // 1) A tarefa do pintor é criada PRIMEIRO, sem depender do envio dos arquivos ao Drive.
+    if (podeLiberarParaPintura && idVendaAtual) {
+      if (!dadosVenda.responsavelPinturaEmail) {
+        alert('Este produto precisa de pintura, mas não tem pintor definido. Abra o produto em "Calculadora & Lojas", escolha o pintor e salve novamente.');
+      } else {
+        try { await sincronizarTarefaPintura({ ...dadosVenda, arquivosPintura: vendaArmazenada?.arquivosPintura || [] }, [], idVendaAtual); }
+        catch (e) {
+          console.error('Erro ao liberar pintura:', e);
+          alert('A venda foi salva, mas não foi possível liberar a pintura para o pintor.\n\n' + (e.message || e) + '\n\nSe a mensagem falar em "permission" ou "permissões", as regras do Firebase estão bloqueando.');
+        }
+      }
+    } else if (idVendaAtual) {
+      // A venda pode ter pintura cadastrada, mas só entra na fila do pintor
+      // quando o pedido estiver em produção e o pagamento estiver recebido.
+      await excluirTarefaPintura(idVendaAtual);
+      if (precisaPintura) mostrarToast('Venda salva. A pintura só aparece para o pintor quando a venda estiver "Em Produção" e "Recebido".');
+    }
+
+    // 2) Os arquivos sobem para o Drive em QUALQUER status/pagamento e ficam guardados na venda.
+    let enviouArquivos = false;
     if (precisaPintura && arquivosPintura.length && vendaArmazenada) {
+      const antes = (vendaArmazenada.arquivosPintura || []).length;
       try { await enviarArquivosReferenciaVenda(arquivosPintura, vendaArmazenada, tokenDrivePromessa); }
       catch (e) {
         console.error('Erro ao enviar arquivos da venda:', e);
         alert('A venda foi salva, mas os arquivos não foram enviados ao Google Drive.\n\n' + (e.message || e) + '\n\nAbra "Editar venda" e anexe novamente.');
       }
+      enviouArquivos = (vendaArmazenada.arquivosPintura || []).length > antes;
     }
-    if (podeLiberarParaPintura && idVendaAtual) {
-      await sincronizarTarefaPintura({ ...dadosVenda, arquivosPintura: vendaArmazenada?.arquivosPintura || [] }, [], idVendaAtual);
-    } else if (idVendaAtual) {
-      // A venda pode ter pintura cadastrada, mas só entra na fila do pintor
-      // quando o pedido estiver em produção e o pagamento estiver recebido.
-      await excluirTarefaPintura(idVendaAtual);
+
+    // 3) Se a tarefa já foi liberada, os arquivos recém-enviados acompanham a tarefa.
+    if (podeLiberarParaPintura && idVendaAtual && enviouArquivos && dadosVenda.responsavelPinturaEmail) {
+      try { await sincronizarTarefaPintura({ ...dadosVenda, arquivosPintura: vendaArmazenada.arquivosPintura }, [], idVendaAtual); }
+      catch (e) { console.error('Erro ao anexar arquivos à tarefa:', e); alert('Os arquivos foram enviados ao Drive, mas não foram ligados à tarefa do pintor.\n\n' + (e.message || e)); }
     }
   }
 
