@@ -957,7 +957,7 @@
         </div>
         <div class="form-group"><label>Descrição / orientação para o pintor</label><textarea id="vendaDescricaoPintura" rows="3" placeholder="Ex.: pintar a coleira de azul, deixar acabamento fosco..."></textarea></div>
         <div class="form-group"><label>Prazo para entregar a peça à administração</label><input type="date" id="vendaPrazoPintura"></div>
-        <div class="form-group"><label>Arquivos de referência para o pintor <span style="color:var(--text-muted);font-weight:400;">(até 3)</span></label><input id="vendaArquivoPintura" type="file" accept=".3mf,.glb,.jpg,.jpeg,.png,.webp,.heic,.heif,model/3mf,model/gltf-binary,image/jpeg,image/png,image/webp,image/heic,image/heif" multiple><small style="display:block;color:var(--text-muted);margin-top:6px;">Envie até 3 arquivos: 3MF/GLB do modelo e fotos de referência do cachorro real (JPG, PNG, WEBP ou HEIC).</small></div>
+        <div class="form-group"><label>Arquivos de referência para o pintor <span style="color:var(--text-muted);font-weight:400;">(até 3)</span></label><input id="vendaArquivoPintura" type="file" accept=".3mf,.glb,.jpg,.jpeg,.png,.webp,.heic,.heif,model/3mf,model/gltf-binary,image/jpeg,image/png,image/webp,image/heic,image/heif" multiple><small style="display:block;color:var(--text-muted);margin-top:6px;">Envie até 3 arquivos: 3MF/GLB do modelo e fotos de referência do cachorro real (JPG, PNG, WEBP ou HEIC).</small><div id="vendaArquivosPinturaAnexados" style="font-size:12px;color:var(--text-muted);margin-top:6px;"></div></div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalRegistrarVenda()">Cancelar</button>
@@ -1131,6 +1131,7 @@
   let vanmathiDriveAccessToken = '';
   let vanmathiDriveTokenExpiresAt = 0;
   let vanmathiDriveFolderId = null;
+  let vanmathiDriveTokenPromise = null;
 
   let vanmathiFirebase = null;
   let vanmathiAuth = null;
@@ -1841,6 +1842,7 @@
     document.getElementById('vendaStatus').value = 'Concluído';
     document.getElementById('vendaPagamento').value = 'Recebido';
     document.getElementById('vendaArquivoPintura').value = '';
+    atualizarListaArquivosPinturaVenda(null);
     if(document.getElementById('vendaDescricaoPintura')) document.getElementById('vendaDescricaoPintura').value = '';
     if(document.getElementById('vendaPrazoPintura')) document.getElementById('vendaPrazoPintura').value = '';
     atualizarCamposPinturaVenda();
@@ -1866,6 +1868,8 @@
     document.getElementById('vendaPagamento').value = ['Recebido','Parcial','Pendente'].includes(venda.pagamentoStatus) ? venda.pagamentoStatus : (venda.status === 'Concluído' ? 'Recebido' : 'Pendente');
     if(document.getElementById('vendaDescricaoPintura')) document.getElementById('vendaDescricaoPintura').value = venda.observacaoPintura || '';
     if(document.getElementById('vendaPrazoPintura')) document.getElementById('vendaPrazoPintura').value = venda.prazoEntregaPintura || '';
+    document.getElementById('vendaArquivoPintura').value = '';
+    atualizarListaArquivosPinturaVenda(venda);
     atualizarCamposPinturaVenda();
     document.getElementById('tituloModalVenda').innerText = 'Editar Venda';
     document.getElementById('btnSalvarVenda').innerText = 'Salvar Alterações';
@@ -1908,8 +1912,15 @@
     } : null;
     const statusPintura = precisaPintura ? 'Pendente' : '';
     const observacaoPintura = precisaPintura ? String(document.getElementById('vendaDescricaoPintura')?.value || '').trim() : '';
-    const arquivosPintura = precisaPintura ? document.getElementById('vendaArquivoPintura').files : [];
+    const arquivosPintura = precisaPintura ? Array.from(document.getElementById('vendaArquivoPintura').files || []) : [];
     const idVendaAnterior = editandoVendaId;
+    if(arquivosPintura.length){
+      const jaAnexados=Array.isArray(listaVendas.find(v=>v.id===idVendaAnterior)?.arquivosPintura)?listaVendas.find(v=>v.id===idVendaAnterior).arquivosPintura.length:0;
+      if(jaAnexados+arquivosPintura.length>3){alert('O limite é de 3 arquivos de referência por venda. Já há '+jaAnexados+' anexado(s); você pode adicionar mais '+Math.max(0,3-jaAnexados)+'.');return;}
+    }
+    // Pede a autorização do Google já agora, junto do clique em "Salvar", para o navegador não bloquear a janela.
+    const tokenDrivePromessa = arquivosPintura.length ? obterTokenDrive() : null;
+    if(tokenDrivePromessa) tokenDrivePromessa.catch(()=>{});
 
     const numPreco = obterNumeroMoeda(produto.precoVenda || produto.precoSugerido);
     const totalVenda = numPreco * qtd;
@@ -1991,8 +2002,17 @@
     atualizarRelatorios();
     const idVendaAtual = idVendaAnterior || listaVendas[listaVendas.length - 1]?.id;
     const podeLiberarParaPintura = precisaPintura && status === 'Em Produção' && pagamentoStatus === 'Recebido';
+    // Os arquivos sobem para o Drive em QUALQUER status/pagamento e ficam guardados na venda.
+    const vendaArmazenada = idVendaAtual ? listaVendas.find(v => String(v.id) === String(idVendaAtual)) : null;
+    if (precisaPintura && arquivosPintura.length && vendaArmazenada) {
+      try { await enviarArquivosReferenciaVenda(arquivosPintura, vendaArmazenada, tokenDrivePromessa); }
+      catch (e) {
+        console.error('Erro ao enviar arquivos da venda:', e);
+        alert('A venda foi salva, mas os arquivos não foram enviados ao Google Drive.\n\n' + (e.message || e) + '\n\nAbra "Editar venda" e anexe novamente.');
+      }
+    }
     if (podeLiberarParaPintura && idVendaAtual) {
-      await sincronizarTarefaPintura(dadosVenda, arquivosPintura, idVendaAtual);
+      await sincronizarTarefaPintura({ ...dadosVenda, arquivosPintura: vendaArmazenada?.arquivosPintura || [] }, [], idVendaAtual);
     } else if (idVendaAtual) {
       // A venda pode ter pintura cadastrada, mas só entra na fila do pintor
       // quando o pedido estiver em produção e o pagamento estiver recebido.
@@ -2270,6 +2290,54 @@
     await vanmathiDb.collection('tarefasPintura').doc(id).update({statusPintura:status,atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()});
     const t=tarefasPinturaCache.find(x=>x.id===id);if(t)t.statusPintura=status;renderizarTarefasPintura();fecharModalTarefaPintura();mostrarToast('Status da pintura atualizado!');
   }
+  async function enviarArquivosReferenciaVenda(files,venda,tokenPromessa){
+    const lista=Array.from(files||[]);
+    const validos=lista.filter(file=>{
+      const ext=(file.name.split('.').pop()||'').toLowerCase();
+      const ehImagem=String(file.type||'').startsWith('image/') || ['jpg','jpeg','png','webp','heic','heif'].includes(ext);
+      if(!['3mf','glb'].includes(ext) && !ehImagem){alert('Para a referência, envie 3MF, GLB ou uma foto JPG, PNG, WEBP ou HEIC.\nArquivo ignorado: '+file.name);return false;}
+      const limite=ehImagem?15*1024*1024:200*1024*1024;
+      if(file.size>limite){alert('O arquivo '+file.name+' ultrapassa o limite de '+(ehImagem?'15 MB':'200 MB')+'.');return false;}
+      return true;
+    });
+    if(!validos.length) return 0;
+    if(tokenPromessa) await tokenPromessa;
+    mostrarToast('Conectando ao Google Drive...');
+    const pastaId=await obterPastaPinturaDrive();
+    const email=String(venda.responsavelPinturaEmail||'').toLowerCase();
+    let enviados=0;
+    for(const file of validos){
+      mostrarToast('Enviando '+file.name+' para o Google Drive...');
+      const criado=await uploadDriveResumable(file,pastaId);
+      if(!criado?.id) throw new Error('O Drive não retornou o ID do arquivo '+file.name+'.');
+      const compartilhado=email?await compartilharArquivoDrive(criado.id,email):false;
+      const ext=(file.name.split('.').pop()||'').toUpperCase();
+      const ehImagem=String(file.type||'').startsWith('image/') || ['JPG','JPEG','PNG','WEBP','HEIC','HEIF'].includes(ext);
+      venda.arquivosPintura=[...(Array.isArray(venda.arquivosPintura)?venda.arquivosPintura:[]),{
+        nome:file.name,
+        tipo:ehImagem?'FOTO':ext,
+        categoria:'referencia_pintura',
+        driveFileId:criado.id,
+        url:criado.webViewLink||`https://drive.google.com/file/d/${criado.id}/view`,
+        downloadUrl:criado.webContentLink||`https://drive.google.com/uc?export=download&id=${criado.id}`,
+        driveOwnerEmail:String(vanmathiUsuario?.email||'').toLowerCase(),
+        compartilhadoComPintor:compartilhado,
+        compartilhadoComAdministracao:false,
+        adicionadoPor:vanmathiUsuario?.uid||'',
+        adicionadoEm:new Date().toISOString()
+      }];
+      enviados++;
+      salvarTudoLocal();
+      if(email&&!compartilhado) alert('O arquivo '+file.name+' foi enviado ao Drive, mas o compartilhamento com o pintor não foi confirmado. Verifique as permissões do Google Drive (o e-mail do pintor precisa ser uma conta Google).');
+    }
+    mostrarToast('Arquivo(s) enviado(s) para o Google Drive!');
+    return enviados;
+  }
+  function atualizarListaArquivosPinturaVenda(venda){
+    const el=document.getElementById('vendaArquivosPinturaAnexados');if(!el)return;
+    const arq=Array.isArray(venda?.arquivosPintura)?venda.arquivosPintura:[];
+    el.innerHTML=arq.length?('Já anexados ('+arq.length+'/3): '+arq.map(a=>escaparHtmlVan(a.nome||'arquivo')).join(', ')):'';
+  }
   async function sincronizarTarefaPintura(venda, arquivos, vendaId){
     if(!vanmathiDb||!venda.precisaPintura||!venda.responsavelPinturaEmail)return;
     if(venda.status !== 'Em Produção' || venda.pagamentoStatus !== 'Recebido') return;
@@ -2284,6 +2352,13 @@
       const anterior=old.data()||{};
       dados.statusPintura=anterior.statusPintura||dados.statusPintura||'Pendente';
       if(Array.isArray(anterior.arquivos)) dados.arquivos=anterior.arquivos;
+    }
+    // Arquivos anexados na venda (enviados em qualquer status) acompanham a tarefa quando ela é liberada ao pintor.
+    const arquivosDaVenda=Array.isArray(venda.arquivosPintura)?venda.arquivosPintura:[];
+    if(arquivosDaVenda.length){
+      const atuais=Array.isArray(dados.arquivos)?dados.arquivos:[];
+      const idsAtuais=new Set(atuais.map(a=>a?.driveFileId).filter(Boolean));
+      dados.arquivos=[...atuais,...arquivosDaVenda.filter(a=>a?.driveFileId&&!idsAtuais.has(a.driveFileId))];
     }
     await ref.set(dados,{merge:true});
     if(arquivos&&arquivos.length){await uploadArquivosTarefa(id,arquivos,dados.responsavelPinturaEmail);}
@@ -2303,19 +2378,30 @@
     });
   }
 
+  // Evita abrir duas janelas de autorização ao mesmo tempo (pedidos simultâneos reaproveitam o mesmo).
   async function obterTokenDrive(forceConsent=false){
     if(vanmathiDriveAccessToken && Date.now() < vanmathiDriveTokenExpiresAt-60000) return vanmathiDriveAccessToken;
+    if(vanmathiDriveTokenPromise) return vanmathiDriveTokenPromise;
+    vanmathiDriveTokenPromise=obterTokenDriveInterno(forceConsent).finally(()=>{vanmathiDriveTokenPromise=null;});
+    return vanmathiDriveTokenPromise;
+  }
+  async function obterTokenDriveInterno(forceConsent=false){
     await carregarGoogleIdentityServices();
     return new Promise((resolve,reject)=>{
       let resolvido=false;
       const concluir=(fn,arg)=>{if(resolvido)return;resolvido=true;fn(arg);};
+      setTimeout(()=>concluir(reject,new Error('Tempo esgotado esperando a autorização do Google Drive.')),120000);
       vanmathiDriveTokenClient=google.accounts.oauth2.initTokenClient({
         client_id:VANMATHI_GOOGLE_CLIENT_ID,
         scope:VANMATHI_DRIVE_SCOPE,
+        error_callback:(err)=>{
+          const t=err?.type||'';
+          concluir(reject,new Error(t==='popup_failed_to_open'?'O navegador bloqueou a janela de autorização do Google. Permita pop-ups para este site e tente de novo.':(t==='popup_closed'?'A janela de autorização do Google foi fechada antes de concluir. Tente novamente e aceite o acesso ao Drive.':(err?.message||'Falha na autorização do Google Drive.'))));
+        },
         callback:(resp)=>{
           if(resp?.error){
             if(!forceConsent && ['interaction_required','consent_required','login_required'].includes(resp.error)){
-              obterTokenDrive(true).then(resolve).catch(reject);
+              obterTokenDriveInterno(true).then(resolve).catch(reject);
               return;
             }
             concluir(reject,new Error(resp.error_description||resp.error||'Não foi possível autorizar o Google Drive.'));
@@ -2454,6 +2540,7 @@
     if(vanmathiPerfilAtual?.role!=='pintura')return;
     const input=document.getElementById('fotoPinturaModal');
     if(!input?.files?.length)return;
+    obterTokenDrive().catch(()=>{});
     await uploadArquivosTarefa(id,input.files,'',true);
     input.value='';
   }
@@ -2531,7 +2618,7 @@
     }
   }
   async function anexarArquivosTarefaPintura(id){
-    if(!['admin','funcionario'].includes(vanmathiPerfilAtual?.role))return;const input=document.getElementById('arquivosTarefaModal');if(input?.files?.length)await uploadArquivosTarefa(id,input.files,tarefasPinturaCache.find(t=>t.id===id)?.responsavelPinturaEmail||'');
+    if(!['admin','funcionario'].includes(vanmathiPerfilAtual?.role))return;const input=document.getElementById('arquivosTarefaModal');if(input?.files?.length)obterTokenDrive().catch(()=>{});if(input?.files?.length)await uploadArquivosTarefa(id,input.files,tarefasPinturaCache.find(t=>t.id===id)?.responsavelPinturaEmail||'');
   }
   async function excluirTarefaPintura(vendaId){try{if(vanmathiDb)await vanmathiDb.collection('tarefasPintura').doc(String(vendaId)).delete();}catch(e){console.warn('Não foi possível excluir tarefa de pintura:',e);}}
   async function criarNotificacaoPintura(venda){
