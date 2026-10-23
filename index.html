@@ -312,8 +312,8 @@
       <ul class="nav-links">
         <li><a class="active" onclick="mudarAbaMenu(event, 'relatorios')">📊 Relatórios & Visão</a></li>
         <li id="menuVendas"><a onclick="mudarAbaMenu(event, 'vendas')">🛒 Gestão de Vendas</a></li>
-        <li><a onclick="mudarAbaMenu(event, 'estoque')">📦 Estoque de Filamentos</a></li>
-        <li><a onclick="mudarAbaMenu(event, 'precificacao')">💰 Calculadora & Lojas</a></li>
+        <li><a onclick="mudarAbaMenu(event, 'estoque')">📦 Estoque</a></li>
+        <li><a onclick="mudarAbaMenu(event, 'precificacao')">💰 Calculadora Lojas</a></li>
         <li><a onclick="mudarAbaMenu(event, 'produtos')">🏷️ Meus Produtos Salvos</a></li>
         <li id="menuPintura" style="display:none;"><a onclick="mudarAbaMenu(event, 'pintura')">🎨 Pintura</a></li>
         <li id="menuClientes" style="display:none;"><a onclick="mudarAbaMenu(event, 'clientes')">👤 Clientes</a></li>
@@ -400,7 +400,7 @@
           <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Lucro líquido realizado</span><span class="kpi-icon">💰</span></div><h3 class="kpi-value" id="lblRelLucroLiq">R$ 0,00</h3><div class="kpi-note">Estimativa sobre vendas concluídas</div></div>
           <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Margem média</span><span class="kpi-icon">%</span></div><h3 class="kpi-value" id="lblRelMargem">0%</h3><div class="kpi-note">Margem média das vendas concluídas</div></div>
           <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Peças vendidas</span><span class="kpi-icon">📦</span></div><h3 class="kpi-value" id="lblRelTotalPedidos">0</h3><div class="kpi-note">Unidades em vendas concluídas</div></div>
-          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Ticket médio</span><span class="kpi-icon">🧾</span></div><h3 class="kpi-value" id="lblRelTicketMedio">R$ 0,00</h3><div class="kpi-note">Valor médio por unidade concluída</div></div>
+          <div class="dashboard-kpi"><div class="kpi-top"><span class="kpi-label">Ticket médio</span><span class="kpi-icon">🧾</span></div><h3 class="kpi-value" id="lblRelTicketMedio">R$ 0,00</h3><div class="kpi-note">Valor médio por pedido concluído</div></div>
         </div>
 
         <div class="grid-2">
@@ -762,7 +762,7 @@
               <th>Grama</th>
               <th>Tempo</th>
               <th>Valor Filamento</th>
-              <th>Custo Operacional</th>
+              <th>Custo total</th>
               <th>Preço de Venda</th>
               <th>Lucro Real</th>
               <th>Ações</th>
@@ -1282,7 +1282,7 @@
       }
       const convidados=conv.docs.map(d=>({uid:'convite:'+d.id,...d.data(),_convite:true}));
       const todos=[...vanmathiUsuariosCache,...convidados];
-      corpo.innerHTML=todos.map(u=>`<tr><td><strong>${u.nome||'-'}</strong></td><td>${u.email||'-'}</td><td>${u.role==='admin'?'Administrador':u.role==='pintura'?'Pintura':'Funcionário'}</td><td><span style="color:${u.ativo===false?'var(--danger)':'var(--success)'};font-weight:600;">${u._convite?'🕓 Aguardando login':u.ativo===false?'Inativo':'Ativo'}</span></td><td style="display:flex;gap:6px;">${u._convite?`<button class="btn-danger" style="padding:6px 8px;" onclick="cancelarConviteAdmin('${u.email}')">Cancelar</button>`:`<button class="btn-secondary" style="padding:6px 8px;" onclick="editarUsuarioAdmin('${u.uid}')">✏️</button><button class="btn-secondary" style="padding:6px 8px;" onclick="alternarUsuarioAdmin('${u.uid}')">${u.ativo===false?'✅':'⏸️'}</button><button class="btn-danger" style="padding:6px 8px;" onclick="excluirUsuarioAdmin('${u.uid}')" title="Excluir cadastro de acesso">🗑️</button>`}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:25px;">Nenhum usuário cadastrado.</td></tr>';
+      corpo.innerHTML=todos.map(u=>`<tr><td><strong>${escaparHtmlVan(u.nome||'-')}</strong></td><td>${escaparHtmlVan(u.email||'-')}</td><td>${u.role==='admin'?'Administrador':u.role==='pintura'?'Pintura':'Funcionário'}</td><td><span style="color:${u.ativo===false?'var(--danger)':'var(--success)'};font-weight:600;">${u._convite?'🕓 Aguardando login':u.ativo===false?'Inativo':'Ativo'}</span></td><td style="display:flex;gap:6px;">${u._convite?`<button class="btn-danger" style="padding:6px 8px;" onclick="cancelarConviteAdmin('${u.email}')">Cancelar</button>`:`<button class="btn-secondary" style="padding:6px 8px;" onclick="editarUsuarioAdmin('${u.uid}')">✏️</button><button class="btn-secondary" style="padding:6px 8px;" onclick="alternarUsuarioAdmin('${u.uid}')">${u.ativo===false?'✅':'⏸️'}</button><button class="btn-danger" style="padding:6px 8px;" onclick="excluirUsuarioAdmin('${u.uid}')" title="Excluir cadastro de acesso">🗑️</button>`}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:25px;">Nenhum usuário cadastrado.</td></tr>';
     } catch(e){ console.error(e); corpo.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:25px;">Não foi possível carregar os usuários.</td></tr>'; }
   }
   async function cancelarConviteAdmin(email){if(vanmathiPerfilAtual?.role!=='admin')return;await vanmathiDb.collection('convites').doc(String(email).toLowerCase()).delete();await carregarUsuariosAdmin();mostrarToast('Convite cancelado.');}
@@ -1442,7 +1442,7 @@
     document.getElementById('badgeNotificacoes').style.display='none';
     ocultarPainelNotificacoesPush();
     if(vanmathiNotificacoesListener){vanmathiNotificacoesListener();vanmathiNotificacoesListener=null;}
-    localStorage.removeItem('Vanmathi_Dados_Estoque');localStorage.removeItem('Vanmathi_Dados_Produtos');localStorage.removeItem('Vanmathi_Dados_Vendas');localStorage.removeItem('Vanmathi_Dados_Lojas');localStorage.removeItem('Vanmathi_Dados_Marcas');
+    ['Estoque','Produtos','Vendas','Lojas','Marcas','Clientes','Recibos','Orcamentos','Empresa'].forEach(k=>localStorage.removeItem('Vanmathi_Dados_'+k));
     if (vanmathiAuth) await vanmathiAuth.signOut();
   }
 
@@ -1620,6 +1620,8 @@
     overlay.classList.toggle('active');
   }
 
+  const TITULOS_ABA={relatorios:['Relatórios & Visão','Visão completa da operação: financeiro, produção, custos e estoque.'],vendas:['Gestão de Vendas','Registre vendas, parcelas e acompanhe pedidos.'],estoque:['Estoque','Filamentos, resinas e controle de saldo.'],precificacao:['Calculadora Lojas','Monte o custo e o preço de venda por loja.'],produtos:['Meus Produtos Salvos','Produtos criados e suas lojas.'],clientes:['Clientes','Cadastro e histórico de compras.'],orcamentos:['Orçamentos','Orçamentos para clientes.'],recibos:['Recibos','Emissão e consulta de recibos.'],empresa:['Dados da Empresa','Identidade usada nos documentos.'],usuarios:['Usuários','Acessos e permissões.'],pintura:['Pintura','Peças atribuídas a você.']};
+  function irParaAba(id){const a=document.querySelector(`.nav-links a[onclick*="'${id}'"]`);if(a)mudarAbaMenu({target:a},id);}
   function mudarAbaMenu(event, secaoId) {
     if (!vanmathiCloudConectada || !vanmathiUsuario || !vanmathiPerfilAtual) {
       document.body.classList.add('vanmathi-bloqueado');
@@ -1627,12 +1629,12 @@
       return;
     }
     document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-    event.target.classList.add('active');
+    (event.target.closest&&event.target.closest('a')||event.target).classList.add('active');
 
     document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
     document.getElementById('secao-' + secaoId).classList.add('active');
     
-    document.getElementById('tituloPagina').innerText = event.target.innerText.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
+    {const t=TITULOS_ABA[secaoId]||['',''];document.getElementById('tituloPagina').innerText=t[0];document.getElementById('subtituloPagina').innerText=t[1];}
     if (['empresa','usuarios'].includes(secaoId) && vanmathiPerfilAtual?.role !== 'admin') { alert('Esta área é exclusiva para administradores.'); return; }
     if (['clientes','recibos','orcamentos'].includes(secaoId) && !['admin','funcionario'].includes(vanmathiPerfilAtual?.role)) { alert('Esta área está disponível para os perfis administrativo e financeiro.'); return; }
     if (secaoId === 'usuarios') carregarUsuariosAdmin();
@@ -1764,7 +1766,7 @@
       const qtd = parseInt(v.qtd) || 1;
       const totalVendaGramas = gramasMaterial * qtd;
       if(v.status === 'Concluído') totalUsado += totalVendaGramas;
-      else if(v.status === 'Devolvido') totalUsado -= totalVendaGramas;
+      
     });
     return Math.max(0, totalUsado);
   }
@@ -2747,7 +2749,7 @@
         <tr>
           <td>${v.data ? v.data.split('-').reverse().join('/') : '-'}</td>
           <td><strong>${escaparHtmlVan(v.produtoNome)}</strong>${v.clienteNome?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px">👤 ${escaparHtmlVan(v.clienteNome)}</div>`:`<div style="font-size:11px;color:var(--text-muted);margin-top:3px">Sem cliente vinculado</div>`}</td>
-          <td>${v.loja}</td>
+          <td>${escaparHtmlVan(v.loja)}</td>
           <td>${v.qtd} un</td>
           <td style="color: var(--warning); font-weight: 600;">R$ ${custoOperacionalTotal.toFixed(2).replace('.', ',')}</td>
           <td style="color: var(--primary); font-weight: 600;">R$ ${(valorProduto * (parseInt(v.qtd) || 1)).toFixed(2).replace('.', ',')}</td>
@@ -2768,7 +2770,7 @@
   function renderizarSelectMarcas(marcaSelecionada = "") {
     const select = document.getElementById('selectMarca');
     let html = '';
-    listaMarcas.forEach(m => { html += `<option value="${m}" ${(m === marcaSelecionada)?'selected':''}>${m}</option>`; });
+    listaMarcas.forEach(m => { html += `<option value="${escaparHtmlVan(m)}" ${(m === marcaSelecionada)?'selected':''}>${escaparHtmlVan(m)}</option>`; });
     html += `<option value="OUTRA" style="color: var(--primary);">+ Adicionar Nova Marca...</option>`;
     select.innerHTML = html;
     verificarOutraMarca(select.value);
@@ -2784,14 +2786,15 @@
   function renderizarTabelaMarcas() {
     let html = '';
     listaMarcas.forEach((m, index) => {
-      html += `<tr><td><strong>${m}</strong></td><td style="text-align: right;"><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirMarca(${index})">⛔ Remover</button></td></tr>`;
+      html += `<tr><td><strong>${escaparHtmlVan(m)}</strong></td><td style="text-align: right;"><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirMarca(${index})">⛔ Remover</button></td></tr>`;
     });
     document.getElementById('tabelaMarcasCorpo').innerHTML = html;
   }
 
   function excluirMarca(index) {
     if(listaMarcas.length <= 1) { alert("Mantenha ao menos uma marca."); return; }
-    listaMarcas.splice(index, 1);
+    if(!confirm("Excluir a marca \""+listaMarcas[index]+"\"?")) return;
+    listaMarcas.splice(index, 1); salvarTudoLocal();
     renderizarTabelaMarcas(); renderizarSelectMarcas(); mostrarToast("Marca removida.");
   }
 
@@ -2874,6 +2877,8 @@
   }
 
   function excluirMaterial(id) {
+    const emUso=listaProdutosSalvos.filter(p=>obterComposicaoProduto(p).some(i=>String(i.materialId)===String(id))).length;
+    if(!confirm(emUso?`${emUso} produto(s) usam este material e ficarão sem custo de filamento. Excluir mesmo assim?`:'Excluir este material?')) return;
     listaMateriais = listaMateriais.filter(item => item.id !== id);
     salvarTudoLocal();
     filtrarTabela(); atualizarRelatorios(); renderizarSelectMaterialCalculadora(); mostrarToast("Material removido.");
@@ -2887,7 +2892,7 @@
   function renderizarSelectLojas() {
     const select = document.getElementById('selectMarketplace');
     let html = '';
-    listaLojas.forEach(l => { html += `<option value="${l.taxa}">${l.nome} (${l.taxa}%)</option>`; });
+    listaLojas.forEach(l => { html += `<option value="${l.taxa}">${escaparHtmlVan(l.nome)} (${l.taxa}%)</option>`; });
     select.innerHTML = html;
     atualizarTaxaLoja();
   }
@@ -2895,22 +2900,23 @@
   function renderizarTabelaLojas() {
     let html = '';
     listaLojas.forEach((l, index) => {
-      html += `<tr><td><strong>${l.nome}</strong></td><td><input type="number" value="${l.taxa}" style="width: 70px; background: var(--bg-main); border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px;" oninput="alterarTaxaLojaDireto(${index}, this.value)"></td><td><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirLoja(${index})">Remover</button></td></tr>`;
+      html += `<tr><td><strong>${escaparHtmlVan(l.nome)}</strong></td><td><input type="number" value="${l.taxa}" style="width: 70px; background: var(--bg-main); border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px;" oninput="alterarTaxaLojaDireto(${index}, this.value)"></td><td><button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirLoja(${index})">Remover</button></td></tr>`;
     });
     document.getElementById('tabelaLojasCorpo').innerHTML = html;
   }
 
-  function alterarTaxaLojaDireto(index, novaTaxa) { listaLojas[index].taxa = parseFloat(novaTaxa) || 0; renderizarSelectLojas(); }
+  function alterarTaxaLojaDireto(index, novaTaxa) { listaLojas[index].taxa = parseFloat(novaTaxa) || 0; renderizarSelectLojas(); salvarTudoLocal(); }
   function cadastrarNovaLoja() {
     const nome = document.getElementById('inputNomeNovaLoja').value;
     const taxa = parseFloat(document.getElementById('inputTaxaNovaLoja').value) || 0;
     if(!nome) return;
-    listaLojas.push({ id: Date.now(), nome, taxa });
+    listaLojas.push({ id: Date.now(), nome, taxa }); salvarTudoLocal();
     renderizarSelectLojas(); fecharModalNovaLoja(); mostrarToast(`Loja "${nome}" adicionada!`);
   }
   function excluirLoja(index) {
     if(listaLojas.length <= 1) { alert("Mantenha ao menos uma loja."); return; }
-    listaLojas.splice(index, 1); renderizarSelectLojas(); renderizarTabelaLojas(); mostrarToast("Loja removida.");
+    if(!confirm("Excluir a loja \""+listaLojas[index].nome+"\"?")) return;
+    listaLojas.splice(index, 1); salvarTudoLocal(); renderizarSelectLojas(); renderizarTabelaLojas(); mostrarToast("Loja removida.");
   }
   function atualizarTaxaLoja() { document.getElementById('calcTaxa').value = document.getElementById('selectMarketplace').value; calcularPreco(); }
 
@@ -2944,11 +2950,11 @@
         let p = Math.min(100, (estoqueAtual / pesoMax) * 100);
         html += `
           <tr>
-            <td><strong>${item.nome}</strong></td>
+            <td><strong>${escaparHtmlVan(item.nome)}</strong></td>
             <td>${item.tipo}</td>
-            <td>${item.cor}</td>
-            <td>${item.marca}</td>
-            <td>${item.modelo}</td>
+            <td>${escaparHtmlVan(item.cor)}</td>
+            <td>${escaparHtmlVan(item.marca)}</td>
+            <td>${escaparHtmlVan(item.modelo)}</td>
             <td>
               <div class="stock-indicator">
                 <div class="stock-bar"><div class="stock-fill" style="width: ${p}%; background: ${st.cor};"></div></div>
@@ -3147,7 +3153,7 @@
     atualizarFiltroLojasDinamico();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
-    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[4] }, 'produtos');
+    irParaAba('produtos');
   }
 
   function editarProduto(id) {
@@ -3158,7 +3164,7 @@
     // Primeiro abrimos a aba da calculadora. A troca de aba recria os
     // selects de materiais; por isso a composição salva é restaurada
     // somente depois, evitando que seja apagada pela renderização inicial.
-    mudarAbaMenu({ preventDefault: () => {}, target: document.querySelectorAll('.nav-links a')[3] }, 'precificacao');
+    irParaAba('precificacao');
 
     document.getElementById('calcNomeProduto').value = p.nome;
     renderizarSelectLojas();
@@ -3289,6 +3295,7 @@
   }
 
   async function excluirProduto(id) {
+    if(!confirm('Excluir este produto? As tarefas de pintura vinculadas também serão removidas.')) return;
     const produto=listaProdutosSalvos.find(item => String(item.id)===String(id));
     if(!produto) return;
     listaProdutosSalvos = listaProdutosSalvos.filter(item => String(item.id)!==String(id));
@@ -3323,9 +3330,9 @@
       const lucro = obterNumeroMoeda(p.lucro);
 
       html += `<tr>
-        <td><strong>${p.nome}</strong></td>
-        <td><span style="color: var(--primary); background: rgba(59,130,246,0.1); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${p.loja || 'Shopee'}</span></td>
-        <td style="font-size: 12px; color: var(--text-muted);">${matLabel}</td>
+        <td><strong>${escaparHtmlVan(p.nome)}</strong></td>
+        <td><span style="color: var(--primary); background: rgba(59,130,246,0.1); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${escaparHtmlVan(p.loja || 'Shopee')}</span></td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escaparHtmlVan(matLabel)}</td>
         <td>${p.gramas}g</td>
         <td>${tempoStr}</td>
         <td style="color: var(--text-color); font-weight: 600;">R$ ${valor.toFixed(2).replace('.', ',')}</td>
@@ -3397,7 +3404,7 @@
     document.getElementById('graficoFaturamentoMsg').innerHTML = totalFat > 0 ? `<strong style="color:var(--success);font-size:18px;">Faturamento realizado: R$ ${totalFat.toFixed(2).replace('.', ',')}</strong><br><span style="font-size:12px;color:var(--text-muted);">Considera apenas pedidos concluídos.</span>` : `Nenhum faturamento realizado no período.`;
 
     const margemMedia = totalFat > 0 ? (lucroRealizado / totalFat) * 100 : 0;
-    const ticketMedio = totalPecasVendidas > 0 ? totalFat / totalPecasVendidas : 0;
+    const ticketMedio = pedidosConcluidos > 0 ? totalFat / pedidosConcluidos : 0;
 
     atualizarElementoSeguro('lblRelFatTotal', 'innerText', `R$ ${totalFat.toFixed(2).replace('.', ',')}`);
     atualizarElementoSeguro('lblRelRecebido', 'innerText', `R$ ${totalRecebido.toFixed(2).replace('.', ',')}`);
@@ -3412,11 +3419,12 @@
     atualizarElementoSeguro('lblRelHorasTotais', 'innerText', `${totalHoras.toFixed(1)}h`);
     atualizarElementoSeguro('lblRelCatTotal', 'innerText', listaProdutosSalvos.length);
     atualizarElementoSeguro('lblPerdasTotal', 'innerText', `R$ ${totalPerdas.toFixed(2).replace('.', ',')}`);
-    atualizarElementoSeguro('lblLojasAtivas', 'innerText', obterLojasComProdutosSalvos().length);
+    atualizarElementoSeguro('lblLojasAtivas', 'innerText', new Set(listaVendas.filter(v=>v.status!=='Devolvido').map(v=>v.loja)).size);
+    // lojas ativas = lojas com venda
 
     let totalFil = 0, totalRes = 0, estoqueAlertaCount = 0, valorEstoque = 0, htmlAlerta = '';
     listaMateriais.forEach(m => {
-      valorEstoque += (m.precoPago || 85.00);
+      valorEstoque += Math.max(0,(parseFloat(m.pesoMax)||1000)-calcularEstoqueUsadoMaterial(m.id))*((parseFloat(m.precoPago)||0)/(parseFloat(m.pesoMax)||1000));
       if(m.tipo === 'Resina') totalRes++; else totalFil++;
       let pesoMax = m.pesoMax || 1000;
       let estoqueUsado = calcularEstoqueUsadoMaterial(m.id);
@@ -3427,11 +3435,11 @@
         htmlAlerta += `<tr><td><strong>${m.nome}</strong></td><td><span style="color:${st.cor};font-weight:600;">${estoqueAtual}g</span></td><td><span style="color:${st.cor};background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;font-size:11px;">${st.texto}</span></td></tr>`;
       }
     });
-    atualizarElementoSeguro('lblTotalFilamentos', 'innerText', totalFil);
-    atualizarElementoSeguro('lblTotalResinas', 'innerText', totalRes);
-    atualizarElementoSeguro('lblEstoqueAlertas', 'innerText', estoqueAlertaCount);
-    atualizarElementoSeguro('lblValorEstoque', 'innerText', `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`);
-    atualizarElementoSeguro('tabelaAlertasEstoque', 'innerHTML', htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`);
+    atualizarElementoSeguro('lblEstTotalFilamentos', 'innerText', totalFil);
+    atualizarElementoSeguro('lblEstTotalResinas', 'innerText', totalRes);
+    atualizarElementoSeguro('lblEstCritico', 'innerText', estoqueAlertaCount);
+    atualizarElementoSeguro('lblEstValorTotal', 'innerText', `R$ ${valorEstoque.toFixed(2).replace('.', ',')}`);
+    atualizarElementoSeguro('tabelaMateriaisAlerta', 'innerHTML', htmlAlerta || `<tr><td colspan="3" style="text-align:center;color:var(--success);padding:25px;">Estoque em níveis adequados.</td></tr>`);
   }
 
 
