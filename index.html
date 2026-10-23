@@ -320,6 +320,8 @@
         <li id="menuOrcamentos" style="display:none;"><a onclick="mudarAbaMenu(event, 'orcamentos')">📄 Orçamentos</a></li>
         <li id="menuRecibos" style="display:none;"><a onclick="mudarAbaMenu(event, 'recibos')">🧾 Recibos</a></li>
         <li id="menuEmpresa" style="display:none;"><a onclick="mudarAbaMenu(event, 'empresa')">🏢 Dados da Empresa</a></li>
+        <li id="menuImpostos" style="display:none;"><a onclick="mudarAbaMenu(event, 'impostos')">🏛️ Impostos & Taxas</a></li>
+        <li id="menuDRE" style="display:none;"><a onclick="mudarAbaMenu(event, 'dre')">📈 DRE & Gráficos</a></li>
         <li id="menuUsuarios" style="display:none;"><a onclick="mudarAbaMenu(event, 'usuarios')">👥 Usuários</a></li>
       </ul>
     </div>
@@ -389,6 +391,7 @@
         <button class="tab-btn" onclick="mudarTabRelatorio(event, 'producao-rel')">Produção</button>
         <button class="tab-btn" onclick="mudarTabRelatorio(event, 'custos-perdas')">Custos & Perdas</button>
         <button class="tab-btn" onclick="mudarTabRelatorio(event, 'estoque-catalogo')">Estoque & Catálogo</button>
+        <button class="tab-btn" onclick="mudarTabRelatorio(event, 'gastos-rel')">Gastos</button>
       </div>
 
       <div id="visao-geral" class="tab-content active">
@@ -412,7 +415,7 @@
           <div class="card-box">
             <h3>Status dos Pedidos</h3>
             <p class="subtitle">Distribuição mensal</p>
-            <div style="height: 160px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px;">100% Concluídos / Entregues</div>
+            <div id="painelStatusPedidos" style="min-height:160px;font-size:13px;color:var(--text-muted);"></div>
           </div>
         </div>
 
@@ -457,20 +460,7 @@
             <p class="subtitle">Baseado na Gestão de Vendas</p>
             <div id="listaTopProdutos" style="font-size: 13px; color: var(--text-muted);">Nenhuma venda concluída no período.</div>
           </div>
-          <div class="card-box">
-            <h3>Performance por Impressora</h3>
-            <p class="subtitle">Máquinas conectadas via LAN</p>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr><th>Impressora</th><th>Status</th><th>Conexão</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td><strong>Bambu Lab A1 Mini</strong></td><td style="color: var(--success);">Disponível</td><td>LAN Direta</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          
         </div>
       </div>
 
@@ -483,7 +473,7 @@
             <div class="metric-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">📉</div>
           </div>
         </div>
-        <p style="color: var(--text-muted); font-size: 13px; margin-top: 15px;">Sem registros de perdas ou devoluções no período.</p>
+        <div id="listaPerdas" style="color: var(--text-muted); font-size: 13px; margin-top: 15px;"></div>
       </div>
 
       <div id="estoque-catalogo" class="tab-content">
@@ -652,7 +642,7 @@
 
           <!-- TEMPO DE IMPRESSÃO (HORAS E MINUTOS) -->
           <div class="form-group">
-            <label>Tempo de Impressão (por peça ou fornada)</label>
+            <label>Tempo de Impressão (por peça)</label>
             <div class="form-row" style="margin-bottom: 0;">
               <div class="form-group" style="margin-bottom: 0;"><label style="font-size: 11px; opacity: 0.8;">Horas</label><input type="number" id="calcHoras" value="2" min="0" oninput="calcularPreco()"></div>
               <div class="form-group" style="margin-bottom: 0;"><label style="font-size: 11px; opacity: 0.8;">Minutos</label><input type="number" id="calcMinutos" value="30" min="0" max="59" oninput="calcularPreco()"></div>
@@ -912,6 +902,8 @@
         <div class="table-container" style="margin-top:18px;"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tabelaUsuariosVanmathi"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px;">Carregando usuários...</td></tr></tbody></table></div>
       </div>
     </div>
+  <div id="secao-impostos" class="content-section"></div>
+  <div id="secao-dre" class="content-section"></div>
   </main>
 
   <!-- MODAIS -->
@@ -1316,7 +1308,7 @@
       recibos: listaRecibos,
       orcamentos: listaOrcamentos,
       dadosEmpresa: dadosEmpresa,
-      insumos: listaInsumos, ferramentas: listaFerramentas, compras: listaCompras
+      insumos: listaInsumos, ferramentas: listaFerramentas, compras: listaCompras, impostos: listaImpostos, despesas: listaDespesas
     };
   }
 
@@ -1333,6 +1325,8 @@
     if (Array.isArray(pacote.insumos)) listaInsumos = pacote.insumos;
     if (Array.isArray(pacote.ferramentas)) listaFerramentas = pacote.ferramentas;
     if (Array.isArray(pacote.compras)) listaCompras = pacote.compras;
+    if (Array.isArray(pacote.impostos)) listaImpostos = pacote.impostos;
+    if (Array.isArray(pacote.despesas)) listaDespesas = pacote.despesas;
     if (pacote.dadosEmpresa && typeof pacote.dadosEmpresa === 'object') dadosEmpresa = {...dadosEmpresa, ...pacote.dadosEmpresa};
     listaVendas.forEach(v=>{if(!v.parcelamento){v.parcelamento=criarParcelamentoVan(v.total,1,v.data);if(v.pagamentoStatus==='Recebido'){v.recebimentos=[{id:'pg_migrado_'+v.id,valor:Number(v.total)||0,data:v.data||new Date().toISOString(),origem:'migração',usuario:''}];v.parcelamento.parcelas[0].pago=Number(v.total)||0;v.parcelamento.parcelas[0].status='Pago';v.parcelamento.parcelas[0].pagoEm=v.data||null;}}if(!Array.isArray(v.recebimentos))v.recebimentos=[];atualizarResumoFinanceiroVenda(v);});
     // Recalcula campos derivados das vendas sempre que chega um pacote novo do Firestore.
@@ -1446,7 +1440,7 @@
     document.getElementById('badgeNotificacoes').style.display='none';
     ocultarPainelNotificacoesPush();
     if(vanmathiNotificacoesListener){vanmathiNotificacoesListener();vanmathiNotificacoesListener=null;}
-    ['Estoque','Produtos','Vendas','Lojas','Marcas','Clientes','Recibos','Orcamentos','Empresa','Insumos','Ferramentas','Compras'].forEach(k=>localStorage.removeItem('Vanmathi_Dados_'+k));
+    ['Estoque','Produtos','Vendas','Lojas','Marcas','Clientes','Recibos','Orcamentos','Empresa','Insumos','Ferramentas','Compras','Impostos','Despesas'].forEach(k=>localStorage.removeItem('Vanmathi_Dados_'+k));
     if (vanmathiAuth) await vanmathiAuth.signOut();
   }
 
@@ -1686,7 +1680,7 @@
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.innerHTML = `<div class="toast-icon">✓</div><span>${mensagem}</span>`;
+    toast.innerHTML = '<div class="toast-icon">✓</div><span></span>'; toast.querySelector('span').textContent = mensagem;
     container.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 50);
     setTimeout(() => {
@@ -1789,7 +1783,7 @@
       let options = '<option value="">Selecione o material</option>';
       listaMateriais.forEach(m => {
         const sel = parseInt(item.materialId) === parseInt(m.id) ? ' selected' : '';
-        options += `<option value="${m.id}"${sel}>${m.nome} (${m.cor || m.marca || 'Material'})</option>`;
+        options += `<option value="${m.id}"${sel}>${escaparHtmlVan(m.nome)} (${escaparHtmlVan(m.cor || m.marca || 'Material')})</option>`;
       });
       return `<div class="material-composicao-row" style="display:grid; grid-template-columns:minmax(0,1fr) 105px 36px; gap:8px; align-items:end;">
         <div><label style="font-size:11px; color:var(--text-muted);">Material ${index + 1}</label><select class="material-composicao-select" onchange="calcularPreco()">${options}</select></div>
@@ -1828,7 +1822,7 @@
     let html = '';
     listaProdutosSalvos.forEach(p => {
       const selecionado = parseInt(produtoSelecionadoId) === parseInt(p.id) ? ' selected' : '';
-      html += `<option value="${p.id}"${selecionado}>${p.nome} (${p.loja || 'Shopee'} - ${p.precoVenda || p.precoSugerido || 'R$ 0,00'})</option>`;
+      html += `<option value="${p.id}"${selecionado}>${escaparHtmlVan(p.nome)} (${escaparHtmlVan(p.loja || 'Shopee')} - ${p.precoVenda || p.precoSugerido || 'R$ 0,00'})</option>`;
     });
     select.innerHTML = html;
   }
@@ -1985,13 +1979,14 @@
       }
     } else {
       const nova={id:Date.now(),...dadosVenda,parcelamento:criarParcelamentoVan(totalVenda,qtdParcelas,document.getElementById('vendaPrimeiroVencimento').value||data),recebimentos:[]};
-      listaVendas.push(nova);
+      listaVendas.push(nova);nova.congelada=true;nova.taxaPct=Number(produto.taxaMarketplace)||0;nova.custoMaterialUn=obterNumeroMoeda(produto.valor);nova.congeladoEm=new Date().toISOString();
       if(pagamentoStatus==='Recebido'&&qtdParcelas<=1){const agora=new Date().toISOString();nova.recebimentos.push({id:'pg_'+Date.now(),valor:totalVenda,data:agora,origem:'cadastro',usuario:vanmathiUsuario?.uid||''});if(nova.parcelamento.parcelas[0]){nova.parcelamento.parcelas[0].pago=totalVenda;nova.parcelamento.parcelas[0].status='Pago';nova.parcelamento.parcelas[0].pagoEm=agora;}}
       atualizarResumoFinanceiroVenda(nova);
       mostrarToast('Venda registrada! Estoque, parcelas e produção atualizados.');
     }
 
     salvarTudoLocal();
+    {const vv=listaVendas.find(x=>String(x.id)===String(idVendaAnterior||listaVendas[listaVendas.length-1]?.id));if(vv){atualizarResumoFinanceiroVenda(vv);if(pagamentoStatus==='Recebido'&&vv.saldoRestante>0.005&&Number(vv.parcelamento?.quantidade||0)<=1)registrarPagamentoVenda(vv.id,vv.saldoRestante,'cadastro');else if(pagamentoStatus==='Parcial'&&vv.totalRecebido<=0.005)registrarPagamentoVenda(vv.id,null,'cadastro');(vv.recebimentos||[]).forEach(r=>{if(r.origem==='cadastro'&&vv.data)r.data=vv.data+'T12:00:00.000Z';});}}
     // Venda com cliente passa a ter recibo vinculado automaticamente; os dados
     // financeiros continuam tendo a venda como fonte única da verdade.
     const vendaSalva = obterVendaFinanceira(idVendaAnterior || listaVendas[listaVendas.length - 1]?.id);
@@ -2165,7 +2160,7 @@
   async function carregarNotificacoes(){
     if(!vanmathiDb||!vanmathiUsuario)return;try{const email=String(vanmathiUsuario.email||'').toLowerCase();const snap=await vanmathiDb.collection('notificacoes').where('destinatarioEmail','==',email).limit(30).get();notificacoesCache=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.criadoEm?.toDate?.()||b.criadoEm||'').localeCompare(String(a.criadoEm?.toDate?.()||a.criadoEm||'')));atualizarBadgeNotificacoes();}catch(e){console.warn('Notificações:',e);}}
   function atualizarBadgeNotificacoes(){const n=notificacoesCache.filter(x=>x.lida!==true).length;const b=document.getElementById('badgeNotificacoes');if(!b)return;b.innerText=n;b.style.display=n?'inline-block':'none';}
-  function abrirNotificacoes(){const c=document.getElementById('listaNotificacoes');if(!c)return;const lista=notificacoesCache;if(!lista.length)c.innerHTML='<p style="color:var(--text-muted);">Nenhuma notificação.</p>';else c.innerHTML=lista.map(n=>`<button style="display:block;width:100%;text-align:left;background:${n.lida?'transparent':'rgba(59,130,246,.08)'};border:1px solid var(--border);color:var(--text-color);padding:12px;border-radius:9px;margin-bottom:8px;cursor:pointer;" onclick="marcarNotificacaoLida('${n.id}')"><strong>${n.titulo||'Notificação'}</strong><span style="display:block;color:var(--text-muted);font-size:12px;margin-top:4px;">${n.mensagem||''}</span></button>`).join('');document.getElementById('modalNotificacoes').classList.add('active');}
+  function abrirNotificacoes(){const c=document.getElementById('listaNotificacoes');if(!c)return;const lista=notificacoesCache;if(!lista.length)c.innerHTML='<p style="color:var(--text-muted);">Nenhuma notificação.</p>';else c.innerHTML=lista.map(n=>`<button style="display:block;width:100%;text-align:left;background:${n.lida?'transparent':'rgba(59,130,246,.08)'};border:1px solid var(--border);color:var(--text-color);padding:12px;border-radius:9px;margin-bottom:8px;cursor:pointer;" onclick="marcarNotificacaoLida('${n.id}')"><strong>${escaparHtmlVan(n.titulo||'Notificação')}</strong><span style="display:block;color:var(--text-muted);font-size:12px;margin-top:4px;">${escaparHtmlVan(n.mensagem||'')}</span></button>`).join('');document.getElementById('modalNotificacoes').classList.add('active');}
   function fecharNotificacoes(){document.getElementById('modalNotificacoes').classList.remove('active');}
   async function marcarNotificacaoLida(id){const n=notificacoesCache.find(x=>x.id===id);if(!n)return;try{await vanmathiDb.collection('notificacoes').doc(id).update({lida:true});n.lida=true;atualizarBadgeNotificacoes();abrirNotificacoes();}catch(e){console.warn(e);}}
 
@@ -2205,13 +2200,13 @@
     const prazoTexto=prazo?prazo.split('-').reverse().join('/'):'Não informado';
     const prazoCor=atrasada?'var(--danger)':'var(--warning)';
     document.getElementById('detalhesTarefaPintura').innerHTML=`
-      <div class="card-box" style="margin-bottom:12px;"><h3>${t.produtoNome||'Produto'}</h3><p class="subtitle">Quantidade: ${t.qtd||1} • Data: ${t.data?t.data.split('-').reverse().join('/'):'-'}</p>
+      <div class="card-box" style="margin-bottom:12px;"><h3>${escaparHtmlVan(t.produtoNome||'Produto')}</h3><p class="subtitle">Quantidade: ${t.qtd||1} • Data: ${t.data?t.data.split('-').reverse().join('/'):'-'}</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0;"><div style="padding:10px;border:1px solid var(--border);border-radius:8px;"><small style="color:var(--text-muted);display:block;">Valor total da pintura</small><strong>R$ ${obterNumeroMoeda(t.valorPintura).toFixed(2).replace('.',',')}</strong></div><div style="padding:10px;border:1px solid var(--border);border-radius:8px;"><small style="color:var(--text-muted);display:block;">Quantidade</small><strong>${t.qtd||1} unidade(s)</strong></div><div style="padding:10px;border:1px solid var(--border);border-radius:8px;"><small style="color:var(--text-muted);display:block;">Prazo de entrega</small><strong style="color:${prazoCor};">${prazoTexto}${atrasada?' • ATRASADA':''}</strong></div></div>
-      <p style="font-size:13px;line-height:1.5;"><strong>Descrição:</strong><br>${t.observacaoPintura||'Sem orientação adicional.'}</p>
+      <p style="font-size:13px;line-height:1.5;"><strong>Descrição:</strong><br>${escaparHtmlVan(t.observacaoPintura||'Sem orientação adicional.')}</p>
       <div class="form-group"><label>Status da pintura</label><select id="statusTarefaModal" ${podeAlterar?'':'disabled'}><option value="Pendente">Pendente</option><option value="Em andamento">Em andamento</option><option value="Parado">Parado</option><option value="Concluído">Concluído</option><option value="Finalizada">Finalizada</option></select></div>
       ${podeAnexar?'<div class="form-group"><label>Anexar referências (até 3 no total)</label><input id="arquivosTarefaModal" type="file" accept=".3mf,.glb,.jpg,.jpeg,.png,.webp,.heic,.heif,model/3mf,model/gltf-binary,image/jpeg,image/png,image/webp,image/heic,image/heif" multiple><small style="display:block;color:var(--text-muted);margin-top:6px;">3MF/GLB + fotos de referência.</small></div>':''}
       ${podeAnexarFoto?'<div class="form-group" style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);"><label>Comprovar pintura concluída</label><p style="font-size:12px;color:var(--text-muted);margin:4px 0 10px;">Tire uma foto da peça pronta. Ela será enviada ao Vanmathi e ficará disponível para a administração.</p><input id="fotoPinturaModal" type="file" accept="image/*" capture="environment" style="display:none" onchange="anexarFotoPinturaTarefa(\''+t.id+'\')"><button type="button" class="btn-primary" onclick="document.getElementById(\'fotoPinturaModal\').click()">📷 Tirar foto da peça pronta</button></div>':''}
-      <div><strong style="font-size:13px;">Arquivos anexados</strong><div id="listaArquivosTarefa">${arquivos.length?arquivos.map(a=>`<div class="arquivo-pintura"><div><strong>${a.nome}</strong><small style="display:block;">${a.tipo||'Arquivo'} • Google Drive${a.compartilhadoComPintor===false?' • compartilhamento pendente':''}</small></div>${String(a.tipo||'').toUpperCase()==='FOTO'?`<img src="${a.url||a.downloadUrl}" alt="Foto da pintura pronta" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-left:auto;margin-right:8px;">`:''}<a class="btn-secondary" href="${a.url||a.downloadUrl}" target="_blank" rel="noopener">📂 Abrir no Drive</a></div>`).join(''):'<p style="color:var(--text-muted);font-size:12px;">Nenhum arquivo anexado ainda.</p>'}</div></div></div>
+      <div><strong style="font-size:13px;">Arquivos anexados</strong><div id="listaArquivosTarefa">${arquivos.length?arquivos.map(a=>`<div class="arquivo-pintura"><div><strong>${escaparHtmlVan(a.nome)}</strong><small style="display:block;">${a.tipo||'Arquivo'} • Google Drive${a.compartilhadoComPintor===false?' • compartilhamento pendente':''}</small></div>${String(a.tipo||'').toUpperCase()==='FOTO'?`<img src="${a.url||a.downloadUrl}" alt="Foto da pintura pronta" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-left:auto;margin-right:8px;">`:''}<a class="btn-secondary" href="${a.url||a.downloadUrl}" target="_blank" rel="noopener">📂 Abrir no Drive</a></div>`).join(''):'<p style="color:var(--text-muted);font-size:12px;">Nenhum arquivo anexado ainda.</p>'}</div></div></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;"><button class="btn-secondary" onclick="fecharModalTarefaPintura()">Fechar</button>${podeAlterar?'<button class="btn-primary" onclick="salvarStatusTarefaPintura(\''+t.id+'\')">💾 Salvar status</button>':''}${podeAnexar?'<button class="btn-primary" onclick="anexarArquivosTarefaPintura(\''+t.id+'\')">📎 Anexar arquivos</button>':''}</div>`;
     document.getElementById('statusTarefaModal').value=t.statusPintura||'Pendente';
     document.getElementById('modalTarefaPintura').classList.add('active');
@@ -2310,7 +2305,7 @@
     document.getElementById('pinturaCountAndamento').innerText=tarefasPinturaCache.filter(t=>t.statusPintura==='Em andamento').length;
     document.getElementById('pinturaCountParado').innerText=tarefasPinturaCache.filter(t=>t.statusPintura==='Parado').length;
     document.getElementById('pinturaCountFinalizada').innerText=tarefasPinturaCache.filter(t=>t.statusPintura==='Concluído' || t.statusPintura==='Finalizada').length;
-    c.innerHTML=lista.length?lista.map(t=>`<tr><td>${t.data?t.data.split('-').reverse().join('/'):'-'}</td><td><strong>${t.produtoNome||'-'}</strong></td><td>${t.qtd||1} un</td><td><span style="color:${t.statusPintura==='Concluído'||t.statusPintura==='Finalizada'?'var(--success)':t.statusPintura==='Parado'?'var(--danger)':t.statusPintura==='Em andamento'?'var(--primary)':'var(--warning)'};font-weight:600;">${t.statusPintura||'Pendente'}</span></td><td><button class="btn-primary" style="padding:6px 10px;font-size:11px;" onclick="abrirModalTarefaPintura('${t.id}')">👁️ Abrir</button></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma pintura encontrada.</td></tr>';
+    c.innerHTML=lista.length?lista.map(t=>`<tr><td>${t.data?t.data.split('-').reverse().join('/'):'-'}</td><td><strong>${escaparHtmlVan(t.produtoNome||'-')}</strong></td><td>${t.qtd||1} un</td><td><span style="color:${t.statusPintura==='Concluído'||t.statusPintura==='Finalizada'?'var(--success)':t.statusPintura==='Parado'?'var(--danger)':t.statusPintura==='Em andamento'?'var(--primary)':'var(--warning)'};font-weight:600;">${t.statusPintura||'Pendente'}</span></td><td><button class="btn-primary" style="padding:6px 10px;font-size:11px;" onclick="abrirModalTarefaPintura('${t.id}')">👁️ Abrir</button></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">Nenhuma pintura encontrada.</td></tr>';
   }
   async function salvarStatusTarefaPintura(id){
     if(vanmathiPerfilAtual?.role!=='pintura')return;const status=document.getElementById('statusTarefaModal').value;
@@ -2679,13 +2674,13 @@
       const status=t.statusPintura||'Pendente';
       const cor=status==='Concluído'?'var(--success)':status==='Parado'?'var(--danger)':status==='Em andamento'?'var(--primary)':'var(--warning)';
       const valor=obterNumeroMoeda(t.valorPintura);
-      const descricao=t.observacaoPintura||'Sem orientação adicional.';
+      const descricao=escaparHtmlVan(t.observacaoPintura||'Sem orientação adicional.');
       const prazo=t.prazoEntregaPintura||'';
       const prazoDate=prazo?new Date(prazo+'T00:00:00'):null;
       const hoje=new Date(); hoje.setHours(0,0,0,0);
       const atrasada=!!(prazoDate && prazoDate<hoje && !['Concluído','Finalizada'].includes(status));
       const prazoTexto=prazo?prazo.split('-').reverse().join('/'):'Não informado';
-      return `<tr><td>${t.data?t.data.split('-').reverse().join('/'):'-'}</td><td><strong>${t.produtoNome||'-'}</strong></td><td>${t.qtd||1} un</td><td style="color:var(--primary);font-weight:600;">R$ ${valor.toFixed(2).replace('.',',')}</td><td style="color:${atrasada?'var(--danger)':'var(--warning)'};font-weight:600;white-space:nowrap;">${prazoTexto}${atrasada?' ⚠️':''}</td><td style="max-width:300px;white-space:normal;line-height:1.4;">${descricao}</td><td><span style="color:${cor};font-weight:600;">${status}</span></td><td><button class="btn-primary" title="Abrir detalhes da pintura" aria-label="Abrir detalhes da pintura" style="padding:7px 10px;font-size:12px;min-width:42px;" onclick="abrirModalTarefaPintura('${t.id}')">👁️</button></td></tr>`;
+      return `<tr><td>${t.data?t.data.split('-').reverse().join('/'):'-'}</td><td><strong>${escaparHtmlVan(t.produtoNome||'-')}</strong></td><td>${t.qtd||1} un</td><td style="color:var(--primary);font-weight:600;">R$ ${valor.toFixed(2).replace('.',',')}</td><td style="color:${atrasada?'var(--danger)':'var(--warning)'};font-weight:600;white-space:nowrap;">${prazoTexto}${atrasada?' ⚠️':''}</td><td style="max-width:300px;white-space:normal;line-height:1.4;">${descricao}</td><td><span style="color:${cor};font-weight:600;">${status}</span></td><td><button class="btn-primary" title="Abrir detalhes da pintura" aria-label="Abrir detalhes da pintura" style="padding:7px 10px;font-size:12px;min-width:42px;" onclick="abrirModalTarefaPintura('${t.id}')">👁️</button></td></tr>`;
     }).join('');
   }
 
@@ -2737,15 +2732,15 @@
       // IMPORTANTE: usa exatamente o valor de "Custo Operacional"
       // exibido em Meus Produtos Salvos como valor UNITÁRIO.
       // Depois multiplica pela quantidade da venda.
-      const custoOperacionalUnitario = obterCustoOperacionalProduto(produtoSalvo);
+      const custoOperacionalUnitario = v.congelada ? (Number(v.custoOperacionalUnidade)||0) : obterCustoOperacionalProduto(produtoSalvo);
       const custoOperacionalTotal = custoOperacionalUnitario * qtdVenda;
       // Se o produto ainda existir em "Meus Produtos Salvos", a Gestão de Vendas
       // usa os valores atuais dele imediatamente. Assim, editar o produto atualiza
       // preço e lucro da venda sem precisar editar a venda manualmente.
-      const valorProduto = produtoSalvo
+      const valorProduto = (produtoSalvo && !v.congelada)
         ? obterNumeroMoeda(produtoSalvo.precoVenda || produtoSalvo.precoSugerido || produtoSalvo.valor)
         : (parseFloat(v.valorProdutoUnidade) || ((parseFloat(v.total) || 0) / qtdVenda));
-      const lucroUnitarioAtual = produtoSalvo
+      const lucroUnitarioAtual = (produtoSalvo && !v.congelada)
         ? obterNumeroMoeda(produtoSalvo.lucro)
         : (v.lucroTotal !== undefined ? (parseFloat(v.lucroTotal) || 0) / qtdVenda : obterNumeroMoeda(v.lucro));
       const lucroTotal = lucroUnitarioAtual * qtdVenda;
@@ -3225,6 +3220,7 @@
       const mesmoNome = String(venda.produtoNome || '').trim().toLowerCase() === String(produto.nome || '').trim().toLowerCase();
       const mesmaLoja = String(venda.loja || 'Shopee').trim().toLowerCase() === String(produto.loja || 'Shopee').trim().toLowerCase();
       if(!mesmoId && !(mesmoNome && mesmaLoja)) return;
+      if(venda.congelada) return; // custo congelado: venda antiga não muda
 
       const qtd = Math.max(1, parseInt(venda.qtd, 10) || 1);
       venda.produtoId = produto.id;
@@ -3335,7 +3331,7 @@
       const lucro = obterNumeroMoeda(p.lucro);
 
       html += `<tr>
-        <td><strong>${escaparHtmlVan(p.nome)}</strong></td>
+        <td><strong>${escaparHtmlVan(p.nome)}</strong>${avisoCustoVan(p)}</td>
         <td><span style="color: var(--primary); background: rgba(59,130,246,0.1); padding: 4px 8px; border-radius: 6px; font-size: 11px;">${escaparHtmlVan(p.loja || 'Shopee')}</span></td>
         <td style="font-size: 12px; color: var(--text-muted);">${escaparHtmlVan(matLabel)}</td>
         <td>${p.gramas}g</td>
@@ -3346,6 +3342,7 @@
         <td style="color: var(--success); font-weight: 600;">R$ ${lucro.toFixed(2).replace('.', ',')}</td>
         <td style="display: flex; gap: 6px;">
           <button class="btn-secondary" style="padding: 6px 8px;" onclick="editarProduto(${p.id})" title="Editar produto">✏️</button>
+          <button class="btn-secondary" style="padding: 6px 8px;" onclick="recalcularCustoProduto(${p.id})" title="Recalcular com o custo atual">🔄</button>
           <button class="btn-danger" style="padding: 6px 8px;" onclick="excluirProduto(${p.id})" title="Excluir produto">🗑️</button>
         </td>
       </tr>`;
@@ -3393,8 +3390,8 @@
         totalPerdas += total;
       } else {
         const recebidoVenda=Array.isArray(v.recebimentos)?v.recebimentos.reduce((a,p)=>a+(Number(p.valor)||0),0):(pagamento==='Recebido'?total:0);
-        totalRecebido+=Math.min(total,recebidoVenda);
-        totalAReceber+=Math.max(0,total-recebidoVenda);
+        if(status==='Concluído')totalRecebido+=Math.min(total,recebidoVenda);
+        if(status==='Concluído')totalAReceber+=Math.max(0,total-recebidoVenda);
         if(status === 'Em Produção') { totalEmProducao += total; pedidosProducao++; }
         else if(status === 'Concluído') { totalFat += total; totalHoras += horasVenda; totalPecasVendidas += qtd; pedidosConcluidos++; lucroRealizado += lucroVenda; }
       }
@@ -4207,6 +4204,131 @@
   atualizarRelatorios=function(){_ar();try{renderTudoEstoque();}catch(e){console.warn(e);}};
   montarAbasEstoque();
 
+
+  // ===== PASSOS 2-5: Impostos, DRE, Gráficos, Relatórios, custo congelado, Excel =====
+  const E2=escaparHtmlVan, pct1=x=>(Number(x)||0).toFixed(1).replace('.',',')+'%';
+  const TIPOS_IMP={fixa:'Fixa mensal (R$)',nota:'Por nota (R$)',pct:'% do faturamento',anual:'Anual (R$)'};
+  let listaImpostos=JSON.parse(localStorage.getItem('Vanmathi_Dados_Impostos')||'null')||['DAS|fixa','Emissor de nota|fixa','Taxa por nota|nota','Certificado digital|anual','Contador|fixa','Alvará e prefeitura|anual','ISS|pct','ICMS|pct','PIS|pct','COFINS|pct'].map((x,i)=>{const p=x.split('|');return {id:'imp'+i,nome:p[0],tipo:p[1],valor:0,ini:'',fim:'',ativo:true};});
+  let listaDespesas=JSON.parse(localStorage.getItem('Vanmathi_Dados_Despesas')||'null')||['Aluguel','Internet','Pró-labore'].map((n,i)=>({id:'des'+i,nome:n,valor:0,ini:'',fim:''}));
+  const _stl2=salvarTudoLocal;
+  salvarTudoLocal=function(){localStorage.setItem('Vanmathi_Dados_Impostos',JSON.stringify(listaImpostos));localStorage.setItem('Vanmathi_Dados_Despesas',JSON.stringify(listaDespesas));return _stl2.apply(this,arguments);};
+  Object.assign(TITULOS_ABA,{impostos:['Impostos & Taxas','Impostos, taxas, despesas fixas e depreciação (só administrador).'],dre:['DRE & Gráficos','Resultado por mês e ano, gráficos e comparativo (só administrador).']});
+  const _api=aplicarPermissoesInterface;
+  aplicarPermissoesInterface=function(role){_api(role);['menuImpostos','menuDRE'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=role==='admin'?'':'none';});};
+  const _mam=mudarAbaMenu;
+  mudarAbaMenu=function(ev,id){if(['impostos','dre'].includes(id)&&vanmathiPerfilAtual?.role!=='admin'){alert('Área exclusiva para administradores.');return;}_mam(ev,id);if(id==='impostos')renderImpostos();if(id==='dre')renderDRE();};
+  // custo congelado: vendas existentes passam a ficar travadas
+  sincronizarVendasComProdutos=function(){listaVendas.forEach(v=>{if(!v.congelada){v.congelada=true;v.congeladoEm=new Date().toISOString();}});};
+  function custoMatAtualVan(p){return obterComposicaoProduto(p).reduce((s,i)=>{const m=listaMateriais.find(x=>String(x.id)===String(i.materialId));return s+(m?i.gramas*(+m.precoPago||0)/(+m.pesoMax||1000):0);},0);}
+  function avisoCustoVan(p){const u=obterNumeroMoeda(p.valor),a=custoMatAtualVan(p);if(u<=0)return '';const d=(a-u)/u*100;return Math.abs(d)>=3?`<div style="font-size:10px;color:${d>0?'var(--danger)':'var(--success)'}">custo ${d>0?'subiu':'caiu'} ${Math.abs(d).toFixed(0)}%</div>`:'';}
+  function recalcularCustoProduto(id){editarProduto(id);mostrarToast('Custos recalculados com o custo atual do estoque. Confira e clique em Salvar.');}
+  // ---- Impostos & Taxas
+  const inpS='style="background:var(--bg-sidebar);border:1px solid var(--border);color:var(--text-color);padding:6px;border-radius:6px;width:100%"';
+  function impSet(t,id,c,v){const L=t==='imp'?listaImpostos:listaDespesas;const it=L.find(x=>x.id===id);if(!it)return;it[c]=c==='valor'?(v===''?0:Number(v)):v;salvarTudoLocal();}
+  function impDel(t,id){if(!confirm('Excluir este cadastro?'))return;if(t==='imp')listaImpostos=listaImpostos.filter(x=>x.id!==id);else listaDespesas=listaDespesas.filter(x=>x.id!==id);salvarTudoLocal();renderImpostos();}
+  function impAdd(t){if(t==='imp')listaImpostos.push({id:'imp'+Date.now(),nome:'Novo imposto',tipo:'fixa',valor:0,ini:'',fim:'',ativo:true});else listaDespesas.push({id:'des'+Date.now(),nome:'Nova despesa',valor:0,ini:'',fim:''});salvarTudoLocal();renderImpostos();}
+  function lojaFixaSet(i,v){listaLojas[i].taxaFixa=Number(v)||0;salvarTudoLocal();}
+  function renderImpostos(){
+    const el=document.getElementById('secao-impostos');if(!el)return;
+    const vig=(t,i)=>`<td><input ${inpS} type="month" value="${E2(i.ini||'')}" onchange="impSet('${t}','${i.id}','ini',this.value)"></td><td><input ${inpS} type="month" value="${E2(i.fim||'')}" onchange="impSet('${t}','${i.id}','fim',this.value)"></td>`;
+    const linImp=i=>`<tr><td><input ${inpS} value="${E2(i.nome)}" onchange="impSet('imp','${i.id}','nome',this.value)"></td><td><select ${inpS} onchange="impSet('imp','${i.id}','tipo',this.value)">${Object.entries(TIPOS_IMP).map(([k,v])=>`<option value="${k}" ${i.tipo===k?'selected':''}>${v}</option>`).join('')}</select></td><td><input ${inpS} type="number" step="0.01" min="0" placeholder="em branco" value="${i.valor||''}" onchange="impSet('imp','${i.id}','valor',this.value)"></td>${vig('imp',i)}<td style="text-align:center"><input type="checkbox" ${i.ativo!==false?'checked':''} onchange="impSet('imp','${i.id}','ativo',this.checked)" title="Ativo"></td><td><button class="btn-danger" onclick="impDel('imp','${i.id}')">🗑️</button></td></tr>`;
+    const linDes=i=>`<tr><td><input ${inpS} value="${E2(i.nome)}" onchange="impSet('des','${i.id}','nome',this.value)"></td><td><input ${inpS} type="number" step="0.01" min="0" placeholder="em branco" value="${i.valor||''}" onchange="impSet('des','${i.id}','valor',this.value)"></td>${vig('des',i)}<td><button class="btn-danger" onclick="impDel('des','${i.id}')">🗑️</button></td></tr>`;
+    el.innerHTML=`<div class="card-box"><h3>Impostos e taxas</h3><p class="subtitle">Valores em branco até você definir. Desative (✔) o que não se aplica ao seu regime (MEI, Simples ou Presumido). Os "% do faturamento" e "por nota" entram nas deduções da DRE; os fixos e anuais (÷12) entram nas despesas.</p>${estTabela(['Nome','Tipo','Valor','Vigência início','Vigência fim','Ativo',''],listaImpostos.map(linImp).join(''),'')}<button class="btn-secondary" onclick="impAdd('imp')">＋ Adicionar imposto / taxa</button></div>
+    <div class="card-box"><h3>Despesas fixas mensais</h3>${estTabela(['Nome','Valor mensal (R$)','Vigência início','Vigência fim',''],listaDespesas.map(linDes).join(''),'')}<button class="btn-secondary" onclick="impAdd('des')">＋ Adicionar despesa fixa</button></div>
+    <div class="card-box"><h3>Taxa fixa por venda (marketplaces)</h3><p class="subtitle">Valor em R$ cobrado por venda, além do percentual da loja. Entra nas deduções da DRE.</p>${estTabela(['Loja','% da loja','Taxa fixa por venda (R$)'],listaLojas.map((l,i)=>`<tr><td>${E2(l.nome)}</td><td>${l.taxa}%</td><td><input ${inpS} type="number" step="0.01" min="0" value="${l.taxaFixa||''}" placeholder="0,00" onchange="lojaFixaSet(${i},this.value)"></td></tr>`).join(''),'')}</div>
+    <div class="card-box"><h3>Equipamentos e depreciação</h3><p class="subtitle">Vem do cadastro de Ferramentas & Equipamentos (aba Estoque): valor, data da compra e vida útil. Depreciação linear mensal.</p>${estTabela(['Equipamento','Valor','Compra','Vida útil (meses)','Depreciação / mês'],listaFerramentas.map(f=>`<tr><td>${E2(f.nome)}</td><td>${moedaVan(f.valorTotal)}</td><td>${dataVan(f.data)}</td><td>${f.vida||'—'}</td><td>${f.vida>0?moedaVan(f.valorTotal/f.vida):'—'}</td></tr>`).join(''),'Cadastre equipamentos em Estoque → Ferramentas & Equipamentos (informe a vida útil).')}</div>`;
+  }
+  // ---- DRE
+  const ymDe=d=>String(d||'').slice(0,7), ymIdx=ym=>{const p=ym.split('-');return (+p[0])*12+(+p[1])-1;};
+  function taxaLojaVan(v){return v.taxaPct!=null?Number(v.taxaPct):(Number(listaLojas.find(l=>l.nome===v.loja)?.taxa)||0);}
+  function vigenteVan(i,ym){return i.ativo!==false&&(!i.ini||i.ini<=ym)&&(!i.fim||i.fim>=ym);}
+  const GR=['rb','ded','cpv','dop'];
+  const novoDRE=()=>({rb:0,ded:0,cpv:0,dop:0,n:0,g:{rb:{},ded:{},cpv:{},dop:{}}});
+  function dreMes(ym,regime){
+    const D=novoDRE();const add=(g,k,v)=>{D.g[g][k]=(D.g[g][k]||0)+v;D[g]+=v;};
+    const lanca=(v,f)=>{const t=(Number(v.total)||0)*f;add('rb',v.loja||'Sem loja',t);const lj=listaLojas.find(l=>l.nome===v.loja);add('ded','Taxas de marketplace',t*taxaLojaVan(v)/100+(Number(lj?.taxaFixa)||0)*f);add('cpv',v.produtoNome||'Produto',(Number(v.custoOperacionalTotal)||0)*f);D.n+=f;};
+    listaVendas.forEach(v=>{if(v.status==='Devolvido')return;if(regime==='caixa'){(v.recebimentos||[]).forEach(r=>{if(ymDe(r.data)===ym&&Number(v.total)>0)lanca(v,Number(r.valor)/Number(v.total));});}else if(v.status==='Concluído'&&ymDe(v.data)===ym)lanca(v,1);});
+    listaRecibos.filter(r=>!r.vendaId).forEach(r=>{let val=0;if(regime==='caixa'){const bx=r.baixas||[];const pb=bx.reduce((a,b)=>a+(Number(b.valor)||0),0);if(ymDe(r.data)===ym)val+=Math.max(0,(Number(r.recebido)||0)-pb);bx.forEach(b=>{if(ymDe(b.data)===ym)val+=Number(b.valor)||0;});}else if(ymDe(r.data)===ym)val=Number(r.total)||0;if(val)add('rb','Recibos avulsos',val);});
+    listaImpostos.forEach(i=>{if(!vigenteVan(i,ym)||!(Number(i.valor)>0))return;if(i.tipo==='pct')add('ded',i.nome,D.rb*i.valor/100);else if(i.tipo==='nota')add('ded',i.nome,i.valor*D.n);else add('dop',i.nome,i.tipo==='anual'?i.valor/12:i.valor);});
+    listaDespesas.forEach(d=>{if(vigenteVan(d,ym)&&Number(d.valor)>0)add('dop',d.nome,Number(d.valor));});
+    listaFerramentas.forEach(f=>{if(!(f.vida>0)||!f.data||!(f.valorTotal>0))return;const a=ymIdx(ymDe(f.data)),x=ymIdx(ym);if(x>=a&&x<a+f.vida)add('dop','Depreciação: '+f.nome,f.valorTotal/f.vida);});
+    return D;
+  }
+  function dreFin(D){D.rl=D.rb-D.ded;D.lb=D.rl-D.cpv;D.ebit=D.lb-D.dop;D.liq=D.ebit;return D;}
+  function dreSoma(arr){const R=novoDRE();arr.forEach(D=>GR.forEach(k=>{R[k]+=D[k];Object.entries(D.g[k]).forEach(([n,v])=>R.g[k][n]=(R.g[k][n]||0)+v);}));return dreFin(R);}
+  const mm=n=>String(n).padStart(2,'0');
+  function drePeriodo(ano,mes,rg){return mes==='todos'?dreSoma(Array.from({length:12},(_,i)=>dreMes(ano+'-'+mm(i+1),rg))):dreFin(dreMes(ano+'-'+mes,rg));}
+  function dreAnterior(ano,mes,rg){if(mes==='todos')return drePeriodo(String(ano-1),'todos',rg);let a=+ano,m=+mes-1;if(m<1){m=12;a--;}return drePeriodo(String(a),mm(m),rg);}
+  const hoje0=new Date();
+  let dreSt={ano:String(hoje0.getFullYear()),mes:mm(hoje0.getMonth()+1),rg:'competencia',aba:'dre',a:ymDe(hoje0.toISOString()),b:''};
+  function dreSet(k,v){dreSt[k]=v;renderDRE();}
+  function toggleDre(k){document.querySelectorAll('.dreg-'+k).forEach(r=>r.style.display=r.style.display==='none'?'table-row':'none');}
+  function barSvg(lab,ser,cores,nomes){const W=700,H=190,p=10,n=lab.length,k=ser.length,mx=Math.max(1,...ser.flat().map(Math.abs)),bw=(W-2*p)/n;let o=`<svg viewBox="0 0 ${W} ${H+44}" style="width:100%;max-width:${W}px;height:auto">`;lab.forEach((l,i)=>{ser.forEach((s,j)=>{const v=Number(s[i])||0,h=Math.abs(v)/mx*(H-10),w=bw/(k+1);o+=`<rect x="${p+i*bw+j*w+w/2}" y="${v>=0?H-h:H}" width="${w-2}" height="${Math.max(h,0)}" fill="${cores[j]}"><title>${nomes[j]}: ${moedaVan(v)}</title></rect>`;});o+=`<text x="${p+i*bw+bw/2}" y="${H+14}" font-size="10" fill="#94a3b8" text-anchor="middle">${l}</text>`;});o+=`<line x1="${p}" x2="${W-p}" y1="${H}" y2="${H}" stroke="#334155"/>`;nomes.forEach((nm,j)=>{o+=`<rect x="${p+j*130}" y="${H+26}" width="10" height="10" fill="${cores[j]}"/><text x="${p+j*130+14}" y="${H+35}" font-size="10" fill="#94a3b8">${nm}</text>`;});return o+'</svg>';}
+  function renderDRE(){
+    const el=document.getElementById('secao-dre');if(!el)return;
+    const anos=new Set([String(hoje0.getFullYear())]);listaVendas.forEach(v=>{if(v.data)anos.add(v.data.slice(0,4));});
+    const sel=(id,opts,cur)=>`<select onchange="dreSet('${id}',this.value)" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text-color);padding:8px 12px;border-radius:6px">${opts.map(o=>`<option value="${o[0]}" ${String(o[0])===String(cur)?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+    const meses=[['todos','Ano inteiro']].concat(['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'].map((n,i)=>[mm(i+1),n]));
+    const filtros=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">${sel('rg',[['competencia','Competência (vendas concluídas)'],['caixa','Caixa (valores recebidos)']],dreSt.rg)}${dreSt.aba!=='comp'?sel('ano',[...anos].sort().reverse().map(a=>[a,a]),dreSt.ano):''}${dreSt.aba==='dre'?sel('mes',meses,dreSt.mes):''}</div>`;
+    const abas=[['dre','DRE'],['graf','Gráficos'],['comp','Comparativo']];
+    let h=`<div class="tab-menu">${abas.map(a=>`<button class="est-tab ${dreSt.aba===a[0]?'active':''}" onclick="dreSet('aba','${a[0]}')">${a[1]}</button>`).join('')}</div>${filtros}`;
+    const LIN=[['rb','Receita bruta',1],['ded','(−) Deduções (impostos e taxas)',1],['rl','Receita líquida'],['cpv','(−) CPV (custo dos produtos vendidos)',1],['lb','Lucro bruto'],['dop','(−) Despesas operacionais (com depreciação)',1],['ebit','EBIT'],['liq','Resultado líquido']];
+    const tabLinhas=(A,B,nA,nB,det)=>`<div class="table-container"><table><thead><tr><th>Linha</th><th>${nA}</th><th>% receita</th><th>${nB}</th><th>Variação</th></tr></thead><tbody>${LIN.map(([k,t,g])=>{const a=A[k],b=B[k],neg=['ded','cpv','dop'].includes(k),bold=!g;const va=b?((a-b)/Math.abs(b)*100):null;let r=`<tr style="${bold?'font-weight:700;background:rgba(59,130,246,.06)':''}"><td>${g&&det?`<a style="cursor:pointer;color:var(--primary)" onclick="toggleDre('${k}')">▸</a> `:''}${t}</td><td style="color:${neg?'var(--warning)':a<0?'var(--danger)':'var(--text-color)'}">${moedaVan(a)}</td><td>${A.rb?pct1(a/A.rb*100):'—'}</td><td>${moedaVan(b)}</td><td style="color:${va==null?'inherit':(va>=0?(neg?'var(--danger)':'var(--success)'):(neg?'var(--success)':'var(--danger)'))}">${va==null?'—':(va>0?'+':'')+pct1(va)}</td></tr>`;if(g&&det)r+=Object.entries(A.g[k]).sort((x,y)=>y[1]-x[1]).map(([n,v])=>`<tr class="dreg-${k}" style="display:none;font-size:12px;color:var(--text-muted)"><td style="padding-left:36px">${E2(n)}</td><td>${moedaVan(v)}</td><td>${A.rb?pct1(v/A.rb*100):'—'}</td><td>${moedaVan(B.g[k][n]||0)}</td><td></td></tr>`).join('');return r;}).join('')}</tbody></table></div>`;
+    if(dreSt.aba==='dre'){const A=drePeriodo(dreSt.ano,dreSt.mes,dreSt.rg),B=dreAnterior(dreSt.ano,dreSt.mes,dreSt.rg);h+=`<p class="subtitle">Regime: <b>${dreSt.rg==='caixa'?'Caixa':'Competência'}</b>. Variação contra ${dreSt.mes==='todos'?'o ano anterior':'o mês anterior'}. Clique em ▸ para abrir o detalhe. Sem Balanço Patrimonial.</p>`+tabLinhas(A,B,'Período',dreSt.mes==='todos'?'Ano anterior':'Mês anterior',true);}
+    else if(dreSt.aba==='graf'){
+      const M=Array.from({length:12},(_,i)=>drePeriodo(dreSt.ano,mm(i+1),dreSt.rg)),lab=['J','F','M','A','M','J','J','A','S','O','N','D'];
+      const fat=M.map(d=>d.rb),gas=M.map(d=>d.ded+d.cpv+d.dop),luc=M.map(d=>d.liq),marg=M.map(d=>d.rb?d.liq/d.rb*100:0);
+      const Y=dreSoma(M);
+      h+=`<div class="card-box"><h3>Faturamento × gastos × lucro — ${dreSt.ano}</h3>${barSvg(lab,[fat,gas,luc],['#3b82f6','#f59e0b','#10b981'],['Faturamento','Gastos','Lucro'])}</div>
+      <div class="card-box"><h3>Margem líquida mês a mês</h3><div style="display:flex;gap:6px;flex-wrap:wrap">${marg.map((m,i)=>`<div style="flex:1;min-width:52px;text-align:center;background:var(--bg-sidebar);border-radius:8px;padding:8px"><small style="color:var(--text-muted)">${lab[i]}${i+1}</small><div style="font-weight:700;color:${m<0?'var(--danger)':'var(--success)'}">${pct1(m)}</div></div>`).join('')}</div></div>
+      <div class="card-box"><h3>Gastos por categoria — ${dreSt.ano}</h3>${(()=>{const it=[['CPV (produtos)',Y.cpv]].concat(Object.entries(Y.g.ded),Object.entries(Y.g.dop)).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);const mx=Math.max(1,...it.map(x=>x[1]));return it.map(x=>`<div style="margin:6px 0;font-size:12px"><div style="display:flex;justify-content:space-between"><span>${E2(x[0])}</span><b>${moedaVan(x[1])}</b></div><div style="height:7px;background:var(--border);border-radius:4px"><div style="height:100%;width:${x[1]/mx*100}%;background:var(--primary);border-radius:4px"></div></div></div>`).join('')||'<span style="color:var(--text-muted)">Sem gastos no período.</span>';})()}</div>`;
+    }else{
+      if(!dreSt.b){const d=new Date();d.setMonth(d.getMonth()-1);dreSt.b=ymDe(d.toISOString());}
+      const A=dreFin(dreMes(dreSt.a,dreSt.rg)),B=dreFin(dreMes(dreSt.b,dreSt.rg));
+      h+=`<div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap"><input type="month" value="${dreSt.a}" onchange="dreSet('a',this.value)" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text-color);padding:8px;border-radius:6px"> contra <input type="month" value="${dreSt.b}" onchange="dreSet('b',this.value)" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text-color);padding:8px;border-radius:6px"></div>`+tabLinhas(A,B,dreSt.a,dreSt.b,false);
+    }
+    el.innerHTML=h;
+  }
+  // ---- Relatórios reais (Top produtos, Status, Faturamento, Perdas, Gastos, Estoque & Catálogo)
+  function vendasFiltradasVan(){const l=document.getElementById('filtroLoja').value,m=document.getElementById('filtroMes').value,a=document.getElementById('filtroAno').value;return listaVendas.filter(v=>(l==='todos'||v.loja===l)&&(m==='todos'||(v.data||'').slice(5,7)===m)&&(a==='todos'||(v.data||'').slice(0,4)===a));}
+  function barraH(t,v,mx,cor){return `<div style="margin:6px 0;font-size:12px"><div style="display:flex;justify-content:space-between"><span>${E2(t)}</span><b>${v}</b></div><div style="height:7px;background:var(--border);border-radius:4px"><div style="height:100%;width:${mx?v/mx*100:0}%;background:${cor||'var(--primary)'};border-radius:4px"></div></div></div>`;}
+  function renderRelExtras(){
+    const F=vendasFiltradasVan(),ok=F.filter(v=>v.status==='Concluído');
+    const top={};ok.forEach(v=>top[v.produtoNome]=(top[v.produtoNome]||0)+(parseInt(v.qtd)||0));
+    const tp=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,5),el=document.getElementById('listaTopProdutos');
+    if(el)el.innerHTML=tp.length?tp.map(x=>barraH(x[0],x[1]+' un',tp[0][1])).join(''):'Nenhuma venda concluída no período.';
+    const st={'Concluído':0,'Em Produção':0,'Devolvido':0};F.forEach(v=>{if(st[v.status]!==undefined)st[v.status]++;});const mx=Math.max(1,...Object.values(st));
+    const ps=document.getElementById('painelStatusPedidos');if(ps)ps.innerHTML=Object.entries(st).map(([k,v])=>barraH(k,v,mx,k==='Concluído'?'var(--success)':k==='Devolvido'?'var(--danger)':'var(--warning)')).join('');
+    const ano=document.getElementById('filtroAno').value,aa=ano==='todos'?String(new Date().getFullYear()):ano;
+    const lojaF=document.getElementById('filtroLoja').value;
+    const mes=Array.from({length:12},(_,i)=>listaVendas.filter(v=>v.status==='Concluído'&&(lojaF==='todos'||v.loja===lojaF)&&(v.data||'').slice(0,7)===aa+'-'+mm(i+1)).reduce((s,v)=>s+(Number(v.total)||0),0));
+    const g=document.getElementById('graficoFaturamentoMsg');if(g){g.style.display='block';g.innerHTML=mes.some(x=>x>0)?barSvg(['J','F','M','A','M','J','J','A','S','O','N','D'],[mes],['#3b82f6'],['Faturamento '+aa]):'Nenhum faturamento realizado no período.';}
+    const dv=F.filter(v=>v.status==='Devolvido'),pl=document.getElementById('listaPerdas');
+    if(pl)pl.innerHTML=dv.length?estTabela(['Data','Produto','Loja','Qtd','Valor'],dv.map(v=>`<tr><td>${dataVan(v.data)}</td><td>${E2(v.produtoNome)}</td><td>${E2(v.loja||'')}</td><td>${v.qtd}</td><td>${moedaVan(v.total)}</td></tr>`).join(''),''):'Sem registros de perdas ou devoluções no período.';
+    // Gastos
+    const m=document.getElementById('filtroMes').value,a=document.getElementById('filtroAno').value;
+    const C=listaCompras.filter(c=>(m==='todos'||String(c.data).slice(5,7)===m)&&(a==='todos'||String(c.data).slice(0,4)===a));
+    const gr=document.getElementById('gastos-rel');
+    if(gr){const tot=C.reduce((s,c)=>s+c.valor,0),cat={};C.forEach(c=>cat[c.cat]=(cat[c.cat]||0)+c.valor);const mc=Math.max(1,...Object.values(cat));
+      gr.innerHTML=`<div class="metrics-grid"><div class="metric-card"><span>Total gasto no período</span><h3>${moedaVan(tot)}</h3></div><div class="metric-card"><span>Compras registradas</span><h3>${C.length}</h3></div></div><div class="grid-2"><div class="card-box"><h3>Divisão por categoria</h3>${Object.entries(cat).map(([k,v])=>barraH(EST_CATS[k],moedaVan(v),mc)).join('')||'<span style="color:var(--text-muted)">Sem compras no período.</span>'}</div><div class="card-box"><h3>Maiores gastos</h3>${estTabela(['Data','Item','Valor'],C.slice().sort((x,y)=>y.valor-x.valor).slice(0,10).map(c=>`<tr><td>${dataVan(c.data)}</td><td>${E2(c.item)}</td><td>${moedaVan(c.valor)}</td></tr>`).join(''),'Sem compras.')}</div></div>`;}
+    // Estoque & Catálogo: valor investido e gastos por categoria
+    const ec=document.getElementById('estoque-catalogo');if(ec){let x=document.getElementById('estCatExtra');if(!x){x=document.createElement('div');x.id='estCatExtra';ec.appendChild(x);}
+      const all={};listaCompras.forEach(c=>all[c.cat]=(all[c.cat]||0)+c.valor);const inv=listaCompras.reduce((s,c)=>s+c.valor,0);
+      x.innerHTML=`<div class="metrics-grid"><div class="metric-card"><span>Valor investido (todas as compras)</span><h3>${moedaVan(inv)}</h3></div>${Object.entries(all).map(([k,v])=>`<div class="metric-card"><span>Gasto em ${EST_CATS[k]}</span><h3>${moedaVan(v)}</h3></div>`).join('')}</div>`;}
+  }
+  document.getElementById('estoque-catalogo')?.insertAdjacentHTML('afterend','<div id="gastos-rel" class="tab-content"></div>');
+  const _ar2=atualizarRelatorios;
+  atualizarRelatorios=function(){_ar2();try{renderRelExtras();}catch(e){console.warn(e);}};
+  // ---- Excel (SheetJS)
+  function xlsDl(nome,rows){if(!window.XLSX){alert('Biblioteca de Excel não carregada.');return;}const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{}]),'Dados');XLSX.writeFile(wb,nome+'_'+hojeVan()+'.xlsx');}
+  function xlsLer(ev,cb){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'array'});cb(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]));}catch(x){alert('Arquivo inválido: '+x.message);}ev.target.value='';};r.readAsArrayBuffer(f);}
+  const dIso=v=>{const t=String(v||'').trim();if(/^\d{2}\/\d{2}\/\d{4}$/.test(t)){const p=t.split('/');return p[2]+'-'+p[1]+'-'+p[0];}return /^\d{4}-\d{2}-\d{2}/.test(t)?t.slice(0,10):hojeVan();};
+  function exportarExcelVendas(){xlsDl('vendas',listaVendas.map(v=>({Data:v.data,Produto:v.produtoNome,Loja:v.loja,Qtd:v.qtd,Total:Number(v.total)||0,Custo:Number(v.custoOperacionalTotal)||0,Lucro:Number(v.lucroTotal)||0,Status:v.status,Recebido:Number(v.totalRecebido)||0})));}
+  function exportarExcelEstoque(){xlsDl('estoque',listaMateriais.map(m=>({Nome:m.nome,Tipo:m.tipo,Cor:m.cor,Marca:m.marca,Modelo:m.modelo,'Peso total (g)':m.pesoMax,'Valor pago (R$)':m.precoPago,'Restante (g)':estAtualMat(m)})));}
+  function exportarExcelProdutos(){xlsDl('catalogo',listaProdutosSalvos.map(p=>({Nome:p.nome,Loja:p.loja,Material:p.materialNome,Gramas:p.gramas,Horas:p.horas,Minutos:p.minutos,Embalagem:p.embalagem,Frete:p.frete,Margem:p.margem,'Custo total':obterNumeroMoeda(p.custoOperacional),Preço:obterNumeroMoeda(p.precoVenda||p.precoSugerido),Lucro:obterNumeroMoeda(p.lucro)})));}
+  function importarExcelEstoque(ev){xlsLer(ev,rows=>{let n=0;rows.forEach(r=>{if(!r.Nome)return;listaMateriais.push({id:Date.now()+n++,nome:String(r.Nome),tipo:r.Tipo==='Resina'?'Resina':'Filamento',cor:String(r.Cor||''),marca:String(r.Marca||listaMarcas[0]||''),modelo:String(r.Modelo||''),pesoMax:Number(r['Peso total (g)'])||1000,precoPago:Number(r['Valor pago (R$)'])||0,custo:''});});listaMateriais.forEach(garantirBobinas);salvarTudoLocal();filtrarTabela();atualizarRelatorios();renderizarSelectMaterialCalculadora();mostrarToast(n+' material(is) importado(s).');});}
+  function importarExcelProdutos(ev){xlsLer(ev,rows=>{let n=0;rows.forEach(r=>{if(!r.Nome)return;const m=listaMateriais.find(x=>x.nome===r.Material||(r.Material||'').startsWith(x.nome));if(!m)return;const g=Number(r.Gramas)||0,h=(Number(r.Horas)||0)+(Number(r.Minutos)||0)/60,lj=listaLojas.find(l=>l.nome===r.Loja)||listaLojas[0],mat=g*(+m.precoPago||0)/(+m.pesoMax||1000),ct=mat+h*0.2+(Number(r.Embalagem)||0)+(Number(r.Frete)||0),pv=ct*(1+(Number(r.Margem)||0)/100)/(1-lj.taxa/100),f=x=>'R$ '+x.toFixed(2).replace('.',',');listaProdutosSalvos.push({id:Date.now()+n++,nome:String(r.Nome),loja:lj.nome,materialId:m.id,materialNome:m.nome+' ('+g+'g)',composicaoMateriais:[{materialId:m.id,gramas:g}],gramas:g,horas:r.Horas||0,minutos:r.Minutos||0,custoEnergiaHora:'0.20',embalagem:String(r.Embalagem||0),frete:String(r.Frete||0),acessorios:'0',margem:Number(r.Margem)||0,taxaMarketplace:lj.taxa,valor:f(mat),custoOperacional:f(ct),custoOperacionalTotal:f(ct),precoVenda:f(pv),precoSugerido:f(pv),lucro:f(pv-ct-pv*lj.taxa/100)});});salvarTudoLocal();renderizarProdutosSalvos();atualizarRelatorios();mostrarToast(n+' produto(s) importado(s). Linhas com material inexistente foram ignoradas.');});}
+  function importarExcelVendas(ev){xlsLer(ev,rows=>{let n=0;rows.forEach(r=>{const p=listaProdutosSalvos.find(x=>x.nome===r.Produto);if(!p)return;const qtd=parseInt(r.Qtd)||1,pu=obterNumeroMoeda(p.precoVenda||p.precoSugerido),cu=obterCustoOperacionalProduto(p),data=dIso(r.Data),total=pu*qtd;const v={id:Date.now()+n++,produtoId:p.id,produtoNome:p.nome,loja:p.loja,materialId:p.materialId,gramasUnidade:parseFloat(p.gramas)||0,composicaoMateriais:obterComposicaoProduto(p),horasUnidade:(parseFloat(p.horas)||0)+(parseFloat(p.minutos)||0)/60,qtd,total,custoOperacionalUnidade:cu,custoOperacionalTotal:cu*qtd,lucroTotal:obterNumeroMoeda(p.lucro)*qtd,valorProdutoUnidade:pu,data,status:['Concluído','Em Produção','Devolvido'].includes(r.Status)?r.Status:'Concluído',pagamentoStatus:'Pendente',parcelamento:criarParcelamentoVan(total,0,''),recebimentos:[],congelada:true,taxaPct:Number(p.taxaMarketplace)||0};atualizarResumoFinanceiroVenda(v);listaVendas.push(v);});salvarTudoLocal();renderizarVendas();filtrarTabela();atualizarFiltroAnosDinamico();atualizarRelatorios();mostrarToast(n+' venda(s) importada(s). Linhas com produto inexistente foram ignoradas.');});}
   // ===== Clientes, recibos e dados comerciais da empresa =====
   function escaparHtmlVan(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function moedaVan(v){return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
