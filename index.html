@@ -312,7 +312,7 @@
       <ul class="nav-links">
         <li><a class="active" onclick="mudarAbaMenu(event, 'relatorios')">📊 Relatórios & Visão</a></li>
         <li id="menuVendas"><a onclick="mudarAbaMenu(event, 'vendas')">🛒 Gestão de Vendas</a></li>
-        <li><a onclick="mudarAbaMenu(event, 'estoque')">📦 Estoque</a></li>
+        <li><a onclick="mudarAbaMenu(event, 'estoque')">📦 Estoque <span id="badgeEstoque" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:6px;">0</span></a></li>
         <li><a onclick="mudarAbaMenu(event, 'precificacao')">💰 Calculadora Lojas</a></li>
         <li><a onclick="mudarAbaMenu(event, 'produtos')">🏷️ Meus Produtos Salvos</a></li>
         <li id="menuPintura" style="display:none;"><a onclick="mudarAbaMenu(event, 'pintura')">🎨 Pintura</a></li>
@@ -1315,7 +1315,8 @@
       clientes: listaClientes,
       recibos: listaRecibos,
       orcamentos: listaOrcamentos,
-      dadosEmpresa: dadosEmpresa
+      dadosEmpresa: dadosEmpresa,
+      insumos: listaInsumos, ferramentas: listaFerramentas, compras: listaCompras
     };
   }
 
@@ -1329,6 +1330,9 @@
     if (Array.isArray(pacote.clientes)) listaClientes = pacote.clientes;
     if (Array.isArray(pacote.recibos)) listaRecibos = pacote.recibos;
     if (Array.isArray(pacote.orcamentos)) listaOrcamentos = pacote.orcamentos;
+    if (Array.isArray(pacote.insumos)) listaInsumos = pacote.insumos;
+    if (Array.isArray(pacote.ferramentas)) listaFerramentas = pacote.ferramentas;
+    if (Array.isArray(pacote.compras)) listaCompras = pacote.compras;
     if (pacote.dadosEmpresa && typeof pacote.dadosEmpresa === 'object') dadosEmpresa = {...dadosEmpresa, ...pacote.dadosEmpresa};
     listaVendas.forEach(v=>{if(!v.parcelamento){v.parcelamento=criarParcelamentoVan(v.total,1,v.data);if(v.pagamentoStatus==='Recebido'){v.recebimentos=[{id:'pg_migrado_'+v.id,valor:Number(v.total)||0,data:v.data||new Date().toISOString(),origem:'migração',usuario:''}];v.parcelamento.parcelas[0].pago=Number(v.total)||0;v.parcelamento.parcelas[0].status='Pago';v.parcelamento.parcelas[0].pagoEm=v.data||null;}}if(!Array.isArray(v.recebimentos))v.recebimentos=[];atualizarResumoFinanceiroVenda(v);});
     // Recalcula campos derivados das vendas sempre que chega um pacote novo do Firestore.
@@ -1442,7 +1446,7 @@
     document.getElementById('badgeNotificacoes').style.display='none';
     ocultarPainelNotificacoesPush();
     if(vanmathiNotificacoesListener){vanmathiNotificacoesListener();vanmathiNotificacoesListener=null;}
-    ['Estoque','Produtos','Vendas','Lojas','Marcas','Clientes','Recibos','Orcamentos','Empresa'].forEach(k=>localStorage.removeItem('Vanmathi_Dados_'+k));
+    ['Estoque','Produtos','Vendas','Lojas','Marcas','Clientes','Recibos','Orcamentos','Empresa','Insumos','Ferramentas','Compras'].forEach(k=>localStorage.removeItem('Vanmathi_Dados_'+k));
     if (vanmathiAuth) await vanmathiAuth.signOut();
   }
 
@@ -2963,6 +2967,7 @@
             </td>
             <td style="color: var(--success); font-weight: 600;">${item.custo}</td>
             <td style="display: flex; gap: 6px;">
+              <button class="btn-secondary" style="padding: 6px 8px;" onclick="abrirCompra('mat',${item.id})" title="Registrar compra de bobina">＋</button>
               <button class="btn-secondary" style="padding: 6px 8px;" onclick="editarMaterialEstoque(${item.id})">✏️</button>
               <button class="btn-danger" style="padding: 6px 8px;" onclick="excluirMaterial(${item.id})">🗑️</button>
             </td>
@@ -4095,6 +4100,112 @@
     if(orcamentoVisualizadoId&&listaOrcamentos.some(o=>String(o.id)===String(orcamentoVisualizadoId))){const a=document.getElementById('areaImpressaoOrcamento');const o=listaOrcamentos.find(x=>String(x.id)===String(orcamentoVisualizadoId));if(a&&o){a.innerHTML=reciboHtmlVan(o,'orcamento');ajustarZoomOrcamentoVan();}}
     mostrarToast('Dados da empresa atualizados. Todos os recibos e orçamentos já usam as novas informações.');
   }
+
+
+  // ===== ESTOQUE (Passo 1): 5 abas, bobinas, compras, mínimo e selo =====
+  let listaInsumos=JSON.parse(localStorage.getItem('Vanmathi_Dados_Insumos')||'null')||[];
+  let listaFerramentas=JSON.parse(localStorage.getItem('Vanmathi_Dados_Ferramentas')||'null')||[];
+  let listaCompras=JSON.parse(localStorage.getItem('Vanmathi_Dados_Compras')||'null')||[];
+  const _stl=salvarTudoLocal;
+  salvarTudoLocal=function(){localStorage.setItem('Vanmathi_Dados_Insumos',JSON.stringify(listaInsumos));localStorage.setItem('Vanmathi_Dados_Ferramentas',JSON.stringify(listaFerramentas));localStorage.setItem('Vanmathi_Dados_Compras',JSON.stringify(listaCompras));return _stl.apply(this,arguments);};
+  const EST_CATS={mat:'Filamentos & Resinas',ins:'Insumos & Materiais',fer:'Ferramentas & Equipamentos'};
+  const hojeVan=()=>new Date().toISOString().slice(0,10);
+  function garantirBobinas(m){
+    if(!Array.isArray(m.bobinas)||!m.bobinas.length)m.bobinas=[{id:'b'+m.id,peso:+m.pesoMax||1000,valor:+m.precoPago||0,data:'',fornecedor:'Bobina inicial'}];
+    if(m.bobinas.length===1){m.bobinas[0].peso=+m.pesoMax||m.bobinas[0].peso;m.bobinas[0].valor=+m.precoPago||0;}
+    else{m.pesoMax=m.bobinas.reduce((s,b)=>s+b.peso,0);m.precoPago=+m.bobinas.reduce((s,b)=>s+b.valor,0).toFixed(2);}
+    m.custo='R$ '+(((+m.precoPago)/(+m.pesoMax))||0).toFixed(4).replace('.',',');
+  }
+  function estAtualMat(m){return Math.max(0,(+m.pesoMax||0)-calcularEstoqueUsadoMaterial(m.id));}
+  function itensAlerta(){
+    const a=[];
+    listaMateriais.forEach(m=>{const q=estAtualMat(m);if(q<=(m.estoqueMin>0?m.estoqueMin:200))a.push({cat:'mat',id:m.id,nome:m.nome+' ('+m.cor+')',q,un:'g'});});
+    listaInsumos.forEach(i=>{if(i.qtd<=(+i.min||0))a.push({cat:'ins',id:i.id,nome:i.nome,q:i.qtd,un:i.un||'un'});});
+    return a.sort((x,y)=>(x.q>0)-(y.q>0)||x.nome.localeCompare(y.nome));
+  }
+  function estTabela(cab,linhas,vazio){return `<div class="table-container"><table><thead><tr>${cab.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas||`<tr><td colspan="${cab.length}" style="text-align:center;color:var(--text-muted);padding:25px">${vazio}</td></tr>`}</tbody></table></div>`;}
+  function montarAbasEstoque(){
+    const sec=document.getElementById('secao-estoque');if(!sec||sec.dataset.abas)return;sec.dataset.abas='1';
+    const css=document.createElement('style');css.textContent='.est-tab{background:none;border:none;color:var(--text-muted);font-size:14px;cursor:pointer;padding:10px 4px;font-weight:500;position:relative;white-space:nowrap}.est-tab.active{color:var(--primary)}.est-tab.active::after{content:"";position:absolute;bottom:-1px;left:0;width:100%;height:2px;background:var(--primary)}.est-pane{display:none}.est-pane.active{display:block}';document.head.appendChild(css);
+    const hd=sec.children[0],resto=Array.from(sec.children).slice(1);
+    const h1=hd.querySelector('h1');if(h1)h1.textContent='Estoque';
+    const p=hd.querySelector('p');if(p)p.textContent='Filamentos, insumos, ferramentas, compras e reposição.';
+    const abas=[['fil','Filamentos & Resinas'],['ins','Insumos & Materiais'],['fer','Ferramentas & Equipamentos'],['hist','Histórico de Compras'],['comprar','Para Comprar']];
+    const bar=document.createElement('div');bar.className='tab-menu';bar.id='barraAbasEstoque';
+    abas.forEach(([k,t],i)=>{const b=document.createElement('button');b.className='est-tab'+(i?'':' active');b.textContent=t;b.dataset.k=k;b.onclick=()=>abaEstoque(k);bar.appendChild(b);});
+    hd.after(bar);
+    abas.forEach(([k],i)=>{const d=document.createElement('div');d.className='est-pane'+(i?'':' active');d.id='estq-'+k;sec.appendChild(d);if(k==='fil')resto.forEach(e=>d.appendChild(e));});
+    document.getElementById('estq-hist').innerHTML=`<div class="table-toolbar"><div style="display:flex;gap:10px;flex-wrap:wrap"><input type="month" id="hMes" onchange="renderHistCompras()" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text-color);padding:8px;border-radius:8px"><select id="hCat" onchange="renderHistCompras()" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text-color);padding:8px;border-radius:8px"><option value="">Todas as categorias</option>${Object.entries(EST_CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div><span class="badge-count" id="hTotal"></span></div><div id="hTabela"></div>`;
+  }
+  function abaEstoque(k){document.querySelectorAll('#barraAbasEstoque .est-tab').forEach(b=>b.classList.toggle('active',b.dataset.k===k));document.querySelectorAll('#secao-estoque .est-pane').forEach(d=>d.classList.toggle('active',d.id==='estq-'+k));renderTudoEstoque();}
+  function renderTudoEstoque(){
+    const E=escaparHtmlVan;if(!document.getElementById('estq-ins'))return;
+    document.getElementById('estq-ins').innerHTML=`<div class="table-toolbar"><span class="badge-count">${listaInsumos.length} item(ns)</span><button class="btn-primary" onclick="abrirCompra('ins',null)">＋ Novo insumo / compra</button></div>`+estTabela(['Item','Em estoque','Custo unit.','Mínimo','Ações'],listaInsumos.map(i=>`<tr><td><strong>${E(i.nome)}</strong></td><td>${i.qtd} ${E(i.un)}</td><td>${moedaVan(i.qtdComprada?i.valorTotal/i.qtdComprada:0)}</td><td>${i.min||0}</td><td style="display:flex;gap:6px"><button class="btn-secondary" onclick="abrirCompra('ins',${i.id})" title="Registrar compra">＋</button><button class="btn-secondary" onclick="baixaItemEstoque('ins',${i.id})" title="Dar baixa (uso)">−</button><button class="btn-danger" onclick="excluirItemEstoque('ins',${i.id})">🗑️</button></td></tr>`).join(''),'Nenhum insumo cadastrado (tinta, pincel, chaveiro, cadeado, embalagem...).');
+    document.getElementById('estq-fer').innerHTML=`<div class="table-toolbar"><span class="badge-count">${listaFerramentas.length} item(ns) · ${moedaVan(listaFerramentas.reduce((s,i)=>s+i.valorTotal,0))} investidos</span><button class="btn-primary" onclick="abrirCompra('fer',null)">＋ Nova ferramenta / equipamento</button></div>`+estTabela(['Item','Qtd','Valor investido','Última compra','Vida útil (meses)','Ações'],listaFerramentas.map(i=>`<tr><td><strong>${E(i.nome)}</strong></td><td>${i.qtd}</td><td>${moedaVan(i.valorTotal)}</td><td>${dataVan(i.data)}</td><td>${i.vida||'—'}</td><td style="display:flex;gap:6px"><button class="btn-secondary" onclick="abrirCompra('fer',${i.id})">＋</button><button class="btn-danger" onclick="excluirItemEstoque('fer',${i.id})">🗑️</button></td></tr>`).join(''),'Nenhuma ferramenta ou equipamento cadastrado (alicate, peças, impressora...).');
+    const al=itensAlerta();
+    document.getElementById('estq-comprar').innerHTML=estTabela(['Item','Categoria','Restante','Situação','Comprar'],al.map(a=>`<tr><td><strong>${E(a.nome)}</strong></td><td>${EST_CATS[a.cat]}</td><td>${a.q} ${E(a.un)}</td><td><span style="color:${a.q<=0?'var(--danger)':'var(--warning)'};font-weight:600">${a.q<=0?'Acabou':'Baixo'}</span></td><td><button class="btn-primary" style="padding:6px 12px" onclick="abrirCompra('${a.cat}',${a.id})">＋</button></td></tr>`).join(''),'Nada para comprar. Tudo acima do mínimo!');
+    renderHistCompras();
+    const b=document.getElementById('badgeEstoque');if(b){b.textContent=al.length;b.style.display=al.length?'inline-block':'none';}
+  }
+  function renderHistCompras(){
+    const el=document.getElementById('hTabela');if(!el)return;
+    const mes=document.getElementById('hMes')?.value||'',cat=document.getElementById('hCat')?.value||'';
+    const arr=listaCompras.filter(c=>(!mes||String(c.data).startsWith(mes))&&(!cat||c.cat===cat)).sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+    el.innerHTML=estTabela(['Data','Categoria','Item','Qtd','Valor','Fornecedor'],arr.map(c=>`<tr><td>${dataVan(c.data)}</td><td>${EST_CATS[c.cat]||''}</td><td>${escaparHtmlVan(c.item)}</td><td>${c.qtd}${c.cat==='mat'?' g':''}</td><td>${moedaVan(c.valor)}</td><td>${escaparHtmlVan(c.fornecedor||'—')}</td></tr>`).join(''),'Nenhuma compra no filtro.');
+    document.getElementById('hTotal').textContent='Total: '+moedaVan(arr.reduce((s,c)=>s+c.valor,0));
+  }
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="modalCompra"><div class="modal-box"><div class="modal-header"><span id="cpTitulo">Registrar compra</span><span style="cursor:pointer;color:var(--text-muted)" onclick="fecharCompra()">✕</span></div>
+   <div class="form-group" id="cpGNome"><label>Nome do item</label><input id="cpNome" maxlength="80"></div>
+   <div class="form-row"><div class="form-group"><label id="cpLQtd">Quantidade</label><input id="cpQtd" type="number" min="0" step="any"></div><div class="form-group"><label>Valor pago (R$)</label><input id="cpValor" type="number" min="0" step="0.01"></div></div>
+   <div class="form-row"><div class="form-group"><label>Data</label><input id="cpData" type="date"></div><div class="form-group"><label>Fornecedor</label><input id="cpForn" maxlength="80"></div></div>
+   <div class="form-row"><div class="form-group"><label>Estoque mínimo (opcional)</label><input id="cpMin" type="number" min="0" step="any"></div><div class="form-group" id="cpGUn"><label>Unidade</label><input id="cpUn" value="un" maxlength="10"></div><div class="form-group" id="cpGVida"><label>Vida útil (meses)</label><input id="cpVida" type="number" min="0"></div></div>
+   <div id="cpBobinas"></div>
+   <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px"><button class="btn-secondary" onclick="fecharCompra()">Cancelar</button><button class="btn-primary" onclick="salvarCompra()">Registrar compra</button></div></div></div>`);
+  let cpCtx={cat:'mat',id:null};
+  function abrirCompra(cat,id){
+    cpCtx={cat,id};const g=x=>document.getElementById(x);
+    const L=cat==='ins'?listaInsumos:cat==='fer'?listaFerramentas:listaMateriais;const it=id?L.find(x=>String(x.id)===String(id)):null;
+    g('cpTitulo').textContent='Registrar compra — '+EST_CATS[cat];
+    g('cpGNome').style.display=(cat!=='mat'&&!it)?'block':'none';
+    g('cpGUn').style.display=(cat==='ins'&&!it)?'block':'none';
+    g('cpGVida').style.display=cat==='fer'?'block':'none';
+    g('cpLQtd').textContent=cat==='mat'?'Peso da bobina (g)':'Quantidade';
+    ['cpNome','cpQtd','cpValor','cpForn','cpMin','cpVida'].forEach(k=>g(k).value='');g('cpUn').value='un';g('cpData').value=hojeVan();
+    if(it&&cat!=='mat')g('cpNome').value=it.nome;
+    if(cat==='mat'&&it){garantirBobinas(it);g('cpMin').value=it.estoqueMin||'';g('cpQtd').value=1000;
+      g('cpBobinas').innerHTML='<strong style="font-size:13px">Bobinas deste material</strong>'+estTabela(['#','Peso','Valor','Data','Fornecedor',''],it.bobinas.map((b,i)=>`<tr><td>Bobina ${i+1}</td><td>${b.peso}g</td><td>${moedaVan(b.valor)}</td><td>${dataVan(b.data)}</td><td>${escaparHtmlVan(b.fornecedor||'—')}</td><td><button class="btn-danger" style="padding:4px 8px" onclick="removerBobina(${it.id},'${b.id}')">🗑️</button></td></tr>`).join(''),'')+`<small style="color:var(--text-muted)">Custo por grama atual (média ponderada): <b>${it.custo}</b></small>`;
+    }else g('cpBobinas').innerHTML='';
+    g('modalCompra').classList.add('active');
+  }
+  function fecharCompra(){document.getElementById('modalCompra').classList.remove('active');}
+  function removerBobina(mid,bid){
+    const m=listaMateriais.find(x=>x.id===mid);if(!m||m.bobinas.length<=1){alert('O material precisa ter ao menos uma bobina.');return;}
+    if(!confirm('Excluir esta bobina?'))return;
+    m.bobinas=m.bobinas.filter(b=>b.id!==bid);if(m.bobinas.length===1){m.pesoMax=m.bobinas[0].peso;m.precoPago=m.bobinas[0].valor;}
+    garantirBobinas(m);salvarTudoLocal();filtrarTabela();abrirCompra('mat',mid);
+  }
+  function salvarCompra(){
+    const g=x=>document.getElementById(x);const {cat,id}=cpCtx;const q=Number(g('cpQtd').value),v=Number(g('cpValor').value);
+    if(!(q>0)||!(v>=0)||g('cpValor').value===''){alert('Informe quantidade e valor pagos.');return;}
+    const data=g('cpData').value||hojeVan(),forn=g('cpForn').value.trim();let nome='';
+    if(cat==='mat'){const m=listaMateriais.find(x=>x.id===id);if(!m)return;m.bobinas.push({id:'b'+Date.now(),peso:q,valor:v,data,fornecedor:forn});if(g('cpMin').value!=='')m.estoqueMin=Number(g('cpMin').value);garantirBobinas(m);nome=m.nome+' ('+m.cor+')';}
+    else{
+      const L=cat==='ins'?listaInsumos:listaFerramentas;let it=id?L.find(x=>String(x.id)===String(id)):null;
+      if(!it){nome=g('cpNome').value.trim();if(!nome){alert('Informe o nome do item.');return;}it={id:Date.now(),nome,qtd:0,valorTotal:0,qtdComprada:0,un:g('cpUn').value.trim()||'un',min:0,vida:0,data};L.push(it);}
+      it.qtd+=q;it.valorTotal+=v;it.qtdComprada+=q;it.data=data;if(g('cpMin').value!=='')it.min=Number(g('cpMin').value);if(cat==='fer'&&g('cpVida').value)it.vida=Number(g('cpVida').value);nome=it.nome;
+    }
+    listaCompras.push({id:Date.now(),data,cat,item:nome,qtd:q,valor:v,fornecedor:forn});
+    salvarTudoLocal();fecharCompra();filtrarTabela();atualizarRelatorios();mostrarToast('Compra registrada e lançada no Histórico de Compras.');
+  }
+  function baixaItemEstoque(cat,id){const it=listaInsumos.find(x=>x.id===id);if(!it)return;const n=Number(String(prompt('Quantidade usada de "'+it.nome+'":')||'').replace(',','.'));if(!(n>0))return;it.qtd=Math.max(0,it.qtd-n);salvarTudoLocal();renderTudoEstoque();}
+  function excluirItemEstoque(cat,id){if(!confirm('Excluir este item do estoque? O histórico de compras é mantido.'))return;if(cat==='ins')listaInsumos=listaInsumos.filter(x=>x.id!==id);else listaFerramentas=listaFerramentas.filter(x=>x.id!==id);salvarTudoLocal();renderTudoEstoque();}
+  const _smat=salvarMaterialEstoque;
+  salvarMaterialEstoque=function(){_smat();listaMateriais.forEach(garantirBobinas);salvarTudoLocal();filtrarTabela();};
+  const _ft=filtrarTabela;
+  filtrarTabela=function(){listaMateriais.forEach(garantirBobinas);_ft();renderTudoEstoque();};
+  const _ar=atualizarRelatorios;
+  atualizarRelatorios=function(){_ar();try{renderTudoEstoque();}catch(e){console.warn(e);}};
+  montarAbasEstoque();
 
   // ===== Clientes, recibos e dados comerciais da empresa =====
   function escaparHtmlVan(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
