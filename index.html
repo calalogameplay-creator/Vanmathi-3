@@ -587,7 +587,7 @@
         <table>
           <thead>
             <tr>
-              <th>Nome</th><th>Tipo</th><th>Cor</th><th>Marca</th><th>Modelo</th><th>Estoque Atual Restante</th><th>Custo / g</th><th>Ações</th>
+              <th>Nome</th><th>Tipo</th><th>Cor</th><th>Marca</th><th>Modelo</th><th>Estoque Atual Restante</th><th>Custo / g</th><th>Última compra</th><th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaEstoqueCorpo"></tbody>
@@ -979,6 +979,7 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label>Preço Pago (R$)</label><input type="number" id="addPreco" value="85.00"></div>
+        <div class="form-group"><label>Data da compra</label><input type="date" id="addData"></div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="btn-secondary" onclick="fecharModalAdicionarMaterial()">Cancelar</button>
@@ -2961,6 +2962,7 @@
               </div>
             </td>
             <td style="color: var(--success); font-weight: 600;">${item.custo}</td>
+            <td>${dataVan(ultimaCompraMat(item))}</td>
             <td style="display: flex; gap: 6px;">
               <button class="btn-secondary" style="padding: 6px 8px;" onclick="abrirCompra('mat',${item.id})" title="Registrar compra de bobina">＋</button>
               <button class="btn-secondary" style="padding: 6px 8px;" onclick="editarMaterialEstoque(${item.id})">✏️</button>
@@ -2970,7 +2972,7 @@
       }
     });
 
-    corpo.innerHTML = total === 0 ? `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum material encontrado.</td></tr>` : html;
+    corpo.innerHTML = total === 0 ? `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhum material encontrado.</td></tr>` : html;
     badge.innerText = total + (total === 1 ? " material" : " materiais");
   }
 
@@ -4219,11 +4221,13 @@
   salvarMaterialEstoque=function(){
     const editando=editandoMaterialId;
     if(editando){
+      const dataEdit=document.getElementById('addData').value;
       _smat();listaMateriais.forEach(garantirBobinas);
+      { const mm=listaMateriais.find(x=>x.id===editando); if(mm&&mm.bobinas.length===1&&dataEdit)mm.bobinas[0].data=dataEdit; }
       // mantém o histórico coerente com o cadastro (nome e, se for bobina única, qtd/valor)
       const m=listaMateriais.find(x=>x.id===editando);
       if(m){const nomeItem=m.nome+' ('+m.cor+')';
-        listaCompras.forEach(c=>{if(c.cat==='mat'&&c.bobinaId){const b=m.bobinas.find(x=>x.id===c.bobinaId);if(b){c.item=nomeItem;if(m.bobinas.length===1){c.qtd=b.peso;c.valor=b.valor;}}}});}
+        listaCompras.forEach(c=>{if(c.cat==='mat'&&c.bobinaId){const b=m.bobinas.find(x=>x.id===c.bobinaId);if(b){c.item=nomeItem;if(m.bobinas.length===1){c.qtd=b.peso;c.valor=b.valor;c.data=b.data||'';}}}});}
       salvarTudoLocal();filtrarTabela();return;
     }
     // ----- NOVO MATERIAL: se já existir igual (nome+tipo+marca+modelo+cor), soma no existente -----
@@ -4232,7 +4236,7 @@
     const chave=[g('addNome').value,g('addTipo').value,marca,g('addModelo').value.trim()||'PETG',g('addCor').value].map(normNomeEst).join('|');
     const existente=marca?listaMateriais.find(m=>[m.nome,m.tipo,m.marca,m.modelo,m.cor].map(normNomeEst).join('|')===chave):null;
     if(existente){
-      const peso=parseInt(g('addPesoMax').value)||1000,valor=parseFloat(g('addPreco').value)||0,data=hojeVan();
+      const peso=parseInt(g('addPesoMax').value)||1000,valor=parseFloat(g('addPreco').value)||0,data=g('addData').value||hojeVan();
       garantirBobinas(existente);
       const bid='b'+Date.now()+Math.random().toString(36).slice(2,5);
       existente.bobinas.push({id:bid,peso,valor,data,fornecedor:''});
@@ -4246,7 +4250,7 @@
     _smat();
     if(listaMateriais.length>antes){
       const m=listaMateriais[listaMateriais.length-1];garantirBobinas(m);
-      m.bobinas[0].data=hojeVan();m.bobinas[0].fornecedor='Cadastro inicial';
+      m.bobinas[0].data=g('addData').value||hojeVan();m.bobinas[0].fornecedor='Cadastro inicial';
     }
     listaMateriais.forEach(garantirBobinas);salvarTudoLocal();filtrarTabela();
   };
@@ -4265,16 +4269,17 @@
     return mudou;
   }
   // No modal de edição de material: com várias bobinas, peso/valor vêm da soma das bobinas (não editáveis aqui)
+  function ultimaCompraMat(m){return (Array.isArray(m.bobinas)?m.bobinas:[]).reduce((mx,b)=>(b.data&&b.data>mx?b.data:mx),'');}
   function travarCamposBobinas(travar){
-    ['addPesoMax','addPreco'].forEach(k=>{const el=document.getElementById(k);if(el){el.readOnly=travar;el.style.opacity=travar?'.6':'';el.title=travar?'Calculado pela soma das bobinas. Use ＋ para adicionar compra ou exclua uma bobina.':'';}});
+    ['addPesoMax','addPreco','addData'].forEach(k=>{const el=document.getElementById(k);if(el){el.readOnly=travar;el.style.opacity=travar?'.6':'';el.title=travar?'Calculado pela soma das bobinas. Use ＋ para adicionar compra ou exclua uma bobina.':'';}});
     let h=document.getElementById('hintBobinas');
     if(!h){h=document.createElement('small');h.id='hintBobinas';h.style.cssText='display:block;color:var(--text-muted);margin-top:6px';document.getElementById('addPreco').closest('.form-row').after(h);}
-    h.textContent=travar?'Este material tem várias bobinas: peso e valor são a soma delas. Para alterar, use ＋ (nova compra) ou exclua uma bobina.':'';
+    h.textContent=travar?'Este material tem várias bobinas: peso, valor e data vêm das bobinas (a data mostrada é a da última compra). Para alterar, use ＋ (nova compra) ou exclua uma bobina.':'';
   }
   const _eme=editarMaterialEstoque;
-  editarMaterialEstoque=function(id){_eme(id);const m=listaMateriais.find(x=>x.id===id);travarCamposBobinas(!!(m&&Array.isArray(m.bobinas)&&m.bobinas.length>1));};
+  editarMaterialEstoque=function(id){_eme(id);const m=listaMateriais.find(x=>x.id===id);if(m){garantirBobinas(m);document.getElementById('addData').value=ultimaCompraMat(m);}travarCamposBobinas(!!(m&&Array.isArray(m.bobinas)&&m.bobinas.length>1));};
   const _amm=abrirModalAdicionarMaterial;
-  abrirModalAdicionarMaterial=function(){_amm();travarCamposBobinas(false);};
+  abrirModalAdicionarMaterial=function(){_amm();document.getElementById('addData').value=hojeVan();travarCamposBobinas(false);};
   const _ft=filtrarTabela;
   filtrarTabela=function(){listaMateriais.forEach(garantirBobinas);_ft();renderTudoEstoque();};
   const _ar=atualizarRelatorios;
