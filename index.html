@@ -2878,7 +2878,8 @@
 
   function excluirMaterial(id) {
     const emUso=listaProdutosSalvos.filter(p=>obterComposicaoProduto(p).some(i=>String(i.materialId)===String(id))).length;
-    if(!confirm(emUso?`${emUso} produto(s) usam este material e ficarão sem custo de filamento. Excluir mesmo assim?`:'Excluir este material?')) return;
+    if(!confirm(emUso?`${emUso} produto(s) usam este material e ficarão sem custo de filamento. As compras dele também serão removidas do Histórico de Compras. Excluir mesmo assim?`:'Excluir este material? As compras dele também serão removidas do Histórico de Compras.')) return;
+    removerHistoricoMaterial(listaMateriais.find(item => item.id === id));
     listaMateriais = listaMateriais.filter(item => item.id !== id);
     salvarTudoLocal();
     filtrarTabela(); atualizarRelatorios(); renderizarSelectMaterialCalculadora(); mostrarToast("Material removido.");
@@ -4181,7 +4182,7 @@
   function removerBobina(mid,bid){
     const m=listaMateriais.find(x=>x.id===mid);if(!m||m.bobinas.length<=1){alert('O material precisa ter ao menos uma bobina.');return;}
     if(!confirm('Excluir esta bobina?'))return;
-    m.bobinas=m.bobinas.filter(b=>b.id!==bid);if(m.bobinas.length===1){m.pesoMax=m.bobinas[0].peso;m.precoPago=m.bobinas[0].valor;}
+    m.bobinas=m.bobinas.filter(b=>b.id!==bid);listaCompras=listaCompras.filter(c=>!(c.cat==='mat'&&c.bobinaId===bid));if(m.bobinas.length===1){m.pesoMax=m.bobinas[0].peso;m.precoPago=m.bobinas[0].valor;}
     garantirBobinas(m);salvarTudoLocal();filtrarTabela();abrirCompra('mat',mid);
   }
   function normNomeEst(n){return String(n||'').trim().replace(/\s+/g,' ').toLowerCase();}
@@ -4216,7 +4217,13 @@
     salvarTudoLocal();fecharCompra();filtrarTabela();atualizarRelatorios();mostrarToast('Compra registrada: quantidade somada ao estoque e lançada no Histórico de Compras.');
   }
   function baixaItemEstoque(cat,id){const it=listaInsumos.find(x=>x.id===id);if(!it)return;const n=Number(String(prompt('Quantidade usada de "'+it.nome+'":')||'').replace(',','.'));if(!(n>0))return;it.qtd=Math.max(0,it.qtd-n);salvarTudoLocal();renderTudoEstoque();}
-  function excluirItemEstoque(cat,id){if(!confirm('Excluir este item do estoque? O histórico de compras é mantido.'))return;if(cat==='ins')listaInsumos=listaInsumos.filter(x=>x.id!==id);else listaFerramentas=listaFerramentas.filter(x=>x.id!==id);salvarTudoLocal();renderTudoEstoque();}
+  function excluirItemEstoque(cat,id){
+    if(!confirm('Excluir este item do estoque? As compras dele também serão removidas do Histórico de Compras.'))return;
+    const L=cat==='ins'?listaInsumos:listaFerramentas;const it=L.find(x=>String(x.id)===String(id));
+    if(it)listaCompras=listaCompras.filter(c=>!(c.cat===cat&&(String(c.itemId)===String(it.id)||(!c.itemId&&normNomeEst(c.item)===normNomeEst(it.nome)))));
+    if(cat==='ins')listaInsumos=listaInsumos.filter(x=>x.id!==id);else listaFerramentas=listaFerramentas.filter(x=>x.id!==id);
+    salvarTudoLocal();renderTudoEstoque();atualizarRelatorios();
+  }
   const _smat=salvarMaterialEstoque;
   salvarMaterialEstoque=function(){
     const editando=editandoMaterialId;
@@ -4298,6 +4305,36 @@
   filtrarTabela=function(){listaMateriais.forEach(garantirBobinas);_ft();renderTudoEstoque();};
   const _ar=atualizarRelatorios;
   atualizarRelatorios=function(){_ar();try{renderTudoEstoque();}catch(e){console.warn(e);}};
+  // ===== Histórico acompanha os itens que existem =====
+  function removerHistoricoMaterial(m){
+    if(!m)return;const ids=(m.bobinas||[]).map(b=>b.id),nomeItem=m.nome+' ('+m.cor+')';
+    listaCompras=listaCompras.filter(c=>!(c.cat==='mat'&&(ids.includes(c.bobinaId)||(!c.bobinaId&&c.item===nomeItem))));
+  }
+  function historicoOrfao(){
+    const nomesMat=new Set(listaMateriais.map(m=>m.nome+' ('+m.cor+')')),idsBob=new Set();
+    listaMateriais.forEach(m=>(m.bobinas||[]).forEach(b=>idsBob.add(b.id)));
+    const existe=(L,c)=>L.some(x=>c.itemId?String(x.id)===String(c.itemId):normNomeEst(x.nome)===normNomeEst(c.item));
+    return listaCompras.filter(c=>{
+      if(c.cat==='mat')return c.bobinaId?!idsBob.has(c.bobinaId):!nomesMat.has(c.item);
+      if(c.cat==='ins')return !existe(listaInsumos,c);
+      if(c.cat==='fer')return !existe(listaFerramentas,c);
+      return false;
+    });
+  }
+  let orfaoPerguntado=false;
+  function limparHistoricoOrfao(){
+    if(orfaoPerguntado)return;
+    if(!listaMateriais.length&&!listaInsumos.length&&!listaFerramentas.length)return; // dados ainda não carregaram: não mexe
+    try{sincronizarHistoricoMateriais();}catch(e){}
+    const o=historicoOrfao();if(!o.length)return;orfaoPerguntado=true;
+    const nomes=[...new Set(o.map(c=>c.item))];
+    if(!confirm('Encontrei '+o.length+' compra(s) no histórico de itens que não existem mais no estoque:\n\n• '+nomes.slice(0,8).join('\n• ')+(nomes.length>8?'\n• ...e mais '+(nomes.length-8):'')+'\n\nRemover do Histórico de Compras? (Isso também tira esses valores dos relatórios de gastos.)'))return;
+    listaCompras=listaCompras.filter(c=>!o.includes(c));
+    salvarTudoLocal();renderTudoEstoque();atualizarRelatorios();mostrarToast(o.length+' compra(s) removida(s) do histórico.');
+  }
+  const _aba=abaEstoque;
+  abaEstoque=function(k){_aba(k);if(k==='hist')setTimeout(limparHistoricoOrfao,50);};
+
   // ===== Edição de Insumos e Ferramentas/Equipamentos (com Item 1, Item 2... por compra) =====
   document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="modalEditarItemEst"><div class="modal-box"><div class="modal-header"><span id="eiTitulo">Editar item</span><span style="cursor:pointer;color:var(--text-muted)" onclick="fecharEdicaoItem()">✕</span></div>
    <div class="form-group"><label>Nome do item</label><input id="eiNome" maxlength="80"></div>
