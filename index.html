@@ -4189,7 +4189,7 @@
   function salvarCompra(){
     const g=x=>document.getElementById(x);const {cat,id}=cpCtx;const q=Number(g('cpQtd').value),v=Number(g('cpValor').value);
     if(!(q>0)||!(v>=0)||g('cpValor').value===''){alert('Informe quantidade e valor pagos.');return;}
-    const data=g('cpData').value||hojeVan(),forn=g('cpForn').value.trim();let nome='',bobinaId='';
+    const data=g('cpData').value||hojeVan(),forn=g('cpForn').value.trim();let nome='',bobinaId='',itemId='';
     if(cat==='mat'){
       const m=listaMateriais.find(x=>x.id===id);if(!m)return;
       bobinaId='b'+Date.now()+Math.random().toString(36).slice(2,5);
@@ -4210,9 +4210,9 @@
       if(!it.data||data>=it.data)it.data=data;
       if(g('cpMin').value!=='')it.min=Number(g('cpMin').value);
       if(cat==='fer'&&g('cpVida').value)it.vida=Number(g('cpVida').value);
-      nome=it.nome;
+      nome=it.nome;itemId=it.id;
     }
-    listaCompras.push({id:novoIdCompra(),data,cat,item:nome,qtd:q,valor:v,fornecedor:forn,bobinaId});
+    listaCompras.push({id:novoIdCompra(),data,cat,item:nome,qtd:q,valor:v,fornecedor:forn,bobinaId,itemId});
     salvarTudoLocal();fecharCompra();filtrarTabela();atualizarRelatorios();mostrarToast('Compra registrada: quantidade somada ao estoque e lançada no Histórico de Compras.');
   }
   function baixaItemEstoque(cat,id){const it=listaInsumos.find(x=>x.id===id);if(!it)return;const n=Number(String(prompt('Quantidade usada de "'+it.nome+'":')||'').replace(',','.'));if(!(n>0))return;it.qtd=Math.max(0,it.qtd-n);salvarTudoLocal();renderTudoEstoque();}
@@ -4221,14 +4221,17 @@
   salvarMaterialEstoque=function(){
     const editando=editandoMaterialId;
     if(editando){
-      const dataEdit=document.getElementById('addData').value;
+      lerLoteForm();const lotes=edLotes.map(l=>({...l}));
       _smat();listaMateriais.forEach(garantirBobinas);
-      { const mm=listaMateriais.find(x=>x.id===editando); if(mm&&mm.bobinas.length===1&&dataEdit)mm.bobinas[0].data=dataEdit; }
-      // mantém o histórico coerente com o cadastro (nome e, se for bobina única, qtd/valor)
       const m=listaMateriais.find(x=>x.id===editando);
-      if(m){const nomeItem=m.nome+' ('+m.cor+')';
-        listaCompras.forEach(c=>{if(c.cat==='mat'&&c.bobinaId){const b=m.bobinas.find(x=>x.id===c.bobinaId);if(b){c.item=nomeItem;if(m.bobinas.length===1){c.qtd=b.peso;c.valor=b.valor;c.data=b.data||'';}}}});}
-      salvarTudoLocal();filtrarTabela();return;
+      if(m){
+        sincronizarHistoricoMateriais();
+        lotes.forEach(l=>{const b=m.bobinas.find(x=>x.id===l.id);if(b){b.peso=l.peso;b.valor=l.valor;b.data=l.data||'';b.fornecedor=l.fornecedor||'';}});
+        garantirBobinas(m);
+        const nomeItem=m.nome+' ('+m.cor+')';
+        m.bobinas.forEach(b=>{const c=listaCompras.find(x=>x.cat==='mat'&&x.bobinaId===b.id);if(c){c.item=nomeItem;c.qtd=b.peso;c.valor=b.valor;c.data=b.data||'';c.fornecedor=b.fornecedor||'';}});
+      }
+      salvarTudoLocal();filtrarTabela();atualizarRelatorios();renderizarSelectMaterialCalculadora();return;
     }
     // ----- NOVO MATERIAL: se já existir igual (nome+tipo+marca+modelo+cor), soma no existente -----
     const g=x=>document.getElementById(x);
@@ -4268,62 +4271,86 @@
     });
     return mudou;
   }
-  // No modal de edição de material: com várias bobinas, peso/valor vêm da soma das bobinas (não editáveis aqui)
-  function ultimaCompraMat(m){return (Array.isArray(m.bobinas)?m.bobinas:[]).reduce((mx,b)=>(b.data&&b.data>mx?b.data:mx),'');}
-  function travarCamposBobinas(travar){
-    ['addPesoMax','addPreco','addData'].forEach(k=>{const el=document.getElementById(k);if(el){el.readOnly=travar;el.style.opacity=travar?'.6':'';el.title=travar?'Calculado pela soma das bobinas. Use ＋ para adicionar compra ou exclua uma bobina.':'';}});
-    let h=document.getElementById('hintBobinas');
-    if(!h){h=document.createElement('small');h.id='hintBobinas';h.style.cssText='display:block;color:var(--text-muted);margin-top:6px';document.getElementById('addPreco').closest('.form-row').after(h);}
-    h.textContent=travar?'Este material tem várias bobinas: peso, valor e data vêm das bobinas (a data mostrada é a da última compra). Para alterar, use ＋ (nova compra) ou exclua uma bobina.':'';
+  // ===== Edição por "Item 1, Item 2..." (cada compra/bobina do mesmo material) =====
+  let edLotes=[],edLoteAtivo=0;
+  function chipsLotes(arr,ativo,fn){return '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Compras deste item — toque para editar cada uma</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+arr.map((l,i)=>`<button type="button" class="btn-secondary" style="padding:6px 10px;font-size:12px;line-height:1.3;${i===ativo?'border-color:var(--primary);background:rgba(59,130,246,.15);color:var(--primary);font-weight:600;':''}" onclick="${fn}(${i})">Item ${i+1}<br><span style="font-size:10px;font-weight:400">${dataVan(l.data)}</span></button>`).join('')+'</div>';}
+  function lerLoteForm(){
+    const g=x=>document.getElementById(x),l=edLotes[edLoteAtivo];if(!l)return;
+    const pe=parseInt(g('addPesoMax').value);if(pe>0)l.peso=pe;
+    const va=parseFloat(g('addPreco').value);if(!isNaN(va))l.valor=va;
+    l.data=g('addData').value||'';
   }
+  function mostrarLoteForm(){
+    const g=x=>document.getElementById(x),l=edLotes[edLoteAtivo];
+    let box=g('loteSelMat');
+    if(!box){box=document.createElement('div');box.id='loteSelMat';box.style.cssText='margin-bottom:14px';document.querySelector('#modalAdicionarMaterial .modal-header').after(box);}
+    if(!l){box.style.display='none';box.innerHTML='';return;}
+    g('addPesoMax').value=l.peso;g('addPreco').value=l.valor;g('addData').value=l.data||'';
+    box.style.display='block';box.innerHTML=chipsLotes(edLotes,edLoteAtivo,'selecionarLoteMat');
+  }
+  function selecionarLoteMat(i){lerLoteForm();edLoteAtivo=i;mostrarLoteForm();}
   const _eme=editarMaterialEstoque;
-  editarMaterialEstoque=function(id){_eme(id);const m=listaMateriais.find(x=>x.id===id);if(m){garantirBobinas(m);document.getElementById('addData').value=ultimaCompraMat(m);}travarCamposBobinas(!!(m&&Array.isArray(m.bobinas)&&m.bobinas.length>1));};
+  editarMaterialEstoque=function(id){_eme(id);const m=listaMateriais.find(x=>x.id===id);if(!m)return;garantirBobinas(m);edLotes=m.bobinas.map(b=>({...b}));edLoteAtivo=edLotes.length-1;mostrarLoteForm();};
   const _amm=abrirModalAdicionarMaterial;
-  abrirModalAdicionarMaterial=function(){_amm();document.getElementById('addData').value=hojeVan();travarCamposBobinas(false);};
+  abrirModalAdicionarMaterial=function(){_amm();edLotes=[];edLoteAtivo=0;mostrarLoteForm();document.getElementById('addData').value=hojeVan();};
   const _ft=filtrarTabela;
   filtrarTabela=function(){listaMateriais.forEach(garantirBobinas);_ft();renderTudoEstoque();};
   const _ar=atualizarRelatorios;
   atualizarRelatorios=function(){_ar();try{renderTudoEstoque();}catch(e){console.warn(e);}};
-  // ===== Edição de Insumos e Ferramentas/Equipamentos =====
+  // ===== Edição de Insumos e Ferramentas/Equipamentos (com Item 1, Item 2... por compra) =====
   document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="modalEditarItemEst"><div class="modal-box"><div class="modal-header"><span id="eiTitulo">Editar item</span><span style="cursor:pointer;color:var(--text-muted)" onclick="fecharEdicaoItem()">✕</span></div>
    <div class="form-group"><label>Nome do item</label><input id="eiNome" maxlength="80"></div>
-   <div class="form-row"><div class="form-group"><label id="eiLQtd">Quantidade em estoque</label><input id="eiQtd" type="number" min="0" step="any"></div><div class="form-group"><label id="eiLCusto">Custo unitário (R$)</label><input id="eiCusto" type="number" min="0" step="any"></div></div>
-   <div class="form-row"><div class="form-group" id="eiGUn"><label>Unidade</label><input id="eiUn" maxlength="10"></div><div class="form-group" id="eiGMin"><label>Estoque mínimo</label><input id="eiMin" type="number" min="0" step="any"></div><div class="form-group" id="eiGVida"><label>Vida útil (meses)</label><input id="eiVida" type="number" min="0"></div><div class="form-group" id="eiGData"><label>Última compra</label><input id="eiData" type="date"></div></div>
-   <small style="display:block;color:var(--text-muted);margin-top:4px">Edita o cadastro do item. Para registrar uma nova compra (nova quantidade/preço), use o botão ＋.</small>
+   <div class="form-row"><div class="form-group"><label>Estoque atual</label><input id="eiQtd" type="number" min="0" step="any"></div><div class="form-group" id="eiGUn"><label>Unidade</label><input id="eiUn" maxlength="10"></div><div class="form-group" id="eiGMin"><label>Estoque mínimo</label><input id="eiMin" type="number" min="0" step="any"></div><div class="form-group" id="eiGVida"><label>Vida útil (meses)</label><input id="eiVida" type="number" min="0"></div></div>
+   <div id="eiLotesBox" style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px"><div id="eiChips"></div>
+    <div class="form-row" style="margin-top:10px"><div class="form-group"><label>Quantidade comprada</label><input id="eiLoteQtd" type="number" min="0" step="any"></div><div class="form-group"><label>Valor pago (R$)</label><input id="eiLoteValor" type="number" min="0" step="0.01"></div></div>
+    <div class="form-row"><div class="form-group"><label>Data da compra</label><input id="eiLoteData" type="date"></div><div class="form-group"><label>Fornecedor</label><input id="eiLoteForn" maxlength="80"></div></div>
+    <small id="eiResumo" style="display:block;color:var(--text-muted)"></small></div>
    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px"><button class="btn-secondary" onclick="fecharEdicaoItem()">Cancelar</button><button class="btn-primary" onclick="salvarEdicaoItem()">Salvar alterações</button></div></div></div>`);
-  let eiCtx={cat:'ins',id:null};
+  let eiCtx={cat:'ins',id:null},eiLotes=[],eiAtivo=0,eiQtd0=0;
+  function lotesDoItem(cat,it){return listaCompras.filter(c=>c.cat===cat&&(String(c.itemId)===String(it.id)||(!c.itemId&&normNomeEst(c.item)===normNomeEst(it.nome))));}
+  function eiLerLote(){const g=x=>document.getElementById(x),l=eiLotes[eiAtivo];if(!l)return;l.qtd=Number(g('eiLoteQtd').value);l.valor=Number(g('eiLoteValor').value);l.data=g('eiLoteData').value||'';l.fornecedor=g('eiLoteForn').value.trim();}
+  function eiMostrarLote(){
+    const g=x=>document.getElementById(x),l=eiLotes[eiAtivo];
+    g('eiLoteQtd').value=l.qtd;g('eiLoteValor').value=l.valor;g('eiLoteData').value=l.data||'';g('eiLoteForn').value=l.fornecedor||'';
+    g('eiChips').innerHTML=chipsLotes(eiLotes,eiAtivo,'eiSelecionar');
+    const tq=eiLotes.reduce((x,y)=>x+(+y.qtd||0),0),tv=eiLotes.reduce((x,y)=>x+(+y.valor||0),0);
+    g('eiResumo').textContent='Total comprado: '+tq+' · '+moedaVan(tv)+(tq>0?' · custo médio '+moedaVan(tv/tq)+' por unidade':'');
+  }
+  function eiSelecionar(i){eiLerLote();eiAtivo=i;eiMostrarLote();}
   function editarItemEstoque(cat,id){
     const L=cat==='ins'?listaInsumos:listaFerramentas;const it=L.find(x=>String(x.id)===String(id));if(!it)return;
-    const g=x=>document.getElementById(x);eiCtx={cat,id:it.id};
-    g('eiTitulo').textContent='Editar '+(cat==='ins'?'insumo':'ferramenta / equipamento');
-    g('eiNome').value=it.nome||'';g('eiQtd').value=it.qtd??0;
-    const ins=cat==='ins';
-    g('eiLQtd').textContent=ins?'Quantidade em estoque':'Quantidade';
-    g('eiLCusto').textContent=ins?'Custo unitário (R$)':'Valor investido (R$)';
-    g('eiCusto').value=ins?(it.qtdComprada>0?+(it.valorTotal/it.qtdComprada).toFixed(4):0):(it.valorTotal||0);
-    g('eiGUn').style.display=ins?'block':'none';g('eiGMin').style.display=ins?'block':'none';
-    g('eiGVida').style.display=ins?'none':'block';g('eiGData').style.display=ins?'none':'block';
-    g('eiUn').value=it.un||'un';g('eiMin').value=it.min||0;g('eiVida').value=it.vida||'';g('eiData').value=it.data||'';
+    const g=x=>document.getElementById(x);eiCtx={cat,id:it.id};const ins=cat==='ins';
+    g('eiTitulo').textContent='Editar '+(ins?'insumo':'ferramenta / equipamento');
+    g('eiNome').value=it.nome||'';g('eiQtd').value=it.qtd??0;eiQtd0=Number(it.qtd)||0;
+    g('eiGUn').style.display=ins?'block':'none';g('eiGMin').style.display=ins?'block':'none';g('eiGVida').style.display=ins?'none':'block';
+    g('eiUn').value=it.un||'un';g('eiMin').value=it.min||0;g('eiVida').value=it.vida||'';
+    eiLotes=lotesDoItem(cat,it).map(c=>({ref:c,qtd:+c.qtd||0,valor:+c.valor||0,data:c.data||'',fornecedor:c.fornecedor||'',q0:+c.qtd||0,v0:+c.valor||0}));
+    if(!eiLotes.length){const q=Number(it.qtdComprada)||Number(it.qtd)||0,v=Number(it.valorTotal)||0;eiLotes=[{ref:null,qtd:q,valor:v,data:it.data||'',fornecedor:'',q0:q,v0:v}];}
+    eiAtivo=eiLotes.length-1;eiMostrarLote();
     g('modalEditarItemEst').classList.add('active');
   }
   function fecharEdicaoItem(){document.getElementById('modalEditarItemEst').classList.remove('active');}
   function salvarEdicaoItem(){
     const g=x=>document.getElementById(x);const {cat,id}=eiCtx;const ins=cat==='ins';
     const L=ins?listaInsumos:listaFerramentas;const it=L.find(x=>String(x.id)===String(id));if(!it)return;
+    eiLerLote();
     const nome=g('eiNome').value.trim();if(!nome){alert('Informe o nome do item.');return;}
     if(L.some(x=>x!==it&&normNomeEst(x.nome)===normNomeEst(nome))){alert('Já existe outro item com esse nome. Para somar quantidades, use o botão ＋ no item existente.');return;}
-    const qtd=Number(g('eiQtd').value),custo=Number(g('eiCusto').value||0);
-    if(g('eiQtd').value===''||!(qtd>=0)||!(custo>=0)){alert('Informe valores válidos (não negativos).');return;}
-    const nomeAntigo=it.nome;
-    it.nome=nome;it.qtd=qtd;
-    if(ins){
-      it.un=g('eiUn').value.trim()||'un';it.min=Number(g('eiMin').value)||0;
-      if(!(it.qtdComprada>0))it.qtdComprada=qtd||1;
-      it.valorTotal=+(custo*it.qtdComprada).toFixed(2);
-    }else{
-      it.valorTotal=custo;it.vida=Number(g('eiVida').value)||0;if(g('eiData').value)it.data=g('eiData').value;
-    }
-    if(nomeAntigo!==nome)listaCompras.forEach(c=>{if(c.cat===cat&&c.item===nomeAntigo)c.item=nome;});
+    const qtdEst=Number(g('eiQtd').value);
+    if(g('eiQtd').value===''||!(qtdEst>=0)){alert('Informe um estoque atual válido.');return;}
+    for(let i=0;i<eiLotes.length;i++){const l=eiLotes[i];if(!(l.qtd>0)||!(l.valor>=0)){alert('Item '+(i+1)+': informe quantidade e valor válidos.');eiAtivo=i;eiMostrarLote();return;}}
+    const dq=eiLotes.reduce((x,l)=>x+(l.qtd-l.q0),0),dv=eiLotes.reduce((x,l)=>x+(l.valor-l.v0),0);
+    // estoque: se o campo "Estoque atual" não foi mexido, acompanha a diferença das compras editadas
+    it.qtd=+(qtdEst!==eiQtd0?qtdEst:Math.max(0,eiQtd0+dq)).toFixed(4);
+    it.qtdComprada=+Math.max(0,(Number(it.qtdComprada)||0)+dq).toFixed(4);
+    it.valorTotal=+Math.max(0,(Number(it.valorTotal)||0)+dv).toFixed(2);
+    it.nome=nome;
+    if(ins){it.un=g('eiUn').value.trim()||'un';it.min=Number(g('eiMin').value)||0;}else{it.vida=Number(g('eiVida').value)||0;}
+    const datas=eiLotes.map(l=>l.data).filter(Boolean).sort();if(datas.length)it.data=datas[datas.length-1];
+    eiLotes.forEach(l=>{
+      if(l.ref){Object.assign(l.ref,{item:nome,itemId:it.id,qtd:l.qtd,valor:l.valor,data:l.data,fornecedor:l.fornecedor});}
+      else listaCompras.push({id:novoIdCompra(),data:l.data,cat,item:nome,qtd:l.qtd,valor:l.valor,fornecedor:l.fornecedor,bobinaId:'',itemId:it.id});
+    });
     salvarTudoLocal();fecharEdicaoItem();renderTudoEstoque();atualizarRelatorios();mostrarToast('Item atualizado!');
   }
   montarAbasEstoque();
