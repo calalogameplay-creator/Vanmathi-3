@@ -1071,6 +1071,7 @@
   let orcFreteManual = false;
   let itensRascunhoRecibo = [];
   let vendasRascunhoRecibo = [];
+  let parcelasRascunhoRecibo = [];
   let vendasComParcelamentoDigitadoRecibo = new Set();
   let reciboVisualizadoId = null;
   let logoEmpresaTemporaria = null;
@@ -3871,7 +3872,7 @@
   function novoRecibo(clienteId=''){
     if(!podeGerirFinanceiroVan())return;
     if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}
-    itensRascunhoRecibo=[];vendasRascunhoRecibo=[];vendasComParcelamentoDigitadoRecibo=new Set();
+    itensRascunhoRecibo=[];vendasRascunhoRecibo=[];parcelasRascunhoRecibo=[];vendasComParcelamentoDigitadoRecibo=new Set();
     document.getElementById('tituloFormRecibo').textContent='Novo recibo';
     document.getElementById('reciboData').value=new Date().toISOString().slice(0,10);
     document.getElementById('reciboForma').value='PIX';document.getElementById('reciboParcelas').value='1';
@@ -3903,21 +3904,21 @@
     const r={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaId:v.id,sequencia:seq,numero:String(seq).padStart(4,'0'),data:opts.data||v.data||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:[{descricao:v.produtoNome,material:materialLabelVan(v),detalhes:'',qtd,preco:Number(v.valorProdutoUnidade)||(total/qtd),total}],subtotal:total,desconto:0,total,recebido:Number(v.totalRecebido)||0,pendente:Number(v.saldoRestante??total),formaPagamento:opts.forma||(n>1?'Parcelado':'PIX'),parcelamento:JSON.parse(JSON.stringify(v.parcelamento||{quantidade:1,valorParcela:total,parcelas:[{numero:1,valor:total,pago:Number(v.totalRecebido)||0,status:quitado?'Pago':'Pendente'}]})),observacao:opts.observacao||'',baixas:(v.recebimentos||[]).map(p=>({...p})),situacao:quitado?'Pago':(Number(v.totalRecebido)||0)>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
     listaRecibos.push(r);return r;
   }
-  function consolidarParcelamentosVendasVan(vendas,total){
-    const planos=(Array.isArray(vendas)?vendas:[]).map(v=>v.parcelamento).filter(p=>p&&Array.isArray(p.parcelas)&&p.parcelas.length);
-    const n=planos.reduce((m,p)=>Math.max(m,Number(p.quantidade)||p.parcelas.length),0);
+  function consolidarParcelamentosVendasVan(vendas,total,quantidadeForcada){
+    const lista=Array.isArray(vendas)?vendas:[];
+    const planos=lista.map(v=>v.parcelamento).filter(p=>p&&Array.isArray(p.parcelas)&&p.parcelas.length);
+    const n=Math.max(0,Math.min(60,Number(quantidadeForcada)||planos.reduce((m,p)=>Math.max(m,Number(p.quantidade)||p.parcelas.length),0)));
     if(!n)return null;
+    const cents=Math.round((Number(total)||0)*100),base=Math.floor(cents/n);
     const parcelas=Array.from({length:n},(_,i)=>{
-      const partes=planos.map(p=>p.parcelas[i]).filter(Boolean);
-      const valor=moedaNumeroVan(partes.reduce((a,p)=>a+(Number(p.valor)||0),0));
-      const pago=moedaNumeroVan(partes.reduce((a,p)=>a+(Number(p.pago)||0),0));
+      const valor=(i===n-1?cents-base*(n-1):base)/100;
+      // Pagamentos da mesma parcela são somados entre todos os produtos,
+      // mas a parcela exibida pertence ao recibo inteiro.
+      const partes=planos.flatMap(p=>(p.parcelas||[]).filter(x=>Number(x.numero)===i+1));
+      const pago=moedaNumeroVan(Math.min(valor,partes.reduce((a,p)=>a+(Number(p.pago)||0),0)));
       const vencimentos=partes.map(p=>p.vencimento).filter(Boolean).sort();
-      return {numero:i+1,valor,pago:Math.min(valor,pago),status:pago>=valor-0.005?'Pago':pago>0?'Parcial':'Pendente',vencimento:vencimentos[0]||'',pagoEm:partes.map(p=>p.pagoEm).filter(Boolean).sort().slice(-1)[0]||null};
+      return {numero:i+1,valor,pago,status:pago>=valor-0.005?'Pago':pago>0?'Parcial':'Pendente',vencimento:vencimentos[0]||'',pagoEm:partes.map(p=>p.pagoEm).filter(Boolean).sort().slice(-1)[0]||null};
     });
-    const soma=moedaNumeroVan(parcelas.reduce((a,p)=>a+p.valor,0));
-    // Corrige eventual diferença de centavos para que a soma das parcelas
-    // corresponda exatamente ao total consolidado do recibo.
-    if(parcelas.length&&Math.abs(soma-(Number(total)||0))>0.005){parcelas[parcelas.length-1].valor=moedaNumeroVan(parcelas[parcelas.length-1].valor+(Number(total)||0)-soma);parcelas[parcelas.length-1].pago=Math.min(parcelas[parcelas.length-1].valor,parcelas[parcelas.length-1].pago);}
     const recebido=moedaNumeroVan(parcelas.reduce((a,p)=>a+p.pago,0));
     return {quantidade:n,valorParcela:moedaNumeroVan((Number(total)||0)/n),parcelas,recebido};
   }
@@ -3983,7 +3984,7 @@
       vendasRascunhoRecibo.forEach(v=>{if(!(Number(v.parcelamento?.quantidade)>0&&Array.isArray(v.parcelamento?.parcelas)&&v.parcelamento.parcelas.length)&&qtdInformada>0){v.parcelamento=criarParcelamentoVan(v.total,qtdInformada,v.data);reconciliarParcelasComRecebimentos(v);atualizarResumoFinanceiroVenda(v);}});
       const recebido=moedaNumeroVan(vendasRascunhoRecibo.reduce((a,v)=>a+(Number(v.totalRecebido)||0),0));
       const pendente=Math.max(0,moedaNumeroVan(total-recebido));
-      const planoConsolidado=consolidarParcelamentosVendasVan(vendasRascunhoRecibo,total);
+      const planoConsolidado=consolidarParcelamentosVendasVan(vendasRascunhoRecibo,total,qtdInformada||undefined);
       const itens=itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao||'').trim(),material:String(i.material||'').trim(),detalhes:'',qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)}));
       const recibosIndividuaisSubstituidos=listaRecibos.filter(r=>{
         const vinculadas=Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean);
@@ -4732,7 +4733,7 @@
   function preencherDadosClienteRecibo(){const c=listaClientes.find(x=>String(x.id)===String(document.getElementById('reciboCliente').value));if(c&&!document.getElementById('reciboObservacao').value&&c.observacoes)document.getElementById('reciboObservacao').value='Observação do cliente: '+c.observacoes;}
   function cancelarRecibo(){document.getElementById('formRecibo').style.display='none';}
   function atualizarItemRecibo(i,k,v){if(!itensRascunhoRecibo[i])return;itensRascunhoRecibo[i][k]=['qtd','preco'].includes(k)?Math.max(0,Number(v)||0):v;if(k==='qtd')itensRascunhoRecibo[i].qtd=Math.max(1,Math.floor(itensRascunhoRecibo[i].qtd));renderizarItensRascunhoRecibo();atualizarTotaisRecibo();}
-  function removerItemRecibo(i){const it=itensRascunhoRecibo[i];if(it?.vendaId)vendasRascunhoRecibo=vendasRascunhoRecibo.filter(v=>String(v.id)!==String(it.vendaId));itensRascunhoRecibo.splice(i,1);if(!vendasRascunhoRecibo.length){document.getElementById('reciboPago').readOnly=false;document.getElementById('reciboDesconto').readOnly=false;document.getElementById('reciboPago').value='0';}renderizarItensRascunhoRecibo();atualizarSelectVendasRecibo();atualizarTotaisRecibo();}
+  function removerItemRecibo(i){const it=itensRascunhoRecibo[i];if(it?.vendaId)vendasRascunhoRecibo=vendasRascunhoRecibo.filter(v=>String(v.id)!==String(it.vendaId));parcelasRascunhoRecibo=[];itensRascunhoRecibo.splice(i,1);if(!vendasRascunhoRecibo.length){document.getElementById('reciboPago').readOnly=false;document.getElementById('reciboDesconto').readOnly=false;document.getElementById('reciboPago').value='0';}renderizarItensRascunhoRecibo();atualizarSelectVendasRecibo();atualizarTotaisRecibo();}
   function lerValoresDigitadosParcelasRecibo(){
     const valores={};document.querySelectorAll('#listaParcelasRecibo [data-pagamento-parcela]').forEach(el=>{valores[el.dataset.numero]=Math.max(0,Number(String(el.value||'0').replace(',','.'))||0);});return valores;
   }
@@ -4743,10 +4744,14 @@
       const semPlano=vendasRascunhoRecibo.some(v=>vendasComParcelamentoDigitadoRecibo.has(String(v.id))||!(Number(v.parcelamento?.quantidade)>0&&Array.isArray(v.parcelamento?.parcelas)&&v.parcelamento.parcelas.length));
       const maiorQtd=vendasRascunhoRecibo.reduce((m,v)=>Math.max(m,Number(v.parcelamento?.quantidade)||0),0);
       if(qtdCampo){if(maiorQtd>0&&!semPlano)qtdCampo.value=maiorQtd;else if(semPlano&&!Number(qtdCampo.value))qtdCampo.value='1';qtdCampo.disabled=!semPlano;}
-      const nFallback=Math.max(0,Math.min(60,parseInt(qtdCampo?.value)||0));
-      vendasRascunhoRecibo.forEach(v=>{if(semPlano&&(!(Number(v.parcelamento?.quantidade)>0)||vendasComParcelamentoDigitadoRecibo.has(String(v.id)))&&nFallback>0){v.parcelamento=criarParcelamentoVan(v.total,nFallback,v.data);reconciliarParcelasComRecebimentos(v);atualizarResumoFinanceiroVenda(v);vendasComParcelamentoDigitadoRecibo.add(String(v.id));}});
-      const linhas=vendasRascunhoRecibo.flatMap(v=>{atualizarResumoFinanceiroVenda(v);const ps=v.parcelamento?.parcelas||[];return ps.map(p=>{const status=Number(p.pago)>=Number(p.valor)-0.005?'Paga':Number(p.pago)>0?'Parcial':'Pendente';return `<tr><td>${escaparHtmlVan(v.produtoNome||'Venda')}</td><td>${p.numero}ª</td><td>${dataVan(p.vencimento)}</td><td>${moedaVan(p.valor)}</td><td>${moedaVan(p.pago||0)}</td><td>${status}</td><td><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${Number(p.pago)>=Number(p.valor)-0.005?'checked':''} onchange="alternarParcelaVenda('${escaparHtmlVan(v.id)}',${p.numero},this.checked)" style="width:17px;height:17px;accent-color:var(--success)"><span>Pago</span></label></td></tr>`;});});
-      lista.innerHTML=`<p class="subtitle">${semPlano?'A Gestão de Vendas não tinha parcelamento em uma ou mais vendas. Informe a quantidade acima; as parcelas serão gravadas nas vendas ao emitir o recibo.':'A quantidade de parcelas foi herdada da Gestão de Vendas. Você pode marcar abaixo as parcelas já pagas.'}</p><div class="table-container"><table><thead><tr><th>Produto</th><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Recebido</th><th>Situação</th><th>Marcar</th></tr></thead><tbody>${linhas.join('')||'<tr><td colspan="7">Informe a quantidade de parcelas para acompanhar o pagamento.</td></tr>'}</tbody></table></div>`;
+      const n=Math.max(0,Math.min(60,parseInt(qtdCampo?.value)||0));
+      if(semPlano&&n>0){
+        vendasRascunhoRecibo.forEach(v=>{if(!(Number(v.parcelamento?.quantidade)>0&&Array.isArray(v.parcelamento?.parcelas)&&v.parcelamento.parcelas.length)||vendasComParcelamentoDigitadoRecibo.has(String(v.id))){v.parcelamento=criarParcelamentoVan(v.total,n,v.data);reconciliarParcelasComRecebimentos(v);atualizarResumoFinanceiroVenda(v);vendasComParcelamentoDigitadoRecibo.add(String(v.id));}});
+      }
+      const plano=consolidarParcelamentosVendasVan(vendasRascunhoRecibo,total,n);
+      parcelasRascunhoRecibo=plano?.parcelas||[];
+      lista.innerHTML=`<p class="subtitle">${semPlano?'A Gestão de Vendas não tinha parcelamento em uma ou mais vendas. Informe a quantidade acima; o sistema dividirá o total deste recibo em parcelas únicas.':'Parcelamento consolidado: todos os produtos formam um único recibo e compartilham estas parcelas. Marque cada parcela paga uma única vez.'}</p>`+
+        (n>0?`<div class="table-container"><table><thead><tr><th>Parcela do recibo</th><th>Vencimento</th><th>Valor total</th><th>Pago</th><th>Situação</th><th>Marcar</th></tr></thead><tbody>${parcelasRascunhoRecibo.map(p=>{const status=Number(p.pago)>=Number(p.valor)-0.005?'Paga':Number(p.pago)>0?'Parcial':'Pendente';return `<tr><td><strong>${p.numero}ª de ${n}</strong></td><td>${p.vencimento?dataVan(p.vencimento):'—'}</td><td>${moedaVan(p.valor)}</td><td>${moedaVan(p.pago||0)}</td><td>${status}</td><td><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${status==='Paga'?'checked':''} onchange="alternarParcelaGrupoRascunhoVan(${p.numero},this.checked)" style="width:17px;height:17px;accent-color:var(--success)"><span>Pago</span></label></td></tr>`;}).join('')}</tbody></table></div>`:'<small>Informe a quantidade de parcelas para acompanhar o pagamento.</small>');
       document.getElementById('reciboPago').value=vendasRascunhoRecibo.reduce((a,v)=>a+(Number(v.totalRecebido)||0),0).toFixed(2);return;
     }
     const qtdEl=document.getElementById('reciboParcelas')?.closest('.form-group');if(qtdEl)qtdEl.style.display='';const qtdCampo=document.getElementById('reciboParcelas');if(qtdCampo)qtdCampo.disabled=false;
@@ -4758,6 +4763,19 @@
     let somaBase=0;valores.forEach((p,i)=>{if(i<n-1)somaBase+=p.valor;});if(valores.length)valores[valores.length-1].valor=Math.max(0,Math.round((total-somaBase)*100)/100);
     lista.innerHTML=`<div class="table-container"><table style="min-width:620px"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th>${venda?'<th>Já recebido</th><th>Receber agora</th>':'<th>Valor recebido</th>'}<th>Situação</th></tr></thead><tbody>${valores.map(p=>{const recebido=venda?p.pago+p.extra:p.extra;const status=recebido>=p.valor-0.005?'Paga':recebido>0?'Parcial':'Pendente';return `<tr><td><strong>${p.numero}ª</strong></td><td>${p.vencimento?dataVan(p.vencimento):'—'}</td><td>${moedaVan(p.valor)}</td>${venda?`<td>${moedaVan(p.pago)}</td><td><input data-pagamento-parcela data-numero="${p.numero}" type="number" min="0" max="${Math.max(0,p.valor-p.pago).toFixed(2)}" step="0.01" value="${p.extra.toFixed(2)}" onchange="atualizarTotaisRecibo()" style="width:125px"></td>`:`<td><input data-pagamento-parcela data-numero="${p.numero}" type="number" min="0" max="${p.valor.toFixed(2)}" step="0.01" value="${p.extra.toFixed(2)}" onchange="atualizarTotaisRecibo()" style="width:125px"></td>`}<td><span class="status-pill-van" style="background:${status==='Paga'?'#dcfce7':status==='Parcial'?'#fef3c7':'#fee2e2'};color:${status==='Paga'?'#166534':status==='Parcial'?'#92400e':'#991b1b'}">${status}</span></td></tr>`;}).join('')}</tbody></table></div>`;
     const soma=valores.reduce((a,p)=>a+p.extra,0);document.getElementById('reciboPago').value=(venda?(Number(venda.totalRecebido)||0)+soma:soma).toFixed(2);
+  }
+  function alternarParcelaGrupoRascunhoVan(numero,marcada){
+    if(!podeGerirFinanceiroVan())return;const agora=new Date().toISOString();let alteradas=0;
+    for(const v of vendasRascunhoRecibo){
+      if(!v)continue;v.parcelamento=v.parcelamento||criarParcelamentoVan(v.total,Number(document.getElementById('reciboParcelas')?.value)||1,v.data);
+      const p=v.parcelamento.parcelas?.find(x=>Number(x.numero)===Number(numero));if(!p)continue;
+      normalizarRecebimentosPorParcelaVan(v);v.recebimentos=Array.isArray(v.recebimentos)?v.recebimentos:[];
+      const pagos=v.recebimentos.filter(x=>Number(x.parcelaNumero)===Number(numero));const recebido=moedaNumeroVan(pagos.reduce((a,x)=>a+(Number(x.valor)||0),0));
+      if(marcada){const falta=Math.max(0,moedaNumeroVan(Number(p.valor)-recebido));if(falta>0.005)v.recebimentos.push({id:'pg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),valor:falta,data:agora,origem:'checkbox_parcela_recibo_'+numero,parcelaNumero:Number(numero),usuario:vanmathiUsuario?.uid||''});}
+      else{v.recebimentos=v.recebimentos.filter(x=>Number(x.parcelaNumero)!==Number(numero));}
+      reconciliarParcelasComRecebimentos(v);atualizarResumoFinanceiroVenda(v);sincronizarRecibosDaVenda(v);alteradas++;
+    }
+    if(!alteradas)return;salvarTudoLocal(true);salvarPacoteComercialVanSemDisparar();renderizarVendas();renderizarClientes();renderizarRecibos();atualizarRelatorios();atualizarTotaisRecibo();mostrarToast(marcada?'Parcela do recibo marcada como paga em todos os produtos.':'Pagamento da parcela do recibo revertido em todos os produtos.');
   }
   function valoresSomaBase(total,n){return Math.round((Math.round((Number(total)||0)*100/n)*Math.max(0,n-1)))/100;}
   function calcularTotaisRascunho(){const subtotal=itensRascunhoRecibo.reduce((s,i)=>s+(Math.max(0,Number(i.qtd)||0)*Math.max(0,Number(i.preco)||0)),0);const desconto=Math.min(subtotal,Math.max(0,Number(document.getElementById('reciboDesconto')?.value)||0));const total=Math.max(0,subtotal-desconto);const recebido=Math.min(total,Math.max(0,Number(document.getElementById('reciboPago')?.value)||0));return {subtotal,desconto,total,recebido,pendente:Math.max(0,total-recebido)};}
