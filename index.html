@@ -2005,6 +2005,7 @@
     renderizarVendas();
     renderizarClientes();
     renderizarRecibos();
+    if(document.getElementById('formRecibo')?.style.display==='block')atualizarSelectVendasRecibo();
     filtrarTabela();
     atualizarFiltroAnosDinamico();
     atualizarRelatorios();
@@ -3819,28 +3820,30 @@
   }
   function atualizarSelectVendasRecibo(){
     const el=document.getElementById('reciboVendaOrigem');if(!el)return;
-    const clienteId=document.getElementById('reciboCliente')?.value||'';
-    const selecionada=el.value||'';
+    const clienteId=String(document.getElementById('reciboCliente')?.value||'');
+    const selecionada=String(el.value||'');
     const usadas=new Set(vendasRascunhoRecibo.map(v=>String(v.id)));
-    // FONTE ÚNICA: Gestão de Vendas (listaVendas). Recibos nunca determinam
-    // quais produtos pertencem ao cliente; servem apenas para informar o estado documental.
-    const vendasCliente=vendasDoClienteVan(clienteId,true)
-      .filter(v=>!usadas.has(String(v.id)))
-      .sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
+
+    // FONTE ÚNICA: listaVendas, que alimenta a aba Gestão de Vendas.
+    // O vínculo é feito diretamente pelo clienteId gravado em cada venda.
+    // Não consultamos recibos, produtos salvos ou nomes para montar esta lista.
+    const vendasCliente=clienteId
+      ? listaVendas.filter(v=>String(v.clienteId||'')===clienteId)
+          .filter(v=>!usadas.has(String(v.id)))
+          .sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')))
+      : [];
+
     const opcoes=vendasCliente.map(v=>{
-      const reciboExistente=listaRecibos.find(r=>(Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean)).some(id=>String(id)===String(v.id)));
-      const rotulo=`${escaparHtmlVan(v.produtoNome||'Produto')} × ${Math.max(1,Number(v.qtd)||1)} — ${moedaVan(v.total)} — ${dataVan(v.data)}`;
-      const situacao=reciboExistente?` · recibo #${escaparHtmlVan(reciboExistente.numero||reciboExistente.sequencia||'')}`:'';
-      // Vendas com recibo individual continuam selecionáveis: ao consolidá-las
-      // em um recibo múltiplo, o documento individual é substituído pelo consolidado.
-      return `<option value="${escaparHtmlVan(v.id)}">${rotulo}${situacao}</option>`;
+      const qtd=Math.max(1,Number(v.qtd)||1);
+      const rotulo=`${escaparHtmlVan(v.produtoNome||'Produto')} × ${qtd} — ${moedaVan(v.total)} — ${dataVan(v.data)}`;
+      return `<option value="${escaparHtmlVan(v.id)}">${rotulo}</option>`;
     }).join('');
-    el.innerHTML='<option value="">'+(vendasCliente.length?'Selecione uma venda da Gestão de Vendas…':'Nenhuma venda encontrada na Gestão de Vendas para este cliente')+'</option>'+opcoes;
-    if(selecionada && vendasCliente.some(v=>String(v.id)===String(selecionada)))el.value=selecionada;
+    el.innerHTML='<option value="">'+(clienteId?(vendasCliente.length?'Selecione uma venda da Gestão de Vendas…':'Nenhuma venda vinculada a este cliente na Gestão de Vendas'):'Selecione primeiro um cliente')+'</option>'+opcoes;
+    if(selecionada && vendasCliente.some(v=>String(v.id)===selecionada))el.value=selecionada;
   }
   function aoSelecionarClienteRecibo(){
     const id=document.getElementById('reciboCliente')?.value||'';
-    if(vendasRascunhoRecibo.length&&vendasRascunhoRecibo.some(v=>String((resolverClienteDaVendaVan(v,true)||{}).id||v.clienteId||'')!==String(id))){
+    if(vendasRascunhoRecibo.length&&vendasRascunhoRecibo.some(v=>String(v.clienteId||'')!==String(id))){
       if(!confirm('Trocar o cliente removerá as vendas vinculadas já adicionadas. Continuar?')){document.getElementById('reciboCliente').value=String(vendasRascunhoRecibo[0].clienteId||'');return;}
       const ids=new Set(vendasRascunhoRecibo.map(v=>String(v.id)));vendasRascunhoRecibo=[];itensRascunhoRecibo=itensRascunhoRecibo.filter(i=>!ids.has(String(i.vendaId||'')));renderizarItensRascunhoRecibo();atualizarTotaisRecibo();
     }
@@ -3851,9 +3854,7 @@
     const v=obterVendaFinanceira(id),clienteId=document.getElementById('reciboCliente')?.value||'';
     if(itensRascunhoRecibo.some(i=>!i.vendaId)){alert('Para manter o vínculo financeiro, remova os itens avulsos antes de incluir vendas vinculadas.');el.value='';return;}
     if(!clienteId){alert('Selecione o cliente antes de adicionar uma venda.');el.value='';return;}
-    const clienteVenda=resolverClienteDaVendaVan(v,true);
-    if(!v||!clienteVenda||String(clienteVenda.id)!==String(clienteId)){alert('A venda selecionada não pertence ao cliente escolhido ou o vínculo precisa ser conferido.');el.value='';return;}
-    if(String(v.clienteId||'')!==String(clienteVenda.id)){v.clienteId=clienteVenda.id;v.clienteNome=clienteVenda.nome;try{salvarTudoLocal();}catch(e){console.warn('Falha ao corrigir vínculo da venda:',e);}}
+    if(!v||String(v.clienteId||'')!==String(clienteId)){alert('Esta venda não está vinculada ao cliente selecionado na Gestão de Vendas.');el.value='';return;}
     if(vendasRascunhoRecibo.some(x=>String(x.id)===String(v.id))){el.value='';return;}
     // Uma venda pode já possuir o recibo individual criado automaticamente
     // pela Gestão de Vendas. Ela continua disponível para consolidação; recibos
