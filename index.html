@@ -922,7 +922,7 @@
         <div class="form-group"><label>Quantidade Vendida</label><input type="number" id="vendaQtd" value="1" min="1"></div>
         <div class="form-group"><label>Data da Venda</label><input type="date" id="vendaData"></div>
       </div>
-      <div class="form-group"><label>Cliente (opcional)</label><select id="vendaClienteId"><option value="">Sem cliente vinculado</option></select><small style="color:var(--text-muted)">Vincula a venda ao histórico do cliente e aos recibos.</small></div>
+      <div class="form-group"><label>Cliente (opcional)</label><select id="vendaClienteId"><option value="">Sem cliente vinculado</option></select><small style="color:var(--text-muted)">Vincula a venda ao cliente. Não cria recibos nem orçamentos automaticamente.</small></div>
       <div class="form-row">
         <div class="form-group"><label>Quantidade de parcelas</label><input type="number" id="vendaQtdParcelas" min="0" max="60" step="1" value="0" onchange="ajustarPagamentoParcelasVenda()"><small style="color:var(--text-muted)">De 0 a 60 parcelas. Use 0 quando não houver parcelamento.</small></div>
         <div class="form-group"><label>1º vencimento</label><input type="date" id="vendaPrimeiroVencimento"></div>
@@ -1971,11 +1971,9 @@
       const indice = listaVendas.findIndex(v => v.id === editandoVendaId);
       if(indice !== -1) {
         const anterior=listaVendas[indice];
-        const reciboDaVenda=listaRecibos.find(r=>String(r.vendaId||'')===String(editandoVendaId));
-        if(reciboDaVenda && !dadosVenda.clienteId){
-          if(!confirm('Esta venda tem o recibo #'+reciboDaVenda.numero+' vinculado. Remover o cliente da venda também exclui esse recibo. Continuar?')) return;
-          listaRecibos=listaRecibos.filter(r=>r!==reciboDaVenda);
-        }
+        // Alterar/remover o cliente na Gestão de Vendas não cria nem exclui
+        // recibos ou orçamentos. Documentos são emitidos exclusivamente nas
+        // respectivas abas, por ação manual do usuário.
         const totalMudou=Math.abs((Number(anterior.total)||0)-totalVenda)>0.005;
         const plano=qtdParcelas===0?criarParcelamentoVan(totalVenda,0,''):((anterior.parcelamento&&!totalMudou&&Number(anterior.parcelamento.quantidade)===qtdParcelas)?anterior.parcelamento:criarParcelamentoVan(totalVenda,qtdParcelas,document.getElementById('vendaPrimeiroVencimento').value||data));
         listaVendas[indice]={...anterior,...dadosVenda,id:editandoVendaId,parcelamento:plano,recebimentos:Array.isArray(anterior.recebimentos)?anterior.recebimentos:[]};
@@ -3865,7 +3863,7 @@
     renderizarItensRascunhoRecibo();atualizarSelectVendasRecibo();atualizarTotaisRecibo();el.value='';
   }
   function preencherReciboDaVenda(){adicionarVendaReciboSelecionada();}
-  function novoRecibo(clienteId='',vendaId=''){
+  function novoRecibo(clienteId=''){
     if(!podeGerirFinanceiroVan())return;
     if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}
     itensRascunhoRecibo=[];vendasRascunhoRecibo=[];
@@ -3875,11 +3873,11 @@
     document.getElementById('reciboPago').value='0';document.getElementById('reciboPago').readOnly=false;
     document.getElementById('reciboDesconto').value='0';document.getElementById('reciboDesconto').readOnly=false;
     document.getElementById('reciboObservacao').value='';
-    if(vendaId){const v=obterVendaFinanceira(vendaId);const clienteVenda=resolverClienteDaVendaVan(v,true);if(clienteVenda)clienteId=clienteVenda.id;}
     atualizarSelectClientesRecibo(clienteId);
     document.getElementById('reciboVendaOrigem').value='';atualizarSelectVendasRecibo();
-    if(vendaId){document.getElementById('reciboVendaOrigem').value=String(vendaId);adicionarVendaReciboSelecionada();}
-    else adicionarItemRecibo();
+    // O formulário começa sem vendas vinculadas. O usuário escolhe cada
+    // produto manualmente na lista da Gestão de Vendas após selecionar o cliente.
+    adicionarItemRecibo();
     renderizarItensRascunhoRecibo();document.getElementById('listaParcelasRecibo').innerHTML='';atualizarTotaisRecibo();
     document.getElementById('formRecibo').style.display='block';document.getElementById('visualizadorRecibo').style.display='none';
     document.getElementById('formRecibo').scrollIntoView({behavior:'smooth',block:'start'});
@@ -3931,11 +3929,10 @@
   function gerarReciboDaVenda(id){
     if(!podeGerirFinanceiroVan())return;
     const v=obterVendaFinanceira(id);if(!v)return;
-    let r=listaRecibos.find(x=>String(x.vendaId||'')===String(v.id)||(Array.isArray(x.vendaIds)&&x.vendaIds.some(id=>String(id)===String(v.id))));
-    if(!r&&v.clienteId&&listaClientes.some(c=>String(c.id)===String(v.clienteId)&&!c.arquivado))r=criarReciboVinculadoDaVenda(v);
+    // Atalho apenas abre um recibo novo com o cliente selecionado.
+    // Nenhum recibo é criado ou preenchido automaticamente pela Gestão de Vendas.
     mudarAbaMenu({target:document.querySelector('#menuRecibos a')},'recibos');
-    if(r){salvarPacoteComercialVan();renderizarRecibos();mostrarRecibo(r.id);return;}
-    novoRecibo('',v.id);
+    novoRecibo(v.clienteId||'');
   }
   function salvarRecibo(){
     if(!podeGerirFinanceiroVan())return;
@@ -4012,14 +4009,12 @@
   function excluirRecibo(id){
     if(!podeGerirFinanceiroVan())return;
     const r=listaRecibos.find(x=>String(x.id)===String(id));if(!r)return;
-    const v=r.vendaId?obterVendaFinanceira(r.vendaId):null;const multi=Array.isArray(r.vendaIds)&&r.vendaIds.length>1;
-    const msg='Excluir o recibo '+r.numero+'?'+(v?'\n\nO cliente "'+(v.clienteNome||r.cliente?.nome||'')+'" também será desvinculado da venda "'+(v.produtoNome||'')+'" em Gestão de Vendas.':'')+'\n\nEsta ação não pode ser desfeita.';
-    if(!confirm(msg))return;
+    if(!confirm('Excluir o recibo '+r.numero+'?\n\nA venda e o cliente continuarão vinculados na Gestão de Vendas.\n\nEsta ação não pode ser desfeita.'))return;
     listaRecibos=listaRecibos.filter(x=>String(x.id)!==String(id));
-    if(v&&!multi){v.clienteId='';v.clienteNome='';}
+    // Excluir um documento não altera o cadastro da venda nem o cliente responsável.
     salvarPacoteComercialVan();
     renderizarRecibos();renderizarClientes();renderizarVendas();atualizarRelatorios();fecharVisualizadorRecibo();
-    mostrarToast(v?'Recibo excluído e cliente desvinculado da venda.':'Recibo excluído.');
+    mostrarToast('Recibo excluído. O vínculo do cliente na Gestão de Vendas foi preservado.');
   }
 
   // ===== Orçamentos (mesmo layout A4 do recibo; só valores e cores, sem parcelas) =====
