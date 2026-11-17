@@ -794,7 +794,7 @@
             <div class="form-group"><label>Cliente *</label><select id="orcCliente" onchange="atualizarSelectVendasOrcamento()"><option value="">Selecione um cliente</option></select></div>
             <div class="form-group"><label>Data de emissão</label><input id="orcData" type="date"></div>
             <div class="form-group"><label>Válido até</label><input id="orcValidade" type="date"><small style="color:var(--text-muted)">Sugerido: 7 dias após a emissão. Pode alterar.</small></div>
-            <div class="form-group"><label>Adicionar produto cadastrado</label><select id="orcProdutoCatalogo" onchange="adicionarProdutoCatalogoOrcamento()"><option value="">＋ Adicionar produto cadastrado…</option></select><small style="color:var(--text-muted)">Traz nome, cores (pela composição de materiais) e preço de venda do cadastro.</small></div><div class="form-group"><label>＋ Adicionar outra venda do cliente</label><select id="orcVendaOrigem" onchange="adicionarVendaOrcamentoSelecionada()"><option value="">Selecione uma venda vinculada ao cliente…</option></select><small style="color:var(--text-muted)">A lista mostra as vendas cadastradas para o cliente escolhido. Adicione quantas precisar.</small></div>
+            <div class="form-group"><label>Adicionar produto cadastrado</label><select id="orcProdutoCatalogo" onchange="adicionarProdutoCatalogoOrcamento()"><option value="">＋ Adicionar produto cadastrado…</option></select><small style="color:var(--text-muted)">Traz nome, cores (pela composição de materiais) e preço de venda do cadastro.</small></div><div class="form-group"><label>＋ Adicionar outra venda do cliente</label><select id="orcVendaOrigem" onchange="adicionarVendaOrcamentoSelecionada()"><option value="">Selecione uma venda vinculada ao cliente…</option></select><small style="color:var(--text-muted)">A lista é carregada diretamente da Gestão de Vendas e atualizada em tempo real. Adicione as vendas desejadas.</small></div>
             <div class="form-group full"><label>Observações</label><input id="orcObservacao" maxlength="500" placeholder="Prazo de entrega, condições ou outras informações do pedido"></div>
           </div>
           <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Cores</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensOrcamento"></tbody></table></div>
@@ -817,7 +817,7 @@
           <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><h3 id="tituloFormRecibo">Novo recibo</h3><button class="btn-secondary" onclick="cancelarRecibo()">Fechar</button></div>
           <div class="form-grid-van">
             <div class="form-group"><label>Cliente *</label><select id="reciboCliente" onchange="aoSelecionarClienteRecibo()"><option value="">Selecione um cliente</option></select></div>
-            <div class="form-group"><label>＋ Adicionar outra venda vinculada ao cliente</label><select id="reciboVendaOrigem" onchange="adicionarVendaReciboSelecionada()"><option value="">Selecione uma venda do cliente…</option></select><small style="color:var(--text-muted)">Você pode adicionar várias vendas do mesmo cliente ao mesmo recibo. Cada venda mantém seu vínculo e histórico financeiro.</small></div>
+            <div class="form-group"><label>＋ Adicionar outra venda vinculada ao cliente</label><select id="reciboVendaOrigem" onchange="adicionarVendaReciboSelecionada()"><option value="">Selecione uma venda do cliente…</option></select><small style="color:var(--text-muted)">Lista alimentada diretamente pela Gestão de Vendas, inclusive vendas com recibo individual automático. Vendas consolidadas anteriormente não podem ser duplicadas.</small></div>
             <div class="form-group"><label>Data de emissão</label><input id="reciboData" type="date"></div>
             <div class="form-group"><label>Forma de pagamento</label><select id="reciboForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Parcelado</option><option>Outro</option></select></div>
             <div class="form-group"><label>Quantidade de parcelas</label><input id="reciboParcelas" type="number" min="0" max="60" step="1" value="1" oninput="atualizarTotaisRecibo()"><small style="color:var(--text-muted)">De 1 a 60. Informe abaixo quanto foi recebido em cada parcela; pode deixar R$ 0,00 quando ainda não houve pagamento.</small></div>
@@ -1343,6 +1343,10 @@
     localStorage.setItem('Vanmathi_Dados_Empresa', JSON.stringify(dadosEmpresa));
     if (document.getElementById('tabelaClientes')) renderizarClientes();
     if (document.getElementById('tabelaRecibos')) renderizarRecibos();
+    // Se um formulário estiver aberto, atualiza seus seletores imediatamente
+    // com o snapshot mais recente da Gestão de Vendas.
+    if (document.getElementById('reciboVendaOrigem')) atualizarSelectVendasRecibo();
+    if (document.getElementById('orcVendaOrigem')) atualizarSelectVendasOrcamento();
     if (document.getElementById('tabelaOrcamentos')) renderizarOrcamentos();
     if (document.getElementById('empresaNome')) carregarFormularioEmpresa();
     renderizarSelectLojas();
@@ -3816,14 +3820,23 @@
   function atualizarSelectVendasRecibo(){
     const el=document.getElementById('reciboVendaOrigem');if(!el)return;
     const clienteId=document.getElementById('reciboCliente')?.value||'';
+    const selecionada=el.value||'';
     const usadas=new Set(vendasRascunhoRecibo.map(v=>String(v.id)));
-    const vendasCliente=vendasDoClienteVan(clienteId,true).filter(v=>!usadas.has(String(v.id)));
-    const opcoes=vendasCliente.sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(v=>{
+    // FONTE ÚNICA: Gestão de Vendas (listaVendas). Recibos nunca determinam
+    // quais produtos pertencem ao cliente; servem apenas para informar o estado documental.
+    const vendasCliente=vendasDoClienteVan(clienteId,true)
+      .filter(v=>!usadas.has(String(v.id)))
+      .sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
+    const opcoes=vendasCliente.map(v=>{
       const reciboExistente=listaRecibos.find(r=>(Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean)).some(id=>String(id)===String(v.id)));
       const rotulo=`${escaparHtmlVan(v.produtoNome||'Produto')} × ${Math.max(1,Number(v.qtd)||1)} — ${moedaVan(v.total)} — ${dataVan(v.data)}`;
-      return reciboExistente?`<option value="" disabled>${rotulo} — já consta no recibo #${escaparHtmlVan(reciboExistente.numero||reciboExistente.sequencia||'')}</option>`:`<option value="${escaparHtmlVan(v.id)}">${rotulo}</option>`;
+      const situacao=reciboExistente?` · recibo #${escaparHtmlVan(reciboExistente.numero||reciboExistente.sequencia||'')}`:'';
+      // Vendas com recibo individual continuam selecionáveis: ao consolidá-las
+      // em um recibo múltiplo, o documento individual é substituído pelo consolidado.
+      return `<option value="${escaparHtmlVan(v.id)}">${rotulo}${situacao}</option>`;
     }).join('');
-    el.innerHTML='<option value="">'+(vendasCliente.length?'Selecione uma venda vinculada ao cliente…':'Nenhuma venda encontrada para este cliente')+'</option>'+opcoes;
+    el.innerHTML='<option value="">'+(vendasCliente.length?'Selecione uma venda da Gestão de Vendas…':'Nenhuma venda encontrada na Gestão de Vendas para este cliente')+'</option>'+opcoes;
+    if(selecionada && vendasCliente.some(v=>String(v.id)===String(selecionada)))el.value=selecionada;
   }
   function aoSelecionarClienteRecibo(){
     const id=document.getElementById('reciboCliente')?.value||'';
@@ -3842,8 +3855,11 @@
     if(!v||!clienteVenda||String(clienteVenda.id)!==String(clienteId)){alert('A venda selecionada não pertence ao cliente escolhido ou o vínculo precisa ser conferido.');el.value='';return;}
     if(String(v.clienteId||'')!==String(clienteVenda.id)){v.clienteId=clienteVenda.id;v.clienteNome=clienteVenda.nome;try{salvarTudoLocal();}catch(e){console.warn('Falha ao corrigir vínculo da venda:',e);}}
     if(vendasRascunhoRecibo.some(x=>String(x.id)===String(v.id))){el.value='';return;}
+    // Uma venda pode já possuir o recibo individual criado automaticamente
+    // pela Gestão de Vendas. Ela continua disponível para consolidação; recibos
+    // múltiplos existentes, porém, não podem ser duplicados.
     const existente=listaRecibos.find(r=>(Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean)).some(x=>String(x)===String(v.id)));
-    if(existente){alert('Esta venda já está vinculada ao recibo #'+(existente.numero||existente.sequencia)+'.');el.value='';return;}
+    if(existente && Array.isArray(existente.vendaIds) && existente.vendaIds.length>1){alert('Esta venda já faz parte do recibo consolidado #'+(existente.numero||existente.sequencia)+'.');el.value='';return;}
     atualizarResumoFinanceiroVenda(v);vendasRascunhoRecibo.push(v);
     const qtd=Math.max(1,Number(v.qtd)||1),total=Number(v.total)||0;
     itensRascunhoRecibo.push({descricao:v.produtoNome||'',material:materialLabelVan(v),detalhes:'',qtd,preco:Number(v.valorProdutoUnidade)||(total/qtd),produtoId:v.produtoId||'',vendaId:v.id});
@@ -3935,15 +3951,29 @@
     if(vendasRascunhoRecibo.length){
       if(vendasRascunhoRecibo.some(v=>String(v.clienteId||'')!==String(cliente.id))){alert('Todas as vendas precisam pertencer ao cliente selecionado.');return;}
       const ids=vendasRascunhoRecibo.map(v=>String(v.id));
-      const duplicada=listaRecibos.find(r=>(Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean)).some(x=>ids.includes(String(x))));
-      if(duplicada){alert('Uma das vendas já está vinculada ao recibo #'+duplicada.numero+'.');return;}
+      const duplicada=listaRecibos.find(r=>{
+        const vinculadas=Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean);
+        if(!vinculadas.some(x=>ids.includes(String(x))))return false;
+        // Recibo individual automático pode ser substituído por um recibo
+        // consolidado. Um recibo múltiplo já emitido permanece protegido.
+        return Array.isArray(r.vendaIds)&&r.vendaIds.length>1;
+      });
+      if(duplicada){alert('Uma das vendas já está vinculada ao recibo consolidado #'+duplicada.numero+'.');return;}
       const seq=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0)+1;
       const total=moedaNumeroVan(vendasRascunhoRecibo.reduce((a,v)=>a+(Number(v.total)||0),0));
       const recebido=moedaNumeroVan(vendasRascunhoRecibo.reduce((a,v)=>a+(Number(v.totalRecebido)||0),0));
       const pendente=Math.max(0,moedaNumeroVan(total-recebido));
       const itens=itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao||'').trim(),material:String(i.material||'').trim(),detalhes:'',qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)}));
-      const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaIds:ids,vendaId:ids.length===1?ids[0]:'',sequencia:seq,numero:String(seq).padStart(4,'0'),data:dataEmissao,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens,subtotal:total,desconto:0,total,recebido,pendente,formaPagamento:forma,parcelamento:null,parcelamentosPorVenda:vendasRascunhoRecibo.map(v=>({vendaId:v.id,produtoNome:v.produtoNome,parcelamento:JSON.parse(JSON.stringify(v.parcelamento||null))})),observacao:obs,baixas:vendasRascunhoRecibo.flatMap(v=>(v.recebimentos||[]).map(pg=>({...pg,vendaId:v.id}))),situacao:pendente<=0.005?'Pago':recebido>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
+      const recibosIndividuaisSubstituidos=listaRecibos.filter(r=>{
+        const vinculadas=Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean);
+        return vinculadas.length===1 && ids.includes(String(vinculadas[0]));
+      });
+      const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaIds:ids,vendaId:ids.length===1?ids[0]:'',sequencia:seq,numero:String(seq).padStart(4,'0'),data:dataEmissao,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens,subtotal:total,desconto:0,total,recebido,pendente,formaPagamento:forma,parcelamento:null,parcelamentosPorVenda:vendasRascunhoRecibo.map(v=>({vendaId:v.id,produtoNome:v.produtoNome,parcelamento:JSON.parse(JSON.stringify(v.parcelamento||null))})),recibosIndividuaisSubstituidos:recibosIndividuaisSubstituidos.map(r=>({id:r.id,numero:r.numero,sequencia:r.sequencia,criadoEm:r.criadoEm})),observacao:obs,baixas:vendasRascunhoRecibo.flatMap(v=>(v.recebimentos||[]).map(pg=>({...pg,vendaId:v.id}))),situacao:pendente<=0.005?'Pago':recebido>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
       vendasRascunhoRecibo.forEach(v=>{v.clienteId=cliente.id;v.clienteNome=cliente.nome;atualizarResumoFinanceiroVenda(v);});
+      // Substitui os recibos individuais automáticos das vendas selecionadas pelo
+      // documento consolidado, mantendo seus números no histórico do novo recibo.
+      const idsRecibosSubstituidos=new Set(recibosIndividuaisSubstituidos.map(r=>String(r.id)));
+      listaRecibos=listaRecibos.filter(r=>!idsRecibosSubstituidos.has(String(r.id)));
       listaRecibos.push(recibo);salvarPacoteComercialVan();cancelarRecibo();renderizarVendas();renderizarClientes();renderizarRecibos();atualizarRelatorios();mostrarRecibo(recibo.id);mostrarToast('Recibo '+recibo.numero+' emitido com '+ids.length+' vendas vinculadas.');return;
     }
     if(vendaId){
