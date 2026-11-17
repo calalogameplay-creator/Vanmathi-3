@@ -795,6 +795,9 @@
             <div class="form-group"><label>Data de emissão</label><input id="orcData" type="date"></div>
             <div class="form-group"><label>Válido até</label><input id="orcValidade" type="date"><small style="color:var(--text-muted)">Sugerido: 7 dias após a emissão. Pode alterar.</small></div>
             <div class="form-group"><label>Adicionar produto cadastrado</label><select id="orcProdutoCatalogo" onchange="adicionarProdutoCatalogoOrcamento()"><option value="">＋ Adicionar produto cadastrado…</option></select><small style="color:var(--text-muted)">Traz nome, cores (pela composição de materiais) e preço de venda do cadastro.</small></div><div class="form-group"><label>＋ Adicionar outra venda do cliente</label><select id="orcVendaOrigem" onchange="adicionarVendaOrcamentoSelecionada()"><option value="">Selecione uma venda vinculada ao cliente…</option></select><small style="color:var(--text-muted)">A lista é carregada diretamente da Gestão de Vendas e atualizada em tempo real. Adicione as vendas desejadas.</small></div>
+            <div class="form-group"><label>Forma de pagamento</label><select id="orcFormaPagamento" onchange="atualizarTotaisOrcamento()"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Parcelado</option><option>Outro</option></select></div>
+            <div class="form-group"><label>Quantidade de parcelas</label><input id="orcQtdParcelas" type="number" min="0" max="60" step="1" value="1" oninput="atualizarTotaisOrcamento()"><small style="color:var(--text-muted)">Se a venda já tiver parcelas na Gestão de Vendas, a quantidade será preenchida automaticamente. Caso contrário, informe aqui.</small></div>
+            <div class="form-group full"><div id="controleParcelasOrcamento" class="card-box" style="padding:12px;margin:0"><h3 style="margin:0 0 6px">Acompanhamento das parcelas</h3><div id="listaParcelasOrcamento"></div></div></div>
             <div class="form-group full"><label>Observações</label><input id="orcObservacao" maxlength="500" placeholder="Prazo de entrega, condições ou outras informações do pedido"></div>
           </div>
           <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Cores</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensOrcamento"></tbody></table></div>
@@ -827,7 +830,7 @@
           <div class="table-container"><table><thead><tr><th>Produto / descrição</th><th>Cores</th><th>Qtd.</th><th>Preço unit. (R$)</th><th>Total</th><th></th></tr></thead><tbody id="itensRecibo"></tbody></table></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button id="btnAddItemRecibo" class="btn-secondary" onclick="adicionarItemRecibo()">＋ Adicionar item</button></div>
           <div class="form-grid-van"><div class="form-group"><label>Desconto (R$)</label><input id="reciboDesconto" type="number" min="0" step="0.01" value="0" oninput="atualizarTotaisRecibo()"></div><div class="form-group"><label>Valor total</label><input id="reciboTotalExibido" readonly value="R$ 0,00"></div></div>
-          <div id="controleParcelasRecibo" class="card-box" style="margin:12px 0;padding:14px"><h3 style="margin:0 0 6px">Acompanhamento das parcelas</h3><p class="subtitle">Em vendas vinculadas, as parcelas são exibidas conforme a Gestão de Vendas. Em recibos avulsos, informe o recebido em cada parcela.</p><div id="listaParcelasRecibo"></div></div>
+          <div id="controleParcelasRecibo" class="card-box" style="margin:12px 0;padding:14px"><h3 style="margin:0 0 6px">Acompanhamento das parcelas</h3><p class="subtitle">Nas vendas vinculadas, confira e marque cada parcela como paga. O recibo consolidado apresentará o parcelamento e a situação de pagamento.</p><div id="listaParcelasRecibo"></div></div>
           <div id="resumoPagamentoRecibo" style="background:rgba(59,130,246,.08);border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
           <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarRecibo()">Cancelar</button><button class="btn-primary" onclick="salvarRecibo()">💾 Salvar e gerar recibo</button></div>
         </div>
@@ -1063,10 +1066,12 @@
   let dadosEmpresa = JSON.parse(localStorage.getItem('Vanmathi_Dados_Empresa')) || {nome:'Vanmathi Impressão 3D', razao:'', cnpj:'', inscricao:'', email:'', telefone:'', site:'', redeSocial:'', endereco:'', mensagem:'Obrigado pela preferência!', rodape:'', cor:'#0f2d53', logo:'', marca:'Vanmathi 3', submarca:'Impressão 3D', slogan:'Ideias ganham forma.', fraseFinal:'Sua ideia, nossa impressão.', valores:'Qualidade • Precisão • Inovação'};
   let listaOrcamentos = JSON.parse(localStorage.getItem('Vanmathi_Dados_Orcamentos')) || [];
   let itensRascunhoOrcamento = [];
+  let parcelasRascunhoOrcamento = [];
   let orcamentoVisualizadoId = null;
   let orcFreteManual = false;
   let itensRascunhoRecibo = [];
   let vendasRascunhoRecibo = [];
+  let vendasComParcelamentoDigitadoRecibo = new Set();
   let reciboVisualizadoId = null;
   let logoEmpresaTemporaria = null;
   let listaLojas = JSON.parse(localStorage.getItem('Vanmathi_Dados_Lojas')) || [
@@ -3705,7 +3710,7 @@
     const site=urlSiteVan(e);
     const cli=r.cliente||{};
     const itens=Array.isArray(r.itens)?r.itens:[];
-    const pc=orc?null:resumoParcelasReciboVan(r);
+    const pc=resumoParcelasReciboVan(r);
     const x=escaparHtmlVan;
     const ic={
       pin:'<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
@@ -3738,7 +3743,7 @@
   <div class="contact">${contato.join('')}</div></div>
  <div class="rule"></div>
  <div class="title"><div class="l"><svg viewBox="0 0 24 28" fill="none" stroke="#1565d8" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 2h16v22l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5V2z"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#f28a1e"/></svg><div><h2>${orc?'ORÇAMENTO':'RECIBO'}</h2><p>PRODUTOS 3D PERSONALIZADOS</p></div></div>
-  <div class="nbox"><strong>Nº ${x(numeroReciboVan(r))}</strong>Data de Emissão: ${dataVan(r.data)}${orc?`<br>Válido até: <b>${dataVan(r.validade)}</b>`:`<br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}<br>Situação: <b>${x(r.situacao||'Pendente')}</b>`}</div></div>
+  <div class="nbox"><strong>Nº ${x(numeroReciboVan(r))}</strong>Data de Emissão: ${dataVan(r.data)}${orc?`<br>Válido até: <b>${dataVan(r.validade)}</b><br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}`:`<br>Forma de Pagamento: ${x(r.formaPagamento||'—')}${pc?' ('+pc.n+'x)':''}<br>Situação: <b>${x(r.situacao||'Pendente')}</b>`}</div></div>
  <div class="client"><div class="a"><h3><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z"/></svg>DADOS DO CLIENTE</h3>
    <div><span>Nome:</span>${x(cli.nome||'')}</div>${cli.email?`<div><span>E-mail:</span>${x(cli.email)}</div>`:''}${cli.telefone?`<div><span>Telefone:</span>${x(cli.telefone)}</div>`:''}${cli.documento?`<div><span>Documento:</span>${x(cli.documento)}</div>`:''}</div>
   <div class="b"><b>Endereço</b> <em>(opcional)</em>:<br>${cli.endereco?x(cli.endereco):'<em>Não informado</em>'}</div></div>
@@ -3866,7 +3871,7 @@
   function novoRecibo(clienteId=''){
     if(!podeGerirFinanceiroVan())return;
     if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um recibo.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}
-    itensRascunhoRecibo=[];vendasRascunhoRecibo=[];
+    itensRascunhoRecibo=[];vendasRascunhoRecibo=[];vendasComParcelamentoDigitadoRecibo=new Set();
     document.getElementById('tituloFormRecibo').textContent='Novo recibo';
     document.getElementById('reciboData').value=new Date().toISOString().slice(0,10);
     document.getElementById('reciboForma').value='PIX';document.getElementById('reciboParcelas').value='1';
@@ -3875,9 +3880,8 @@
     document.getElementById('reciboObservacao').value='';
     atualizarSelectClientesRecibo(clienteId);
     document.getElementById('reciboVendaOrigem').value='';atualizarSelectVendasRecibo();
-    // O formulário começa sem vendas vinculadas. O usuário escolhe cada
-    // produto manualmente na lista da Gestão de Vendas após selecionar o cliente.
-    adicionarItemRecibo();
+    // O formulário começa completamente vazio. Nenhum item avulso é criado;
+    // o usuário adiciona manualmente uma venda da Gestão de Vendas ou um item.
     renderizarItensRascunhoRecibo();document.getElementById('listaParcelasRecibo').innerHTML='';atualizarTotaisRecibo();
     document.getElementById('formRecibo').style.display='block';document.getElementById('visualizadorRecibo').style.display='none';
     document.getElementById('formRecibo').scrollIntoView({behavior:'smooth',block:'start'});
@@ -3899,6 +3903,24 @@
     const r={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaId:v.id,sequencia:seq,numero:String(seq).padStart(4,'0'),data:opts.data||v.data||new Date().toISOString().slice(0,10),clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:[{descricao:v.produtoNome,material:materialLabelVan(v),detalhes:'',qtd,preco:Number(v.valorProdutoUnidade)||(total/qtd),total}],subtotal:total,desconto:0,total,recebido:Number(v.totalRecebido)||0,pendente:Number(v.saldoRestante??total),formaPagamento:opts.forma||(n>1?'Parcelado':'PIX'),parcelamento:JSON.parse(JSON.stringify(v.parcelamento||{quantidade:1,valorParcela:total,parcelas:[{numero:1,valor:total,pago:Number(v.totalRecebido)||0,status:quitado?'Pago':'Pendente'}]})),observacao:opts.observacao||'',baixas:(v.recebimentos||[]).map(p=>({...p})),situacao:quitado?'Pago':(Number(v.totalRecebido)||0)>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
     listaRecibos.push(r);return r;
   }
+  function consolidarParcelamentosVendasVan(vendas,total){
+    const planos=(Array.isArray(vendas)?vendas:[]).map(v=>v.parcelamento).filter(p=>p&&Array.isArray(p.parcelas)&&p.parcelas.length);
+    const n=planos.reduce((m,p)=>Math.max(m,Number(p.quantidade)||p.parcelas.length),0);
+    if(!n)return null;
+    const parcelas=Array.from({length:n},(_,i)=>{
+      const partes=planos.map(p=>p.parcelas[i]).filter(Boolean);
+      const valor=moedaNumeroVan(partes.reduce((a,p)=>a+(Number(p.valor)||0),0));
+      const pago=moedaNumeroVan(partes.reduce((a,p)=>a+(Number(p.pago)||0),0));
+      const vencimentos=partes.map(p=>p.vencimento).filter(Boolean).sort();
+      return {numero:i+1,valor,pago:Math.min(valor,pago),status:pago>=valor-0.005?'Pago':pago>0?'Parcial':'Pendente',vencimento:vencimentos[0]||'',pagoEm:partes.map(p=>p.pagoEm).filter(Boolean).sort().slice(-1)[0]||null};
+    });
+    const soma=moedaNumeroVan(parcelas.reduce((a,p)=>a+p.valor,0));
+    // Corrige eventual diferença de centavos para que a soma das parcelas
+    // corresponda exatamente ao total consolidado do recibo.
+    if(parcelas.length&&Math.abs(soma-(Number(total)||0))>0.005){parcelas[parcelas.length-1].valor=moedaNumeroVan(parcelas[parcelas.length-1].valor+(Number(total)||0)-soma);parcelas[parcelas.length-1].pago=Math.min(parcelas[parcelas.length-1].valor,parcelas[parcelas.length-1].pago);}
+    const recebido=moedaNumeroVan(parcelas.reduce((a,p)=>a+p.pago,0));
+    return {quantidade:n,valorParcela:moedaNumeroVan((Number(total)||0)/n),parcelas,recebido};
+  }
   function sincronizarRecibosDaVenda(v){
     if(!v)return;
     listaRecibos.filter(r=>Array.isArray(r.vendaIds)&&r.vendaIds.some(id=>String(id)===String(v.id))).forEach(r=>{
@@ -3909,6 +3931,7 @@
       r.situacao=r.pendente<=0.005?'Pago':r.recebido>0?'Parcial':'Pendente';
       r.baixas=vendas.flatMap(x=>(x.recebimentos||[]).map(pg=>({...pg,vendaId:x.id})));
       r.parcelamentosPorVenda=vendas.map(x=>({vendaId:x.id,produtoNome:x.produtoNome||'',parcelamento:JSON.parse(JSON.stringify(x.parcelamento||null))}));
+      r.parcelamento=consolidarParcelamentosVendasVan(vendas,r.total);
     });
     listaRecibos.filter(r=>String(r.vendaId||'')===String(v.id)).forEach(r=>{
       const cli=listaClientes.find(c=>String(c.id)===String(v.clienteId));
@@ -3955,14 +3978,18 @@
       if(duplicada){alert('Uma das vendas já está vinculada ao recibo consolidado #'+duplicada.numero+'.');return;}
       const seq=listaRecibos.reduce((m,r)=>Math.max(m,Number(r.sequencia)||0),0)+1;
       const total=moedaNumeroVan(vendasRascunhoRecibo.reduce((a,v)=>a+(Number(v.total)||0),0));
+      const qtdInformada=Math.max(0,Math.min(60,parseInt(document.getElementById('reciboParcelas').value)||0));
+      // Se a Gestão de Vendas não tiver parcelamento, permite completar aqui e grava na própria venda.
+      vendasRascunhoRecibo.forEach(v=>{if(!(Number(v.parcelamento?.quantidade)>0&&Array.isArray(v.parcelamento?.parcelas)&&v.parcelamento.parcelas.length)&&qtdInformada>0){v.parcelamento=criarParcelamentoVan(v.total,qtdInformada,v.data);reconciliarParcelasComRecebimentos(v);atualizarResumoFinanceiroVenda(v);}});
       const recebido=moedaNumeroVan(vendasRascunhoRecibo.reduce((a,v)=>a+(Number(v.totalRecebido)||0),0));
       const pendente=Math.max(0,moedaNumeroVan(total-recebido));
+      const planoConsolidado=consolidarParcelamentosVendasVan(vendasRascunhoRecibo,total);
       const itens=itensRascunhoRecibo.map(i=>({...i,descricao:String(i.descricao||'').trim(),material:String(i.material||'').trim(),detalhes:'',qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco)}));
       const recibosIndividuaisSubstituidos=listaRecibos.filter(r=>{
         const vinculadas=Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean);
         return vinculadas.length===1 && ids.includes(String(vinculadas[0]));
       });
-      const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaIds:ids,vendaId:ids.length===1?ids[0]:'',sequencia:seq,numero:String(seq).padStart(4,'0'),data:dataEmissao,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens,subtotal:total,desconto:0,total,recebido,pendente,formaPagamento:forma,parcelamento:null,parcelamentosPorVenda:vendasRascunhoRecibo.map(v=>({vendaId:v.id,produtoNome:v.produtoNome,parcelamento:JSON.parse(JSON.stringify(v.parcelamento||null))})),recibosIndividuaisSubstituidos:recibosIndividuaisSubstituidos.map(r=>({id:r.id,numero:r.numero,sequencia:r.sequencia,criadoEm:r.criadoEm})),observacao:obs,baixas:vendasRascunhoRecibo.flatMap(v=>(v.recebimentos||[]).map(pg=>({...pg,vendaId:v.id}))),situacao:pendente<=0.005?'Pago':recebido>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
+      const recibo={id:'rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),vendaIds:ids,vendaId:ids.length===1?ids[0]:'',sequencia:seq,numero:String(seq).padStart(4,'0'),data:dataEmissao,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens,subtotal:total,desconto:0,total,recebido,pendente,formaPagamento:forma,parcelamento:planoConsolidado,parcelamentosPorVenda:vendasRascunhoRecibo.map(v=>({vendaId:v.id,produtoNome:v.produtoNome,parcelamento:JSON.parse(JSON.stringify(v.parcelamento||null))})),recibosIndividuaisSubstituidos:recibosIndividuaisSubstituidos.map(r=>({id:r.id,numero:r.numero,sequencia:r.sequencia,criadoEm:r.criadoEm})),observacao:obs,baixas:vendasRascunhoRecibo.flatMap(v=>(v.recebimentos||[]).map(pg=>({...pg,vendaId:v.id}))),situacao:pendente<=0.005?'Pago':recebido>0?'Parcial':'Pendente',criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
       vendasRascunhoRecibo.forEach(v=>{v.clienteId=cliente.id;v.clienteNome=cliente.nome;atualizarResumoFinanceiroVenda(v);});
       // Substitui os recibos individuais automáticos das vendas selecionadas pelo
       // documento consolidado, mantendo seus números no histórico do novo recibo.
@@ -4043,7 +4070,8 @@
   function novoOrcamento(clienteId=''){
     if(!podeGerirFinanceiroVan())return;
     if(!listaClientes.some(c=>!c.arquivado)){alert('Cadastre um cliente antes de emitir um orçamento.');mudarAbaMenu({target:document.querySelector('#menuClientes a')},'clientes');novoCliente();return;}
-    itensRascunhoOrcamento=[];
+    itensRascunhoOrcamento=[];parcelasRascunhoOrcamento=[];
+    document.getElementById('orcFormaPagamento').value='PIX';document.getElementById('orcQtdParcelas').value='1';document.getElementById('orcQtdParcelas').disabled=false;
     document.getElementById('orcData').value=new Date().toISOString().slice(0,10);
     {const dv=new Date();dv.setDate(dv.getDate()+7);document.getElementById('orcValidade').value=dv.toISOString().slice(0,10);}
     document.getElementById('orcDesconto').value='0';
@@ -4082,8 +4110,23 @@
     if(itensRascunhoOrcamento.some(i=>String(i.vendaId||'')===String(v.id))){el.value='';return;}
     const qtd=Math.max(1,Number(v.qtd)||1),p=listaProdutosSalvos.find(x=>String(x.id)===String(v.produtoId));
     adicionarItemOrcamento({descricao:v.produtoNome||'Produto',cores:materialLabelVan(v),qtd,preco:Number(v.valorProdutoUnidade)||(Number(v.total)||0)/qtd,frete:freteProdutoVan(p),produtoId:v.produtoId||'',vendaId:v.id});
-    el.value='';atualizarSelectVendasOrcamento();
+    el.value='';atualizarSelectVendasOrcamento();atualizarTotaisOrcamento();
   }
+  function vendasSelecionadasOrcamentoVan(){const ids=[...new Set(itensRascunhoOrcamento.map(i=>String(i.vendaId||'')).filter(Boolean))];return ids.map(id=>obterVendaFinanceira(id)).filter(Boolean);}
+  function renderizarControleParcelasOrcamento(total){
+    const lista=document.getElementById('listaParcelasOrcamento'),campo=document.getElementById('orcQtdParcelas');if(!lista||!campo)return;
+    const vendas=vendasSelecionadasOrcamentoVan();const planos=vendas.map(v=>Number(v.parcelamento?.quantidade)||0);const maior=planos.reduce((m,n)=>Math.max(m,n),0);const faltaPlano=vendas.some(v=>!(Number(v.parcelamento?.quantidade)>0&&Array.isArray(v.parcelamento?.parcelas)&&v.parcelamento.parcelas.length));
+    if(vendas.length&&maior>0&&!faltaPlano){campo.value=maior;campo.disabled=true;document.getElementById('orcFormaPagamento').value=maior>1?'Parcelado':document.getElementById('orcFormaPagamento').value;}
+    else{campo.disabled=false;if(!Number(campo.value))campo.value='1';}
+    const n=Math.max(0,Math.min(60,parseInt(campo.value)||0));
+    if(!n){lista.innerHTML='<small>Sem parcelamento.</small>';parcelasRascunhoOrcamento=[];return;}
+    const totalVendas=vendas.reduce((a,v)=>a+(Number(v.total)||0),0);
+    const planoFonte=vendas.length&&maior>0&&!faltaPlano&&Math.abs(totalVendas-(Number(total)||0))<0.02?consolidarParcelamentosVendasVan(vendas,total):null;
+    if(planoFonte&&Array.isArray(planoFonte.parcelas)&&(!parcelasRascunhoOrcamento.length||parcelasRascunhoOrcamento.length!==n))parcelasRascunhoOrcamento=planoFonte.parcelas.map(p=>({...p}));
+    else if(!planoFonte||!parcelasRascunhoOrcamento.length||parcelasRascunhoOrcamento.length!==n){const cents=Math.round((Number(total)||0)*100),base=Math.floor(cents/n);let soma=0;const antigas=parcelasRascunhoOrcamento.slice();parcelasRascunhoOrcamento=Array.from({length:n},(_,i)=>{const valor=(i===n-1?cents-soma:base)/100;soma+=i===n-1?0:base;const antiga=antigas[i];return {numero:i+1,valor,pago:antiga?.pago?Math.min(valor,Number(antiga.pago)||0):0,vencimento:antiga?.vencimento||''};});}
+    lista.innerHTML=`<div class="table-container"><table><thead><tr><th>Parcela</th><th>Valor</th><th>Situação</th><th>Pago?</th></tr></thead><tbody>${parcelasRascunhoOrcamento.map(p=>`<tr><td>${p.numero}ª</td><td>${moedaVan(p.valor)}</td><td>${p.pago>=p.valor-0.005?'Paga':'Pendente'}</td><td><input type="checkbox" ${p.pago>=p.valor-0.005?'checked':''} aria-label="Marcar parcela ${p.numero} como paga" onchange="alternarParcelaOrcamentoVan(${p.numero},this.checked)"></td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function alternarParcelaOrcamentoVan(numero,marcada){const p=parcelasRascunhoOrcamento.find(x=>Number(x.numero)===Number(numero));if(p)p.pago=marcada?p.valor:0;atualizarTotaisOrcamento();}
   function renderizarItensOrcamento(){
     const tb=document.getElementById('itensOrcamento');if(!tb)return;
     if(!itensRascunhoOrcamento.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px">Nenhum item. Escolha um produto cadastrado ou adicione um item avulso.</td></tr>';return;}
@@ -4105,8 +4148,9 @@
   function atualizarTotaisOrcamento(){
     const t=calcularTotaisOrcamento();
     const e=document.getElementById('orcTotalExibido');if(e)e.value=moedaVan(t.total);
+    renderizarControleParcelasOrcamento(t.total);
     const r=document.getElementById('resumoOrcamento');
-    if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong>${t.frete>0?' · Frete: <strong>'+moedaVan(t.frete)+'</strong>':''} · Total: <strong style="color:var(--success)">${moedaVan(t.total)}</strong>`;
+    if(r)r.innerHTML=`Subtotal: <strong>${moedaVan(t.subtotal)}</strong> · Desconto: <strong>${moedaVan(t.desconto)}</strong>${t.frete>0?' · Frete: <strong>'+moedaVan(t.frete)+'</strong>':''} · Total: <strong style="color:var(--success)">${moedaVan(t.total)}</strong><br>Pagamento: <strong>${escaparHtmlVan(document.getElementById('orcFormaPagamento')?.value||'PIX')}</strong> · Parcelas: <strong>${Number(document.getElementById('orcQtdParcelas')?.value)||0}</strong>`;
   }
   function salvarOrcamento(){
     if(!podeGerirFinanceiroVan())return;
@@ -4120,7 +4164,9 @@
     if(!validade){const dv=new Date(data+'T12:00:00');dv.setDate(dv.getDate()+7);validade=dv.toISOString().slice(0,10);}
     if(validade<data){alert('A data "Válido até" não pode ser anterior à data de emissão.');return;}
     const seq=listaOrcamentos.reduce((m,o)=>Math.max(m,Number(o.sequencia)||0),0)+1;
-    const orc={id:'orc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data,validade,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoOrcamento.map(i=>({descricao:String(i.descricao).trim(),cores:String(i.cores||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco),frete:Number(i.frete)||0,produtoId:i.produtoId||'',vendaId:i.vendaId||''})),subtotal:t.subtotal,desconto:t.desconto,frete:t.frete,total:t.total,observacao:document.getElementById('orcObservacao').value.trim(),criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
+    const nParcelas=Math.max(0,Math.min(60,parseInt(document.getElementById('orcQtdParcelas').value)||0));
+    const parcelasOrc=nParcelas?parcelasRascunhoOrcamento.map(p=>({...p,status:p.pago>=p.valor-0.005?'Pago':'Pendente',pagoEm:p.pago>0?new Date().toISOString():null})):[];
+    const orc={id:'orc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),sequencia:seq,numero:String(seq).padStart(4,'0'),data,validade,clienteId:cliente.id,cliente:{nome:cliente.nome,telefone:cliente.telefone||'',email:cliente.email||'',documento:cliente.documento||'',endereco:cliente.endereco||''},itens:itensRascunhoOrcamento.map(i=>({descricao:String(i.descricao).trim(),cores:String(i.cores||'').trim(),qtd:Number(i.qtd),preco:Number(i.preco),total:Number(i.qtd)*Number(i.preco),frete:Number(i.frete)||0,produtoId:i.produtoId||'',vendaId:i.vendaId||''})),subtotal:t.subtotal,desconto:t.desconto,frete:t.frete,total:t.total,formaPagamento:document.getElementById('orcFormaPagamento').value,parcelamento:nParcelas?{quantidade:nParcelas,valorParcela:moedaNumeroVan(t.total/nParcelas),parcelas:parcelasOrc,recebido:moedaNumeroVan(parcelasOrc.reduce((a,p)=>a+(Number(p.pago)||0),0))}:null,observacao:document.getElementById('orcObservacao').value.trim(),criadoEm:new Date().toISOString(),criadoPor:vanmathiUsuario?.uid||''};
     listaOrcamentos.push(orc);
     salvarPacoteComercialVan();cancelarOrcamento();renderizarOrcamentos();mostrarOrcamento(orc.id);
     mostrarToast('Orçamento '+orc.numero+' emitido com sucesso.');
@@ -4214,6 +4260,8 @@
     if(Number(o.frete)>0)itensRascunhoRecibo.push({descricao:'Frete',material:'',detalhes:'',qtd:1,preco:Number(o.frete),produtoId:''});
     document.getElementById('reciboDesconto').value=Number(o.desconto)||0;
     document.getElementById('reciboObservacao').value=o.observacao||'';
+    document.getElementById('reciboForma').value=o.formaPagamento||'PIX';
+    if(o.parcelamento?.quantidade){document.getElementById('reciboParcelas').value=o.parcelamento.quantidade;vendasRascunhoRecibo.forEach(v=>{if(!(Number(v.parcelamento?.quantidade)>0)){v.parcelamento=criarParcelamentoVan(v.total,o.parcelamento.quantidade,v.data);reconciliarParcelasComRecebimentos(v);atualizarResumoFinanceiroVenda(v);}});}
     renderizarItensRascunhoRecibo();atualizarTotaisRecibo();
     mostrarToast('Recibo preenchido a partir do orçamento '+o.numero+'. Defina forma de pagamento e parcelas.');
   }
@@ -4691,12 +4739,17 @@
   function renderizarControleParcelasRecibo(total,quantidade){
     const box=document.getElementById('controleParcelasRecibo'),lista=document.getElementById('listaParcelasRecibo');if(!box||!lista)return;
     if(vendasRascunhoRecibo.length){
-      box.style.display='block';const qtdEl=document.getElementById('reciboParcelas')?.closest('.form-group');if(qtdEl)qtdEl.style.display='none';
-      const linhas=vendasRascunhoRecibo.flatMap(v=>{atualizarResumoFinanceiroVenda(v);const ps=v.parcelamento?.parcelas||[];return ps.map(p=>{const status=Number(p.pago)>=Number(p.valor)-0.005?'Paga':Number(p.pago)>0?'Parcial':'Pendente';return `<tr><td>${escaparHtmlVan(v.produtoNome||'Venda')}</td><td>${p.numero}ª</td><td>${dataVan(p.vencimento)}</td><td>${moedaVan(p.valor)}</td><td>${moedaVan(p.pago||0)}</td><td>${status}</td></tr>`;});});
-      lista.innerHTML=`<p class="subtitle">Cada venda mantém seu próprio parcelamento. Os valores abaixo são os registros financeiros atuais da Gestão de Vendas.</p><div class="table-container"><table><thead><tr><th>Produto</th><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Recebido</th><th>Situação</th></tr></thead><tbody>${linhas.join('')||'<tr><td colspan="6">As vendas selecionadas não possuem parcelas cadastradas.</td></tr>'}</tbody></table></div>`;
+      box.style.display='block';const qtdEl=document.getElementById('reciboParcelas')?.closest('.form-group');if(qtdEl)qtdEl.style.display='';const qtdCampo=document.getElementById('reciboParcelas');
+      const semPlano=vendasRascunhoRecibo.some(v=>vendasComParcelamentoDigitadoRecibo.has(String(v.id))||!(Number(v.parcelamento?.quantidade)>0&&Array.isArray(v.parcelamento?.parcelas)&&v.parcelamento.parcelas.length));
+      const maiorQtd=vendasRascunhoRecibo.reduce((m,v)=>Math.max(m,Number(v.parcelamento?.quantidade)||0),0);
+      if(qtdCampo){if(maiorQtd>0&&!semPlano)qtdCampo.value=maiorQtd;else if(semPlano&&!Number(qtdCampo.value))qtdCampo.value='1';qtdCampo.disabled=!semPlano;}
+      const nFallback=Math.max(0,Math.min(60,parseInt(qtdCampo?.value)||0));
+      vendasRascunhoRecibo.forEach(v=>{if(semPlano&&(!(Number(v.parcelamento?.quantidade)>0)||vendasComParcelamentoDigitadoRecibo.has(String(v.id)))&&nFallback>0){v.parcelamento=criarParcelamentoVan(v.total,nFallback,v.data);reconciliarParcelasComRecebimentos(v);atualizarResumoFinanceiroVenda(v);vendasComParcelamentoDigitadoRecibo.add(String(v.id));}});
+      const linhas=vendasRascunhoRecibo.flatMap(v=>{atualizarResumoFinanceiroVenda(v);const ps=v.parcelamento?.parcelas||[];return ps.map(p=>{const status=Number(p.pago)>=Number(p.valor)-0.005?'Paga':Number(p.pago)>0?'Parcial':'Pendente';return `<tr><td>${escaparHtmlVan(v.produtoNome||'Venda')}</td><td>${p.numero}ª</td><td>${dataVan(p.vencimento)}</td><td>${moedaVan(p.valor)}</td><td>${moedaVan(p.pago||0)}</td><td>${status}</td><td><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${Number(p.pago)>=Number(p.valor)-0.005?'checked':''} onchange="alternarParcelaVenda('${escaparHtmlVan(v.id)}',${p.numero},this.checked)" style="width:17px;height:17px;accent-color:var(--success)"><span>Pago</span></label></td></tr>`;});});
+      lista.innerHTML=`<p class="subtitle">${semPlano?'A Gestão de Vendas não tinha parcelamento em uma ou mais vendas. Informe a quantidade acima; as parcelas serão gravadas nas vendas ao emitir o recibo.':'A quantidade de parcelas foi herdada da Gestão de Vendas. Você pode marcar abaixo as parcelas já pagas.'}</p><div class="table-container"><table><thead><tr><th>Produto</th><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Recebido</th><th>Situação</th><th>Marcar</th></tr></thead><tbody>${linhas.join('')||'<tr><td colspan="7">Informe a quantidade de parcelas para acompanhar o pagamento.</td></tr>'}</tbody></table></div>`;
       document.getElementById('reciboPago').value=vendasRascunhoRecibo.reduce((a,v)=>a+(Number(v.totalRecebido)||0),0).toFixed(2);return;
     }
-    const qtdEl=document.getElementById('reciboParcelas')?.closest('.form-group');if(qtdEl)qtdEl.style.display='';
+    const qtdEl=document.getElementById('reciboParcelas')?.closest('.form-group');if(qtdEl)qtdEl.style.display='';const qtdCampo=document.getElementById('reciboParcelas');if(qtdCampo)qtdCampo.disabled=false;
     const vendaId=document.getElementById('reciboVendaOrigem')?.value||'';const venda=vendaId?obterVendaFinanceira(vendaId):null;
     const atuais=lerValoresDigitadosParcelasRecibo();const n=Math.max(0,Math.min(60,Number(quantidade)||0));
     if(!n){box.style.display='none';lista.innerHTML='';document.getElementById('reciboPago').value='0';return;}
