@@ -3770,17 +3770,47 @@
     },200));
   }
 
-  // ===== Recibos x Gestão de Vendas: seleção de várias vendas do mesmo cliente =====
+  // ===== Compatibilidade de vínculos antigos + seleção de vendas por cliente =====
+  // Vendas antigas podem ter apenas clienteNome (ou um clienteId legado inválido).
+  // Primeiro tentamos o ID; se não houver correspondência, usamos o nome exato e único.
+  function normalizarNomeClienteVendaVan(nome){
+    return String(nome||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').toLocaleLowerCase('pt-BR');
+  }
+  function resolverClienteDaVendaVan(venda, corrigirVinculo=false){
+    if(!venda)return null;
+    const porId=listaClientes.find(c=>String(c.id)===String(venda.clienteId||''));
+    if(porId)return porId;
+    const nome=normalizarNomeClienteVendaVan(venda.clienteNome||venda.nomeCliente||'');
+    if(!nome)return null;
+    const candidatos=listaClientes.filter(c=>normalizarNomeClienteVendaVan(c.nome)===nome);
+    if(candidatos.length!==1)return null; // nome repetido: não associar automaticamente
+    const cliente=candidatos[0];
+    if(corrigirVinculo){
+      venda.clienteId=cliente.id;
+      venda.clienteNome=cliente.nome;
+    }
+    return cliente;
+  }
   function atualizarSelectVendasRecibo(){
     const el=document.getElementById('reciboVendaOrigem');if(!el)return;
     const clienteId=document.getElementById('reciboCliente')?.value||'';
     const usadas=new Set(vendasRascunhoRecibo.map(v=>String(v.id)));
-    const vendas=listaVendas.filter(v=>clienteId&&String(v.clienteId||'')===String(clienteId)&&!usadas.has(String(v.id))&&!listaRecibos.some(r=>(Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean)).some(id=>String(id)===String(v.id))));
-    el.innerHTML='<option value="">Selecione uma venda vinculada ao cliente…</option>'+vendas.sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(v=>`<option value="${escaparHtmlVan(v.id)}">${escaparHtmlVan(v.produtoNome||'Produto')} × ${Math.max(1,Number(v.qtd)||1)} — ${moedaVan(v.total)} — ${dataVan(v.data)}</option>`).join('');
+    const vendasCliente=listaVendas.filter(v=>{
+      const cliente=resolverClienteDaVendaVan(v,!!clienteId);
+      return !!clienteId&&cliente&&String(cliente.id)===String(clienteId)&&!usadas.has(String(v.id));
+    });
+    // Persiste a correção dos vínculos antigos para que as próximas telas também os reconheçam.
+    if(clienteId&&vendasCliente.some(v=>String(v.clienteId||'')===String(clienteId))){try{salvarTudoLocal();}catch(e){console.warn('Não foi possível persistir a compatibilidade dos vínculos:',e);}}
+    const opcoes=vendasCliente.sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(v=>{
+      const reciboExistente=listaRecibos.find(r=>(Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean)).some(id=>String(id)===String(v.id)));
+      const rotulo=`${escaparHtmlVan(v.produtoNome||'Produto')} × ${Math.max(1,Number(v.qtd)||1)} — ${moedaVan(v.total)} — ${dataVan(v.data)}`;
+      return reciboExistente?`<option value="" disabled>${rotulo} — já consta no recibo #${escaparHtmlVan(reciboExistente.numero||reciboExistente.sequencia||'')}</option>`:`<option value="${escaparHtmlVan(v.id)}">${rotulo}</option>`;
+    }).join('');
+    el.innerHTML='<option value="">'+(vendasCliente.length?'Selecione uma venda vinculada ao cliente…':'Nenhuma venda encontrada para este cliente')+'</option>'+opcoes;
   }
   function aoSelecionarClienteRecibo(){
     const id=document.getElementById('reciboCliente')?.value||'';
-    if(vendasRascunhoRecibo.length&&vendasRascunhoRecibo.some(v=>String(v.clienteId||'')!==String(id))){
+    if(vendasRascunhoRecibo.length&&vendasRascunhoRecibo.some(v=>String((resolverClienteDaVendaVan(v,true)||{}).id||v.clienteId||'')!==String(id))){
       if(!confirm('Trocar o cliente removerá as vendas vinculadas já adicionadas. Continuar?')){document.getElementById('reciboCliente').value=String(vendasRascunhoRecibo[0].clienteId||'');return;}
       const ids=new Set(vendasRascunhoRecibo.map(v=>String(v.id)));vendasRascunhoRecibo=[];itensRascunhoRecibo=itensRascunhoRecibo.filter(i=>!ids.has(String(i.vendaId||'')));renderizarItensRascunhoRecibo();atualizarTotaisRecibo();
     }
@@ -3791,7 +3821,9 @@
     const v=obterVendaFinanceira(id),clienteId=document.getElementById('reciboCliente')?.value||'';
     if(itensRascunhoRecibo.some(i=>!i.vendaId)){alert('Para manter o vínculo financeiro, remova os itens avulsos antes de incluir vendas vinculadas.');el.value='';return;}
     if(!clienteId){alert('Selecione o cliente antes de adicionar uma venda.');el.value='';return;}
-    if(!v||String(v.clienteId||'')!==String(clienteId)){alert('A venda selecionada não pertence ao cliente escolhido.');el.value='';return;}
+    const clienteVenda=resolverClienteDaVendaVan(v,true);
+    if(!v||!clienteVenda||String(clienteVenda.id)!==String(clienteId)){alert('A venda selecionada não pertence ao cliente escolhido ou o vínculo precisa ser conferido.');el.value='';return;}
+    if(String(v.clienteId||'')!==String(clienteVenda.id)){v.clienteId=clienteVenda.id;v.clienteNome=clienteVenda.nome;try{salvarTudoLocal();}catch(e){console.warn('Falha ao corrigir vínculo da venda:',e);}}
     if(vendasRascunhoRecibo.some(x=>String(x.id)===String(v.id))){el.value='';return;}
     const existente=listaRecibos.find(r=>(Array.isArray(r.vendaIds)?r.vendaIds:[r.vendaId].filter(Boolean)).some(x=>String(x)===String(v.id)));
     if(existente){alert('Esta venda já está vinculada ao recibo #'+(existente.numero||existente.sequencia)+'.');el.value='';return;}
@@ -3813,7 +3845,7 @@
     document.getElementById('reciboPago').value='0';document.getElementById('reciboPago').readOnly=false;
     document.getElementById('reciboDesconto').value='0';document.getElementById('reciboDesconto').readOnly=false;
     document.getElementById('reciboObservacao').value='';
-    if(vendaId){const v=obterVendaFinanceira(vendaId);if(v&&v.clienteId)clienteId=v.clienteId;}
+    if(vendaId){const v=obterVendaFinanceira(vendaId);const clienteVenda=resolverClienteDaVendaVan(v,true);if(clienteVenda)clienteId=clienteVenda.id;}
     atualizarSelectClientesRecibo(clienteId);
     document.getElementById('reciboVendaOrigem').value='';atualizarSelectVendasRecibo();
     if(vendaId){document.getElementById('reciboVendaOrigem').value=String(vendaId);adicionarVendaReciboSelecionada();}
@@ -4002,7 +4034,8 @@
     const el=document.getElementById('orcVendaOrigem');if(!el)return;
     const clienteId=document.getElementById('orcCliente')?.value||'';
     const usadas=new Set(itensRascunhoOrcamento.map(i=>String(i.vendaId||'')).filter(Boolean));
-    const vendas=listaVendas.filter(v=>clienteId&&String(v.clienteId||'')===String(clienteId)&&!usadas.has(String(v.id)));
+    const vendas=listaVendas.filter(v=>{const cliente=resolverClienteDaVendaVan(v,!!clienteId);return !!clienteId&&cliente&&String(cliente.id)===String(clienteId)&&!usadas.has(String(v.id));});
+    if(clienteId&&vendas.length){try{salvarTudoLocal();}catch(e){console.warn('Não foi possível persistir os vínculos antigos do orçamento:',e);}}
     el.innerHTML='<option value="">Selecione uma venda vinculada ao cliente…</option>'+vendas.sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(v=>`<option value="${escaparHtmlVan(v.id)}">${escaparHtmlVan(v.produtoNome||'Produto')} × ${Math.max(1,Number(v.qtd)||1)} — ${moedaVan(v.total)} — ${dataVan(v.data)}</option>`).join('');
   }
   function adicionarVendaOrcamentoSelecionada(){
