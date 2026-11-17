@@ -285,29 +285,31 @@
       main { overflow-y: visible !important; }
     }
   
-/* Área do Cliente — lista rápida baseada nos recibos */
-.clientes-lista-van{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;padding:4px 0}
-.cliente-card-van{position:relative;border:1px solid var(--border);border-radius:13px;background:var(--bg-card,var(--bg-sidebar));padding:15px 16px;min-height:68px;cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s;}
-.cliente-card-van:hover,.cliente-card-van:focus-within{border-color:var(--primary);transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.10);z-index:5}
-.cliente-card-topo-van{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.cliente-card-nome-van{font-weight:750;font-size:15px;color:var(--text-color);overflow-wrap:anywhere}
-.cliente-status-van{font-size:10px;font-weight:750;letter-spacing:.03em;padding:5px 8px;border-radius:999px;white-space:nowrap}
-.cliente-status-van.pendente{background:rgba(245,158,11,.14);color:#b77908}.cliente-status-van.quitado{background:rgba(22,163,74,.13);color:#16a34a}.cliente-status-van.sem-recibo{background:var(--bg-hover,var(--border));color:var(--text-muted)}
-.cliente-card-sub-van{font-size:11px;color:var(--text-muted);margin-top:6px}
-.cliente-hover-van{display:none;position:absolute;left:8px;right:8px;top:calc(100% + 7px);min-width:260px;background:var(--bg-card,#fff);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 14px 35px rgba(0,0,0,.20);z-index:30;cursor:default}
-.cliente-card-van:hover .cliente-hover-van,.cliente-card-van:focus-within .cliente-hover-van{display:block}
-.cliente-hover-grid-van{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
-.cliente-hover-grid-van small{display:block;color:var(--text-muted);font-size:10px}.cliente-hover-grid-van strong{display:block;font-size:15px;margin-top:3px}
-.cliente-hover-recibo-van{border-top:1px solid var(--border);padding-top:9px;margin-top:9px;font-size:11px}
-.cliente-hover-acoes-van{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
-.cliente-hover-acoes-van button{font-size:11px;padding:6px 9px}
+/* Área do Cliente — visão inicial em tabela, uma linha por cliente */
+.clientes-tabela-wrap-van{width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg-card,var(--bg-sidebar));}
+.clientes-tabela-van{width:100%;min-width:850px;border-collapse:collapse;font-size:13px;}
+.clientes-tabela-van th{padding:13px 14px;text-align:center;font-size:11px;letter-spacing:.035em;text-transform:uppercase;color:var(--text-muted);background:var(--bg-hover,var(--bg-sidebar));border-bottom:1px solid var(--border);white-space:nowrap;}
+.clientes-tabela-van td{padding:14px;border-bottom:1px solid var(--border);vertical-align:middle;text-align:center;}
+.clientes-tabela-van th:first-child,.clientes-tabela-van td:first-child{text-align:left;}
+.clientes-tabela-van td:not(:first-child){white-space:nowrap;}
+.clientes-tabela-van tbody tr:last-child td{border-bottom:0;}
+.clientes-tabela-van tbody tr{cursor:pointer;transition:background .15s;}
+.clientes-tabela-van tbody tr:hover{background:var(--bg-hover,rgba(59,130,246,.07));}
+.cliente-nome-tabela-van{font-weight:750;color:var(--text-color);}
+.cliente-status-tabela-van{display:inline-block;font-size:10px;font-weight:750;padding:5px 8px;border-radius:999px;white-space:nowrap;}
+.cliente-status-tabela-van.pendente{background:rgba(245,158,11,.14);color:#b77908;}
+.cliente-status-tabela-van.quitado{background:rgba(22,163,74,.13);color:#16a34a;}
+.cliente-status-tabela-van.sem-recibo{background:var(--bg-hover,var(--border));color:var(--text-muted);}
+.cliente-valor-pago-van{color:var(--success);font-weight:700;white-space:nowrap;}
+.cliente-valor-pendente-van{font-weight:750;white-space:nowrap;}
+.cliente-data-quitacao-van{white-space:nowrap;color:var(--text-muted);}
 .cliente-recibo-van{border:1px solid var(--border);border-radius:12px;padding:14px;margin:12px 0;background:var(--bg-card,var(--bg-sidebar))}
 .cliente-parcela-linha-van{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
 .cliente-parcela-linha-van:last-child{border-bottom:0}.cliente-parcela-check-van{display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:650}
 .cliente-parcela-check-van input{width:20px;height:20px;accent-color:var(--success);cursor:pointer}
 .cliente-produtos-van{font-size:12px;color:var(--text-muted);line-height:1.7;margin:8px 0 0;padding-left:18px}
 .cliente-progresso-van{height:7px;background:var(--border);border-radius:20px;overflow:hidden;margin:9px 0}.cliente-progresso-van span{display:block;height:100%;background:var(--success)}
-@media(max-width:650px){.clientes-lista-van{grid-template-columns:1fr}.cliente-hover-van{display:none!important}.cliente-card-van{padding:14px}.cliente-card-sub-van{font-size:12px}}
+@media(max-width:650px){.clientes-tabela-van{min-width:790px}.clientes-tabela-van th,.clientes-tabela-van td{padding:11px 10px}}
 </style>
 </head>
 <body class="vanmathi-bloqueado">
@@ -4759,6 +4761,21 @@
     const parcelasPendentes=recibos.reduce((a,r)=>(r.parcelamento?.parcelas||[]).filter(p=>Number(p.pago||0)<Number(p.valor||0)-0.005).length+a,0);
     return {recibos,total,recebido,pendente,parcelasPendentes};
   }
+  function dataQuitacaoRecibosClienteVan(recibos){
+    const datas=[];
+    for(const r of recibos){
+      const total=Number(r.total)||0;
+      const recebido=Math.min(total,Math.max(0,Number(r.recebido??(total-Number(r.pendente||0)))||0));
+      if(total<=0||recebido<total-0.005)continue;
+      const candidatas=[r.dataQuitacao,r.quitadoEm,r.dataPagamento,r.dataBaixa];
+      (r.parcelamento?.parcelas||[]).forEach(p=>{if(Number(p.pago||0)>=Number(p.valor||0)-0.005)candidatas.push(p.pagoEm,p.dataPagamento,p.dataBaixa);});
+      (r.baixas||[]).forEach(b=>candidatas.push(b.data,b.dataPagamento,b.criadoEm));
+      (r.recebimentos||[]).forEach(b=>candidatas.push(b.data,b.dataPagamento,b.criadoEm));
+      for(const d of candidatas){if(d){const dt=new Date(String(d).length===10?String(d)+'T12:00:00':d);if(!Number.isNaN(dt.getTime()))datas.push(dt);}}
+    }
+    if(!datas.length)return '—';
+    datas.sort((a,b)=>b-a);return datas[0].toLocaleDateString('pt-BR');
+  }
   function renderizarClientes(){
     const area=document.getElementById('tabelaClientes');if(!area)return;
     renderizarSelectClientesVenda(document.getElementById('vendaClienteId')?.value||'');
@@ -4766,17 +4783,21 @@
     const arr=listaClientes.filter(c=>!c.arquivado&&[c.nome,c.telefone,c.email,c.documento].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR'));
     const contador=document.getElementById('contadorClientes');if(contador)contador.textContent=arr.length+' cliente'+(arr.length===1?'':'s');
     if(!arr.length){area.innerHTML='<div class="clientes-vazio-van" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum cliente encontrado.</div>';return;}
-    area.innerHTML=arr.map(c=>{
-      const x=resumoFinanceiroRecibosClienteVan(c.id);const estado=x.pendente>0.005?'pendente':(x.recibos.length?'quitado':'sem-recibo');
+    const linhas=arr.map(c=>{
+      const x=resumoFinanceiroRecibosClienteVan(c.id);
+      const estado=x.pendente>0.005?'pendente':(x.recibos.length?'quitado':'sem-recibo');
       const rotulo=estado==='pendente'?'PENDENTE':(estado==='quitado'?'QUITADO':'SEM RECIBO');
-      const detalhe=x.recibos.length?(x.pendente>0.005?`${x.parcelasPendentes} parcela(s) pendente(s) · ${moedaVan(x.pendente)} a receber`:'Todos os recibos quitados'):'Nenhum recibo emitido';
-      const preview=x.recibos.filter(r=>Number(r.pendente??(Number(r.total||0)-Number(r.recebido||0)))>0.005).slice(0,2).map(r=>`<div class="cliente-hover-recibo-van"><strong>Recibo ${escaparHtmlVan(r.numero||r.sequencia||'')}</strong><div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px"><span>Total ${moedaVan(r.total)}</span><strong style="color:var(--danger)">Falta ${moedaVan(r.pendente??(Number(r.total||0)-Number(r.recebido||0)))}</strong></div><small>${Number(r.parcelamento?.quantidade)||0} parcela(s) · ${escaparHtmlVan(r.formaPagamento||'Forma não informada')}</small></div>`).join('');
-      return `<div class="cliente-card-van" tabindex="0" role="button" aria-label="Abrir financeiro de ${escaparHtmlVan(c.nome)}" onclick="abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')}">
-        <div class="cliente-card-topo-van"><span class="cliente-card-nome-van">${escaparHtmlVan(c.nome)}</span><span class="cliente-status-van ${estado}">${rotulo}</span></div>
-        <div class="cliente-card-sub-van">${escaparHtmlVan(detalhe)}</div>
-        <div class="cliente-hover-van" onclick="event.stopPropagation()"><strong>Resumo financeiro</strong><div class="cliente-hover-grid-van"><div><small>Total dos recibos</small><strong>${moedaVan(x.total)}</strong></div><div><small>Falta receber</small><strong style="color:${x.pendente>0.005?'var(--danger)':'var(--success)'}">${moedaVan(x.pendente)}</strong></div><div><small>Já recebido</small><strong style="color:var(--success)">${moedaVan(x.recebido)}</strong></div><div><small>Parcelas pendentes</small><strong>${x.parcelasPendentes}</strong></div></div>${preview||'<div class="cliente-hover-recibo-van">Nenhum recibo pendente.</div>'}<div class="cliente-hover-acoes-van"><button class="btn-primary" onclick="event.stopPropagation();abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')">Abrir cliente</button><button class="btn-secondary" onclick="event.stopPropagation();editarCliente('${escaparHtmlVan(c.id)}')">Editar</button></div></div>
-      </div>`;
+      const quitacao=estado==='quitado'?dataQuitacaoRecibosClienteVan(x.recibos):'—';
+      return `<tr tabindex="0" aria-label="Abrir financeiro de ${escaparHtmlVan(c.nome)}" onclick="abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')}">
+        <td><span class="cliente-nome-tabela-van">${escaparHtmlVan(c.nome)}</span><div style="margin-top:5px"><span class="cliente-status-tabela-van ${estado}">${rotulo}</span></div></td>
+        <td>${escaparHtmlVan(c.telefone||'—')}</td>
+        <td><strong>${moedaVan(x.total)}</strong></td>
+        <td><span class="cliente-valor-pago-van">${moedaVan(x.recebido)}</span></td>
+        <td><span class="cliente-valor-pendente-van" style="color:${x.pendente>0.005?'var(--danger)':'var(--success)'}">${moedaVan(x.pendente)}</span></td>
+        <td><span class="cliente-data-quitacao-van">${quitacao}</span></td>
+      </tr>`;
     }).join('');
+    area.innerHTML=`<div class="clientes-tabela-wrap-van"><table class="clientes-tabela-van"><thead><tr><th>Cliente</th><th>Telefone</th><th>Valor total do pedido</th><th>Valor pago</th><th>Valor pendente</th><th>Data da quitação</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
   }
   function abrirFinanceiroCliente(clienteId){
     const c=listaClientes.find(x=>String(x.id)===String(clienteId));if(!c)return;clienteFinanceiroAbertoVan=String(clienteId);
