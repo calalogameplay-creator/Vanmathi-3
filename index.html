@@ -1994,13 +1994,9 @@
 
     salvarTudoLocal();
     {const vv=listaVendas.find(x=>String(x.id)===String(idVendaAnterior||listaVendas[listaVendas.length-1]?.id));if(vv){atualizarResumoFinanceiroVenda(vv);if(pagamentoStatus==='Recebido'&&vv.saldoRestante>0.005&&Number(vv.parcelamento?.quantidade||0)<=1)registrarPagamentoVenda(vv.id,vv.saldoRestante,'cadastro');else if(pagamentoStatus==='Parcial'&&vv.totalRecebido<=0.005)registrarPagamentoVenda(vv.id,null,'cadastro');(vv.recebimentos||[]).forEach(r=>{if(r.origem==='cadastro'&&vv.data)r.data=vv.data+'T12:00:00.000Z';});}}
-    // Venda com cliente passa a ter recibo vinculado automaticamente; os dados
-    // financeiros continuam tendo a venda como fonte única da verdade.
-    const vendaSalva = obterVendaFinanceira(idVendaAnterior || listaVendas[listaVendas.length - 1]?.id);
-    if (vendaSalva && vendaSalva.clienteId) {
-      criarReciboVinculadoDaVenda(vendaSalva);
-      salvarPacoteComercialVan();
-    }
+    // Vincular um cliente à venda na Gestão de Vendas NÃO cria recibo.
+    // O recibo será criado somente quando o usuário abrir Novo Recibo,
+    // selecionar o cliente e adicionar manualmente as vendas desejadas.
     fecharModalRegistrarVenda();
     renderizarVendas();
     renderizarClientes();
