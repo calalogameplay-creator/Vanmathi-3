@@ -284,7 +284,31 @@
       html { overflow: auto; height: auto; }
       main { overflow-y: visible !important; }
     }
-  </style>
+  
+/* Área do Cliente — lista rápida baseada nos recibos */
+.clientes-lista-van{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;padding:4px 0}
+.cliente-card-van{position:relative;border:1px solid var(--border);border-radius:13px;background:var(--bg-card,var(--bg-sidebar));padding:15px 16px;min-height:68px;cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s;}
+.cliente-card-van:hover,.cliente-card-van:focus-within{border-color:var(--primary);transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.10);z-index:5}
+.cliente-card-topo-van{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cliente-card-nome-van{font-weight:750;font-size:15px;color:var(--text-color);overflow-wrap:anywhere}
+.cliente-status-van{font-size:10px;font-weight:750;letter-spacing:.03em;padding:5px 8px;border-radius:999px;white-space:nowrap}
+.cliente-status-van.pendente{background:rgba(245,158,11,.14);color:#b77908}.cliente-status-van.quitado{background:rgba(22,163,74,.13);color:#16a34a}.cliente-status-van.sem-recibo{background:var(--bg-hover,var(--border));color:var(--text-muted)}
+.cliente-card-sub-van{font-size:11px;color:var(--text-muted);margin-top:6px}
+.cliente-hover-van{display:none;position:absolute;left:8px;right:8px;top:calc(100% + 7px);min-width:260px;background:var(--bg-card,#fff);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 14px 35px rgba(0,0,0,.20);z-index:30;cursor:default}
+.cliente-card-van:hover .cliente-hover-van,.cliente-card-van:focus-within .cliente-hover-van{display:block}
+.cliente-hover-grid-van{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.cliente-hover-grid-van small{display:block;color:var(--text-muted);font-size:10px}.cliente-hover-grid-van strong{display:block;font-size:15px;margin-top:3px}
+.cliente-hover-recibo-van{border-top:1px solid var(--border);padding-top:9px;margin-top:9px;font-size:11px}
+.cliente-hover-acoes-van{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.cliente-hover-acoes-van button{font-size:11px;padding:6px 9px}
+.cliente-recibo-van{border:1px solid var(--border);border-radius:12px;padding:14px;margin:12px 0;background:var(--bg-card,var(--bg-sidebar))}
+.cliente-parcela-linha-van{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.cliente-parcela-linha-van:last-child{border-bottom:0}.cliente-parcela-check-van{display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:650}
+.cliente-parcela-check-van input{width:20px;height:20px;accent-color:var(--success);cursor:pointer}
+.cliente-produtos-van{font-size:12px;color:var(--text-muted);line-height:1.7;margin:8px 0 0;padding-left:18px}
+.cliente-progresso-van{height:7px;background:var(--border);border-radius:20px;overflow:hidden;margin:9px 0}.cliente-progresso-van span{display:block;height:100%;background:var(--success)}
+@media(max-width:650px){.clientes-lista-van{grid-template-columns:1fr}.cliente-hover-van{display:none!important}.cliente-card-van{padding:14px}.cliente-card-sub-van{font-size:12px}}
+</style>
 </head>
 <body class="vanmathi-bloqueado">
 
@@ -780,7 +804,7 @@
           </div>
           <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn-secondary" onclick="cancelarEdicaoCliente()">Cancelar</button><button class="btn-primary" onclick="salvarCliente()">💾 Salvar cliente</button></div>
         </div>
-        <div class="table-container"><table><thead><tr><th>Cliente</th><th>Contato</th><th>Compras</th><th>Total registrado</th><th>Ações</th></tr></thead><tbody id="tabelaClientes"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente cadastrado.</td></tr></tbody></table></div>
+        <div id="tabelaClientes" class="clientes-lista-van"><div class="clientes-vazio-van">Nenhum cliente cadastrado.</div></div>
       </div>
     </div>
 
@@ -3400,7 +3424,8 @@
         totalPerdas += total;
       } else {
         const recebidoVenda=Array.isArray(v.recebimentos)?v.recebimentos.reduce((a,p)=>a+(Number(p.valor)||0),0):(pagamento==='Recebido'?total:0);
-        if(status==='Concluído')totalRecebido+=Math.min(total,recebidoVenda);
+        // Recebimento é regime de caixa: conta o que entrou mesmo que o pedido ainda esteja em produção.
+        totalRecebido+=Math.min(total,recebidoVenda);
         if(status==='Concluído')totalAReceber+=Math.max(0,total-recebidoVenda);
         if(status === 'Em Produção') { totalEmProducao += total; pedidosProducao++; }
         else if(status === 'Concluído') { totalFat += total; totalHoras += horasVenda; totalPecasVendidas += qtd; pedidosConcluidos++; lucroRealizado += lucroVenda; }
@@ -4720,15 +4745,73 @@
   function salvarCliente(){if(!podeGerirFinanceiroVan())return;const nome=document.getElementById('clienteNome').value.trim();if(!nome){alert('Informe o nome do cliente.');return;}const id=document.getElementById('clienteIdEditando').value;const dados={nome,telefone:document.getElementById('clienteTelefone').value.trim(),email:document.getElementById('clienteEmail').value.trim(),documento:document.getElementById('clienteDocumento').value.trim(),endereco:document.getElementById('clienteEndereco').value.trim(),observacoes:document.getElementById('clienteObservacoes').value.trim(),atualizadoEm:new Date().toISOString()};if(id){const i=listaClientes.findIndex(c=>String(c.id)===id);if(i>=0){listaClientes[i]={...listaClientes[i],...dados};const cx=listaClientes[i];listaVendas.forEach(v=>{if(String(v.clienteId||'')===String(cx.id))v.clienteNome=cx.nome;});listaRecibos.forEach(r=>{if(String(r.clienteId||'')===String(cx.id))r.cliente={nome:cx.nome,telefone:cx.telefone||'',email:cx.email||'',documento:cx.documento||'',endereco:cx.endereco||''};});}}else listaClientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),...dados,criadoEm:new Date().toISOString()});salvarPacoteComercialVan();cancelarEdicaoCliente();renderizarClientes();mostrarToast('Cliente salvo com sucesso.');}
   function editarCliente(id){if(!podeGerirFinanceiroVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;document.getElementById('clienteIdEditando').value=c.id;document.getElementById('clienteNome').value=c.nome||'';document.getElementById('clienteTelefone').value=c.telefone||'';document.getElementById('clienteEmail').value=c.email||'';document.getElementById('clienteDocumento').value=c.documento||'';document.getElementById('clienteEndereco').value=c.endereco||'';document.getElementById('clienteObservacoes').value=c.observacoes||'';document.getElementById('formCliente').style.display='block';document.getElementById('clienteNome').focus();}
   function excluirCliente(id){if(!podeGerirFinanceiroVan())return;const c=listaClientes.find(x=>String(x.id)===String(id));if(!c)return;const tem=listaRecibos.some(r=>String(r.clienteId)===String(id));if(tem){if(!confirm('Este cliente tem recibos vinculados. Para preservar o histórico financeiro, o cadastro será arquivado e deixará de aparecer na lista. Continuar?'))return;c.arquivado=true;}else{if(!confirm('Excluir este cliente?'))return;listaClientes=listaClientes.filter(x=>String(x.id)!==String(id));}salvarPacoteComercialVan();renderizarClientes();mostrarToast(tem?'Cliente arquivado; histórico preservado.':'Cliente excluído.');}
-  function renderizarClientes(){const tbody=document.getElementById('tabelaClientes');if(!tbody)return;renderizarSelectClientesVenda(document.getElementById('vendaClienteId')?.value||'');const q=(document.getElementById('buscaClientes')?.value||'').toLowerCase().trim();const arr=listaClientes.filter(c=>!c.arquivado&&[c.nome,c.telefone,c.email,c.documento].some(v=>String(v||'').toLowerCase().includes(q)));document.getElementById('contadorClientes').textContent=arr.length+' cliente'+(arr.length===1?'':'s');if(!arr.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:25px">Nenhum cliente encontrado.</td></tr>';return;}tbody.innerHTML=arr.map(c=>{const vs=vendasDoClienteVan(c.id,true);const rs=listaRecibos.filter(r=>String(r.clienteId)===String(c.id)&&!r.vendaId&&!(Array.isArray(r.vendaIds)&&r.vendaIds.length));const total=vs.reduce((a,v)=>a+(Number(v.total)||0),0)+rs.reduce((a,r)=>a+(Number(r.total)||0),0);const recebido=vs.reduce((a,v)=>a+(Array.isArray(v.recebimentos)?v.recebimentos.reduce((b,p)=>b+(Number(p.valor)||0),0):(v.pagamentoStatus==='Recebido'?Number(v.total)||0:0)),0)+rs.reduce((a,r)=>a+(Number(r.recebido)||0),0);return `<tr><td><strong>${escaparHtmlVan(c.nome)}</strong><div style="font-size:11px;color:var(--text-muted)">${escaparHtmlVan(c.email||'')}</div></td><td>${escaparHtmlVan(c.telefone||'—')}</td><td>${vs.length+rs.length}</td><td>${moedaVan(total)}<div style="font-size:11px;color:var(--text-muted)">Recebido: ${moedaVan(recebido)} · Saldo: ${moedaVan(Math.max(0,total-recebido))}</div></td><td><button class="btn-secondary" onclick="editarCliente('${escaparHtmlVan(c.id)}')">✏️</button> <button class="btn-secondary" onclick="abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')" title="Ver produtos e parcelas">💰 Parcelas</button> <button class="btn-secondary" onclick="novoRecibo('${escaparHtmlVan(c.id)}')">🧾</button> <button class="btn-danger" onclick="excluirCliente('${escaparHtmlVan(c.id)}')">×</button></td></tr>`;}).join('');}
-  function abrirFinanceiroCliente(clienteId){
-    const c=listaClientes.find(x=>String(x.id)===String(clienteId));if(!c)return;const vendas=vendasDoClienteVan(clienteId,true);
-    const total=vendas.reduce((a,v)=>a+(Number(v.total)||0),0),recebido=vendas.reduce((a,v)=>a+(Number(v.totalRecebido)||0),0);
-    const linhas=vendas.map(v=>{atualizarResumoFinanceiroVenda(v);const qtd=Number(v.parcelamento?.quantidade)||0;return `<tr><td><strong>${escaparHtmlVan(v.produtoNome||'Produto')}</strong><div style="font-size:11px;color:var(--text-muted)">${dataVan(v.data)} · ${escaparHtmlVan(v.status||'')}</div></td><td>${moedaVan(v.total)}</td><td>${moedaVan(v.totalRecebido||0)}</td><td>${moedaVan(v.saldoRestante||0)}</td><td>${qtd?`${Number(v.parcelasPagas)||0}/${qtd} pagas`:'À vista / sem parcelas'}</td><td><button class="btn-secondary" onclick="fecharFinanceiroCliente();abrirModalParcelasVenda('${escaparHtmlVan(v.id)}')">Ver parcelas</button></td></tr>`;}).join('');
-    let modal=document.getElementById('modalFinanceiroClienteVan');if(!modal){modal=document.createElement('div');modal.id='modalFinanceiroClienteVan';modal.className='modal-overlay';modal.style.zIndex='10030';modal.innerHTML='<div class="modal-box" style="width:min(950px,96vw);max-height:88vh;overflow:auto"><div class="modal-header"><span id="tituloFinanceiroClienteVan">Financeiro do cliente</span><span style="cursor:pointer" onclick="fecharFinanceiroCliente()">✕</span></div><div id="conteudoFinanceiroClienteVan"></div><div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn-secondary" onclick="fecharFinanceiroCliente()">Fechar</button></div></div>';document.body.appendChild(modal);}
-    document.getElementById('tituloFinanceiroClienteVan').textContent='Financeiro — '+c.nome;document.getElementById('conteudoFinanceiroClienteVan').innerHTML=`<div class="metrics-grid"><div class="metric-card"><span>Total vendido</span><h3>${moedaVan(total)}</h3></div><div class="metric-card"><span>Total recebido</span><h3>${moedaVan(recebido)}</h3></div><div class="metric-card"><span>Saldo pendente</span><h3>${moedaVan(Math.max(0,total-recebido))}</h3></div></div><h3>Produtos e vendas vinculados</h3><div class="table-container"><table><thead><tr><th>Produto</th><th>Total</th><th>Recebido</th><th>Saldo</th><th>Parcelas</th><th>Ação</th></tr></thead><tbody>${linhas||'<tr><td colspan="6" style="text-align:center;padding:20px">Este cliente ainda não possui vendas vinculadas.</td></tr>'}</tbody></table></div>`;modal.classList.add('active');
+  let clienteFinanceiroAbertoVan='';
+  function recibosDoClienteVan(clienteId){
+    const c=listaClientes.find(x=>String(x.id)===String(clienteId));if(!c)return [];
+    const nome=normalizarNomeClienteVendaVan(c.nome||'');
+    return listaRecibos.filter(r=>String(r.clienteId||'')===String(clienteId)||(!r.clienteId&&normalizarNomeClienteVendaVan(r.cliente?.nome||'')===nome));
   }
-  function fecharFinanceiroCliente(){document.getElementById('modalFinanceiroClienteVan')?.classList.remove('active');}
+  function resumoFinanceiroRecibosClienteVan(clienteId){
+    const recibos=recibosDoClienteVan(clienteId);
+    const total=moedaNumeroVan(recibos.reduce((a,r)=>a+(Number(r.total)||0),0));
+    const recebido=moedaNumeroVan(recibos.reduce((a,r)=>a+Math.min(Number(r.total)||0,Math.max(0,Number(r.recebido??(Number(r.total||0)-Number(r.pendente||0)))||0)),0));
+    const pendente=Math.max(0,moedaNumeroVan(total-recebido));
+    const parcelasPendentes=recibos.reduce((a,r)=>(r.parcelamento?.parcelas||[]).filter(p=>Number(p.pago||0)<Number(p.valor||0)-0.005).length+a,0);
+    return {recibos,total,recebido,pendente,parcelasPendentes};
+  }
+  function renderizarClientes(){
+    const area=document.getElementById('tabelaClientes');if(!area)return;
+    renderizarSelectClientesVenda(document.getElementById('vendaClienteId')?.value||'');
+    const q=(document.getElementById('buscaClientes')?.value||'').toLowerCase().trim();
+    const arr=listaClientes.filter(c=>!c.arquivado&&[c.nome,c.telefone,c.email,c.documento].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR'));
+    const contador=document.getElementById('contadorClientes');if(contador)contador.textContent=arr.length+' cliente'+(arr.length===1?'':'s');
+    if(!arr.length){area.innerHTML='<div class="clientes-vazio-van" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum cliente encontrado.</div>';return;}
+    area.innerHTML=arr.map(c=>{
+      const x=resumoFinanceiroRecibosClienteVan(c.id);const estado=x.pendente>0.005?'pendente':(x.recibos.length?'quitado':'sem-recibo');
+      const rotulo=estado==='pendente'?'PENDENTE':(estado==='quitado'?'QUITADO':'SEM RECIBO');
+      const detalhe=x.recibos.length?(x.pendente>0.005?`${x.parcelasPendentes} parcela(s) pendente(s) · ${moedaVan(x.pendente)} a receber`:'Todos os recibos quitados'):'Nenhum recibo emitido';
+      const preview=x.recibos.filter(r=>Number(r.pendente??(Number(r.total||0)-Number(r.recebido||0)))>0.005).slice(0,2).map(r=>`<div class="cliente-hover-recibo-van"><strong>Recibo ${escaparHtmlVan(r.numero||r.sequencia||'')}</strong><div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px"><span>Total ${moedaVan(r.total)}</span><strong style="color:var(--danger)">Falta ${moedaVan(r.pendente??(Number(r.total||0)-Number(r.recebido||0)))}</strong></div><small>${Number(r.parcelamento?.quantidade)||0} parcela(s) · ${escaparHtmlVan(r.formaPagamento||'Forma não informada')}</small></div>`).join('');
+      return `<div class="cliente-card-van" tabindex="0" role="button" aria-label="Abrir financeiro de ${escaparHtmlVan(c.nome)}" onclick="abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')}">
+        <div class="cliente-card-topo-van"><span class="cliente-card-nome-van">${escaparHtmlVan(c.nome)}</span><span class="cliente-status-van ${estado}">${rotulo}</span></div>
+        <div class="cliente-card-sub-van">${escaparHtmlVan(detalhe)}</div>
+        <div class="cliente-hover-van" onclick="event.stopPropagation()"><strong>Resumo financeiro</strong><div class="cliente-hover-grid-van"><div><small>Total dos recibos</small><strong>${moedaVan(x.total)}</strong></div><div><small>Falta receber</small><strong style="color:${x.pendente>0.005?'var(--danger)':'var(--success)'}">${moedaVan(x.pendente)}</strong></div><div><small>Já recebido</small><strong style="color:var(--success)">${moedaVan(x.recebido)}</strong></div><div><small>Parcelas pendentes</small><strong>${x.parcelasPendentes}</strong></div></div>${preview||'<div class="cliente-hover-recibo-van">Nenhum recibo pendente.</div>'}<div class="cliente-hover-acoes-van"><button class="btn-primary" onclick="event.stopPropagation();abrirFinanceiroCliente('${escaparHtmlVan(c.id)}')">Abrir cliente</button><button class="btn-secondary" onclick="event.stopPropagation();editarCliente('${escaparHtmlVan(c.id)}')">Editar</button></div></div>
+      </div>`;
+    }).join('');
+  }
+  function abrirFinanceiroCliente(clienteId){
+    const c=listaClientes.find(x=>String(x.id)===String(clienteId));if(!c)return;clienteFinanceiroAbertoVan=String(clienteId);
+    const resumo=resumoFinanceiroRecibosClienteVan(clienteId);const recibos=resumo.recibos;
+    let modal=document.getElementById('modalFinanceiroClienteVan');
+    if(!modal){modal=document.createElement('div');modal.id='modalFinanceiroClienteVan';modal.className='modal-overlay';modal.style.zIndex='10030';modal.innerHTML='<div class="modal-box" style="width:min(900px,96vw);max-height:90vh;overflow:auto"><div class="modal-header"><span id="tituloFinanceiroClienteVan">Financeiro do cliente</span><span style="cursor:pointer" onclick="fecharFinanceiroCliente()">✕</span></div><div id="conteudoFinanceiroClienteVan"></div><div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn-secondary" onclick="fecharFinanceiroCliente()">Fechar</button></div></div>';document.body.appendChild(modal);}
+    const pct=resumo.total>0?Math.min(100,resumo.recebido/resumo.total*100):0;
+    const cards=recibos.slice().sort((a,b)=>(Number(b.sequencia)||0)-(Number(a.sequencia)||0)).map(r=>{
+      const total=Number(r.total)||0;const recebido=Math.min(total,Math.max(0,Number(r.recebido??(total-Number(r.pendente||0)))||0));const pendente=Math.max(0,total-recebido);const pctRecibo=total>0?Math.min(100,recebido/total*100):0;const parcelas=Array.isArray(r.parcelamento?.parcelas)?r.parcelamento.parcelas:[];
+      const vendaIds=Array.isArray(r.vendaIds)?r.vendaIds:(r.vendaId?[r.vendaId]:[]);const produtos=(Array.isArray(r.itens)?r.itens:[]).map(i=>`<li>${escaparHtmlVan(i.descricao||'Produto')}${i.material?' — '+escaparHtmlVan(i.material):''}</li>`).join('');
+      const linhas=parcelas.map(p=>{const pago=Number(p.pago)||0;const falta=Math.max(0,Number(p.valor||0)-pago);const completa=falta<=0.005;const vinculada=vendaIds.length>0;return `<div class="cliente-parcela-linha-van"><div><label class="cliente-parcela-check-van"><input type="checkbox" ${completa?'checked':''} ${vinculada?'':'onchange="alternarParcelaAvulsaReciboClienteVan(\''+escaparHtmlVan(r.id)+'\','+Number(p.numero)+',this.checked)"'} ${vinculada?'onchange="alternarParcelaReciboClienteVan(\''+escaparHtmlVan(r.id)+'\','+Number(p.numero)+',this.checked)"':''}><span>${Number(p.numero)}ª parcela</span></label><small style="display:block;color:var(--text-muted);margin-left:29px">${p.vencimento?dataVan(p.vencimento):'Sem vencimento'}</small></div><div style="text-align:right"><strong>${moedaVan(p.valor)}</strong><small style="display:block;color:${completa?'var(--success)':pago>0?'var(--warning)':'var(--danger)'}">${completa?'Paga':pago>0?'Parcial · falta '+moedaVan(falta):'Pendente'}</small></div></div>`;}).join('');
+      return `<div class="cliente-recibo-van"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"><div><strong>Recibo ${escaparHtmlVan(r.numero||r.sequencia||'')}</strong><div class="cliente-card-sub-van">${dataVan(r.data)} · ${escaparHtmlVan(r.formaPagamento||'Forma não informada')}</div></div><span class="cliente-status-van ${pendente>0.005?'pendente':'quitado'}">${pendente>0.005?(recebido>0?'PARCIAL':'PENDENTE'):'QUITADO'}</span></div><div class="cliente-hover-grid-van"><div><small>Total</small><strong>${moedaVan(total)}</strong></div><div><small>Falta receber</small><strong style="color:${pendente>0.005?'var(--danger)':'var(--success)'}">${moedaVan(pendente)}</strong></div><div><small>Recebido</small><strong style="color:var(--success)">${moedaVan(recebido)}</strong></div><div><small>Parcelas</small><strong>${parcelas.length||'À vista'}</strong></div></div><div class="cliente-progresso-van"><span style="width:${pctRecibo}%"></span></div><strong style="font-size:12px">Produtos incluídos</strong><ul class="cliente-produtos-van">${produtos||'<li>Itens não detalhados neste recibo.</li>'}</ul>${parcelas.length?`<div style="margin-top:12px"><strong style="font-size:12px">Marque a parcela assim que receber</strong>${linhas}</div>`:'<div class="cliente-card-sub-van">Este recibo não possui parcelas cadastradas.</div>'}</div>`;
+    }).join('');
+    document.getElementById('tituloFinanceiroClienteVan').textContent='Financeiro — '+c.nome;
+    document.getElementById('conteudoFinanceiroClienteVan').innerHTML=`<div class="metrics-grid"><div class="metric-card"><span>Total dos recibos</span><h3>${moedaVan(resumo.total)}</h3></div><div class="metric-card"><span>Total recebido</span><h3 style="color:var(--success)">${moedaVan(resumo.recebido)}</h3></div><div class="metric-card"><span>Saldo pendente</span><h3 style="color:${resumo.pendente>0.005?'var(--danger)':'var(--success)'}">${moedaVan(resumo.pendente)}</h3></div></div><div class="cliente-progresso-van"><span style="width:${pct}%"></span></div><div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:11px;margin-bottom:12px"><span>${pct.toFixed(0)}% recebido</span><span>${resumo.parcelasPendentes} parcela(s) pendente(s)</span></div><h3>Recibos e produtos</h3>${cards||'<div class="clientes-vazio-van" style="padding:22px;text-align:center;color:var(--text-muted)">Este cliente ainda não possui recibos emitidos.</div>'}`;
+    modal.classList.add('active');
+  }
+  function alternarParcelaReciboClienteVan(reciboId,numero,marcada){
+    if(!podeGerirFinanceiroVan())return;const r=listaRecibos.find(x=>String(x.id)===String(reciboId));if(!r)return;
+    const ids=Array.isArray(r.vendaIds)?r.vendaIds:(r.vendaId?[r.vendaId]:[]);if(!ids.length)return;
+    const v=obterVendaFinanceira(ids[0]);if(!v){alert('Não foi possível localizar as vendas vinculadas a este recibo.');return;}
+    alternarParcelaVenda(v.id,numero,marcada);
+    salvarPacoteComercialVan();renderizarRecibos();renderizarClientes();atualizarRelatorios();abrirFinanceiroCliente(r.clienteId||clienteFinanceiroAbertoVan);
+  }
+  function alternarParcelaAvulsaReciboClienteVan(reciboId,numero,marcada){
+    if(!podeGerirFinanceiroVan())return;const r=listaRecibos.find(x=>String(x.id)===String(reciboId));if(!r)return;
+    r.parcelamento=r.parcelamento||{quantidade:0,parcelas:[]};const p=(r.parcelamento.parcelas||[]).find(x=>Number(x.numero)===Number(numero));if(!p)return;
+    r.baixas=Array.isArray(r.baixas)?r.baixas:[];const agora=new Date().toISOString();
+    if(marcada){const falta=Math.max(0,Number(p.valor||0)-Number(p.pago||0));if(falta>0.005){r.baixas.push({id:'pg_'+Date.now(),valor:falta,data:agora,parcelaNumero:Number(numero),origem:'area_cliente',usuario:vanmathiUsuario?.uid||''});p.pago=Number(p.valor)||0;p.pagoEm=agora;}}
+    else{r.baixas=r.baixas.filter(x=>Number(x.parcelaNumero)!==Number(numero));p.pago=0;p.pagoEm=null;}
+    p.status=Number(p.pago)>=Number(p.valor)-0.005?'Pago':Number(p.pago)>0?'Parcial':'Pendente';r.recebido=Math.min(Number(r.total)||0,moedaNumeroVan(r.baixas.reduce((a,x)=>a+(Number(x.valor)||0),0)));r.pendente=Math.max(0,moedaNumeroVan(Number(r.total)-r.recebido));r.situacao=r.pendente<=0.005?'Pago':r.recebido>0?'Parcial':'Pendente';
+    salvarPacoteComercialVan();renderizarClientes();renderizarRecibos();atualizarRelatorios();abrirFinanceiroCliente(r.clienteId||clienteFinanceiroAbertoVan);mostrarToast(marcada?'Parcela marcada como paga.':'Pagamento da parcela desfeito.');
+  }
+  function fecharFinanceiroCliente(){document.getElementById('modalFinanceiroClienteVan')?.classList.remove('active');clienteFinanceiroAbertoVan='';}
+
   function atualizarSelectClientesRecibo(selecionado=''){const el=document.getElementById('reciboCliente');if(!el)return;el.innerHTML='<option value="">Selecione um cliente</option>'+listaClientes.filter(c=>!c.arquivado).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR')).map(c=>`<option value="${escaparHtmlVan(c.id)}">${escaparHtmlVan(c.nome)}</option>`).join('');if(selecionado)el.value=String(selecionado);}
   function preencherDadosClienteRecibo(){const c=listaClientes.find(x=>String(x.id)===String(document.getElementById('reciboCliente').value));if(c&&!document.getElementById('reciboObservacao').value&&c.observacoes)document.getElementById('reciboObservacao').value='Observação do cliente: '+c.observacoes;}
   function cancelarRecibo(){document.getElementById('formRecibo').style.display='none';}
